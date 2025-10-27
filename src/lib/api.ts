@@ -1,3 +1,4 @@
+
 import type {
   HomeData,
   AnimeList,
@@ -9,11 +10,24 @@ import type {
   SearchSuggestion,
 } from './types';
 
-const API_BASE_URL = '/api/v2/hianime'; // Use the internal proxy
+const VERCEL_URL = process.env.VERCEL_URL;
+const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: use relative path
+    return '/api/v2/hianime';
+  }
+  // Server-side: use absolute path
+  if (VERCEL_URL) {
+    return `https://${VERCEL_URL}/api/v2/hianime`;
+  }
+  return NEXT_PUBLIC_APP_URL || 'http://localhost:3000/api/v2/hianime';
+};
+
 
 async function fetcher<T>(endpoint: string): Promise<T> {
-  // In a real app, you'd fetch from an absolute URL.
-  // For this example, we're using a local proxy.
+  const API_BASE_URL = getApiBaseUrl();
   const res = await fetch(`${API_BASE_URL}${endpoint}`, { cache: 'no-store' });
   if (!res.ok) {
     const errorInfo = await res.text();
