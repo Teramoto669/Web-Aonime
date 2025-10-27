@@ -10,19 +10,21 @@ import type {
   SearchSuggestion,
 } from './types';
 
-const VERCEL_URL = process.env.VERCEL_URL;
-const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     // Client-side: use relative path
     return '/api/v2/hianime';
   }
+  
   // Server-side: use absolute path
-  if (VERCEL_URL) {
-    return `https://${VERCEL_URL}/api/v2/hianime`;
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (!url) {
+    // Fallback for local development if NEXT_PUBLIC_APP_URL is not set
+    return 'http://localhost:9002/api/v2/hianime';
   }
-  return NEXT_PUBLIC_APP_URL || 'http://localhost:3000/api/v2/hianime';
+  
+  // Ensure no trailing slash and append the api path
+  return `${url.replace(/\/$/, '')}/api/v2/hianime`;
 };
 
 
@@ -31,7 +33,7 @@ async function fetcher<T>(endpoint: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, { cache: 'no-store' });
   if (!res.ok) {
     const errorInfo = await res.text();
-    console.error(errorInfo);
+    console.error(`Error fetching from ${API_BASE_URL}${endpoint}: ${res.status}`, errorInfo);
     throw new Error(`An error occurred while fetching the data from ${endpoint}. Status: ${res.status}`);
   }
   const json = await res.json();
