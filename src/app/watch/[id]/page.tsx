@@ -38,6 +38,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
             )
         }
         
+        // Use the resolved episodeId to fetch servers
         const serversData = await getEpisodeServers(episodeId);
 
         const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
