@@ -31,8 +31,8 @@ const getApiBaseUrl = () => {
 };
 
 
-async function fetcher<T>(endpoint: string): Promise<T> {
-  const API_BASE_URL = getApiBaseUrl();
+async function fetcher<T>(endpoint: string, url?: string): Promise<T> {
+  const API_BASE_URL = url || getApiBaseUrl();
   const fullUrl = `${API_BASE_URL}${endpoint}`;
   
   try {
@@ -80,7 +80,7 @@ export const getEpisodeServers = (episodeId: string) =>
   fetcher<AnimeServers>(`/episode/servers?episodeId=${episodeId}`);
 
 export const getEpisodeSources = (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') =>
-  fetcher<AnimeSources>(`/episode/sources?episodeId=${episodeId}&server=${server}&category=${category}`);
+  fetcher<AnimeSources>(`/episode/sources?animeEpisodeId=${episodeId}&server=${server}&category=${category}`);
 
 export const getCategory = (category: string, page: number = 1) =>
   fetcher<any>(`/category/${category}?page=${page}`);
