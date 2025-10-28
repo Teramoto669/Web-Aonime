@@ -8,14 +8,37 @@ import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
 
-async function WatchPageContent({ animeId, episodeId, episodeNum }: { animeId: string, episodeId: string, episodeNum: number }) {
+async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeNum: initialEpisodeNum }: { animeId: string, episodeId: string, episodeNum: number }) {
     try {
-        const [detailsData, episodesData, serversData] = await Promise.all([
+        const [detailsData, episodesData] = await Promise.all([
             getAnimeDetails(animeId),
-            getAnimeEpisodes(animeId),
-            getEpisodeServers(episodeId)
+            getAnimeEpisodes(animeId)
         ]);
 
+        let episodeId = initialEpisodeId;
+        let episodeNum = initialEpisodeNum;
+
+        if (!episodeId && episodesData.episodes.length > 0) {
+            episodeId = episodesData.episodes[0].episodeId;
+            episodeNum = episodesData.episodes[0].number;
+        }
+
+        if (!episodeId) {
+             return (
+                <div className="container mx-auto px-4 py-8">
+                    <Alert variant="destructive">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>No episodes available!</AlertTitle>
+                        <AlertDescription>
+                            This anime doesn't seem to have any episodes yet.
+                            <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            )
+        }
+
+        const serversData = await getEpisodeServers(episodeId);
         const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
 
         return (
@@ -88,15 +111,6 @@ export default function WatchPage({ params, searchParams }: {
     // The episodeId might contain extra query params, so we clean it up.
     const episodeId = rawEpisodeId.split('?')[0];
     const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 1;
-
-    if (!episodeId) {
-        return (
-            <div className="container mx-auto px-4 py-8 text-center">
-                <p>No episode selected.</p>
-                <Link href={`/anime/${animeId}`} className="text-primary underline">Go back</Link>
-            </div>
-        )
-    }
 
     return (
         <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${episodeId}`}>
