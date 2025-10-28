@@ -9,10 +9,7 @@ import { Terminal } from "lucide-react"
 
 async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeNum: initialEpisodeNum }: { animeId: string, episodeId: string, episodeNum: number }) {
     try {
-        const [detailsData, episodesData] = await Promise.all([
-            getAnimeDetails(animeId),
-            getAnimeEpisodes(animeId)
-        ]);
+        const episodesData = await getAnimeEpisodes(animeId);
         
         let episodeId = initialEpisodeId;
         let episodeNum = initialEpisodeNum;
@@ -37,13 +34,16 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
                 </div>
             )
         }
-
-        const serversData = await getEpisodeServers(episodeId);
+        
+        const [detailsData, serversData] = await Promise.all([
+            getAnimeDetails(animeId),
+            getEpisodeServers(episodeId)
+        ]);
 
         const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
 
         return (
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <div className="lg:col-span-3 space-y-6">
                         <div className="aspect-video bg-black rounded-lg overflow-hidden">
@@ -110,7 +110,7 @@ export default function WatchPage({ params, searchParams }: {
 }) {
     const animeId = params.id;
     const rawEpisodeId = typeof searchParams.ep === 'string' ? searchParams.ep : '';
-    // The episodeId might contain extra query params, so we clean it up.
+    // The episodeId might contain extra query params like `?ep=...`, so we clean it.
     const episodeId = rawEpisodeId.split('?')[0];
     const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 0;
 
