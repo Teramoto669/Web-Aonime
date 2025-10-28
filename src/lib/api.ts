@@ -1,3 +1,4 @@
+
 import type {
   HomeData,
   AnimeList,
@@ -32,7 +33,7 @@ const getApiBaseUrl = () => {
 
 
 async function fetcher<T>(endpoint: string, url?: string): Promise<T> {
-  const API_BASE_URL = url || getApiBaseUrl();
+  const API_BASE_URL = url === '' ? '' : (url || getApiBaseUrl());
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
   
   try {
