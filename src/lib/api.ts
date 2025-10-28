@@ -16,13 +16,18 @@ const getApiBaseUrl = () => {
   }
   
   // Server-side: use absolute path
-  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:9002';
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
   
-  // Ensure https protocol
-  const protocol = url.startsWith('localhost') ? 'http' : 'https';
+  // Ensure https protocol, unless it's localhost
+  const protocol = url && url.includes('localhost') ? 'http' : 'https';
 
-  // Ensure no trailing slash and append the api path
-  return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
+  if (url) {
+    // Ensure no trailing slash and append the api path
+    return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
+  }
+
+  // Fallback for local development
+  return 'http://localhost:9002/api/v2/hianime';
 };
 
 
@@ -31,7 +36,7 @@ async function fetcher<T>(endpoint: string): Promise<T> {
   const fullUrl = `${API_BASE_URL}${endpoint}`;
   
   try {
-      const res = await fetch(fullUrl, { cache: 'no-store' });
+      const res = await fetch(fullUrl, { next: { revalidate: 3600 } });
       if (!res.ok) {
         const errorInfo = await res.text();
         console.error(`Error fetching from ${fullUrl}: ${res.status}`, errorInfo);
