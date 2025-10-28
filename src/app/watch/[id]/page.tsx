@@ -1,3 +1,4 @@
+
 import { getAnimeDetails, getAnimeEpisodes, getEpisodeServers } from "@/lib/api";
 import { EpisodeList } from "@/components/anime/EpisodeList";
 import { VideoPlayer } from "./VideoPlayer";
@@ -83,7 +84,9 @@ export default function WatchPage({ params, searchParams }: {
     searchParams: { [key: string]: string | string[] | undefined } 
 }) {
     const animeId = params.id;
-    const episodeId = typeof searchParams.ep === 'string' ? searchParams.ep : '';
+    const rawEpisodeId = typeof searchParams.ep === 'string' ? searchParams.ep : '';
+    // The episodeId might contain extra query params, so we clean it up.
+    const episodeId = rawEpisodeId.split('?')[0];
     const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 1;
 
     if (!episodeId) {
