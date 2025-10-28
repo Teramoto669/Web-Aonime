@@ -36,7 +36,7 @@ async function fetcher<T>(endpoint: string): Promise<T> {
   const fullUrl = `${API_BASE_URL}${endpoint}`;
   
   try {
-      const res = await fetch(fullUrl, { next: { revalidate: 3600 } });
+      const res = await fetch(fullUrl, { next: { revalidate: 3600 } }); // Using revalidate for ISR
       if (!res.ok) {
         const errorInfo = await res.text();
         console.error(`Error fetching from ${fullUrl}: ${res.status}`, errorInfo);
