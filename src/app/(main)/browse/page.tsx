@@ -57,7 +57,7 @@ function LoadingSkeleton() {
 
 export default function BrowsePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
   const page = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
-  const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'a-z';
+  const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'latest-updated';
 
   return (
     <div className="space-y-8">

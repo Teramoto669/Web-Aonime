@@ -21,6 +21,7 @@ async function HomePageContent() {
       if (!animes) return [];
       const seen = new Set<string>();
       return animes.filter(anime => {
+        if (!anime || !anime.id) return false;
         const isDuplicate = seen.has(anime.id);
         seen.add(anime.id);
         return !isDuplicate;

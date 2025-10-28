@@ -127,14 +127,7 @@ export type MoreInfo = {
   [key: string]: any;
 };
 
-export type MostPopularAnime = {
-  episodes: Episodes;
-  id: string;
-  jname: string;
-  name: string;
-  poster: string;
-  type: string;
-};
+export type MostPopularAnime = AnimeBase;
 
 export type RelatedAnime = AnimeWithDetails;
 export type RecommendedAnime = AnimeWithDetails;
@@ -161,6 +154,7 @@ export type AnimeAboutInfo = {
 export type SearchResultAnime = AnimeBase & {
     duration: string;
     rating: string;
+    type: string;
 };
 
 export type SearchResults = {

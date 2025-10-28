@@ -16,7 +16,7 @@ export function EpisodeList({ animeId, episodes, totalEpisodes, currentEpisode }
     <div className="space-y-4">
       <h3 className="text-xl font-bold">Episodes ({totalEpisodes})</h3>
       <ScrollArea className="h-96 rounded-md border">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 p-4">
           {episodes.map((ep) => (
             <Button
               key={ep.episodeId}
@@ -29,9 +29,8 @@ export function EpisodeList({ animeId, episodes, totalEpisodes, currentEpisode }
               title={ep.isFiller ? `${ep.title} (Filler)` : ep.title}
             >
               <Link href={`/watch/${animeId}?ep=${ep.episodeId}&num=${ep.number}`}>
-                <div className="truncate">
+                <div className="flex items-center">
                     <span className="font-semibold mr-2">EP {ep.number}</span>
-                    <span className="text-muted-foreground truncate">{ep.title}</span>
                 </div>
               </Link>
             </Button>

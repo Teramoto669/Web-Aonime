@@ -1,4 +1,3 @@
-
 import { getAnimeDetails, getAnimeEpisodes, getEpisodeServers } from "@/lib/api";
 import { EpisodeList } from "@/components/anime/EpisodeList";
 import { VideoPlayer } from "./VideoPlayer";

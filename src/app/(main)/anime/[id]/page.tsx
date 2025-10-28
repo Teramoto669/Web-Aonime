@@ -1,4 +1,3 @@
-
 import { getAnimeDetails, getAnimeEpisodes } from "@/lib/api";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";

@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import Image from "next/image";
 import Link from 'next/link';
@@ -64,7 +64,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                     </div>
                     <div className="flex items-center gap-4 pt-4">
                       <Button asChild size="lg">
-                        <Link href={`/watch/${anime.id}`}>
+                        <Link href={`/anime/${anime.id}`}>
                           <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
                         </Link>
                       </Button>
