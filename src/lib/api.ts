@@ -17,6 +17,10 @@ const getApiBaseUrl = () => {
   }
   
   // Server-side: use absolute path
+  if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel') {
+    return 'https://test-123-beta.vercel.app/api/v2/hianime';
+  }
+
   const url = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
   
   // Ensure https protocol, unless it's localhost
@@ -24,6 +28,9 @@ const getApiBaseUrl = () => {
 
   if (url) {
     // Ensure no trailing slash and append the api path
+    if (url.includes('localhost')) {
+      return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
+    }
     return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
   }
 
@@ -82,7 +89,8 @@ export const getEpisodeServers = (episodeId: string) =>
 
 export const getEpisodeSources = (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') => {
     // The API expects a malformed URL with two '?', so we build it manually.
-    const endpoint = `${getApiBaseUrl()}/episode/sources?animeEpisodeId=${episodeId}&server=${server}&category=${category}`;
+    const baseUrl = getApiBaseUrl();
+    const endpoint = `${baseUrl}/episode/sources?animeEpisodeId=${episodeId}&server=${server}&category=${category}`;
     return fetcher<AnimeSources>(endpoint, '');
 }
 
