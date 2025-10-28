@@ -3,6 +3,7 @@ import { SpotlightCarousel } from '@/components/anime/SpotlightCarousel';
 import { AnimeCarousel } from '@/components/anime/AnimeCarousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
+import type { AnimeBase } from '@/lib/types';
 
 async function HomePageContent() {
   try {
@@ -14,6 +15,16 @@ async function HomePageContent() {
           <p>Failed to load data. Please try again later.</p>
         </div>
       );
+    }
+    
+    const filterUniqueAnimes = <T extends AnimeBase>(animes: T[]): T[] => {
+      if (!animes) return [];
+      const seen = new Set<string>();
+      return animes.filter(anime => {
+        const isDuplicate = seen.has(anime.id);
+        seen.add(anime.id);
+        return !isDuplicate;
+      });
     }
 
     const {
@@ -28,28 +39,28 @@ async function HomePageContent() {
     return (
       <div className="space-y-12 md:space-y-16 lg:space-y-20 pb-20">
         {spotlightAnimes && spotlightAnimes.length > 0 && (
-          <SpotlightCarousel animes={spotlightAnimes} />
+          <SpotlightCarousel animes={filterUniqueAnimes(spotlightAnimes)} />
         )}
         
         <div className="container mx-auto px-4 space-y-12 md:space-y-16">
           {trendingAnimes && trendingAnimes.length > 0 && (
-            <AnimeCarousel title="Trending Now" animes={trendingAnimes} />
+            <AnimeCarousel title="Trending Now" animes={filterUniqueAnimes(trendingAnimes)} />
           )}
           
           {latestEpisodeAnimes && latestEpisodeAnimes.length > 0 && (
-            <AnimeCarousel title="Latest Episodes" animes={latestEpisodeAnimes} />
+            <AnimeCarousel title="Latest Episodes" animes={filterUniqueAnimes(latestEpisodeAnimes)} />
           )}
 
           {topAiringAnimes && topAiringAnimes.length > 0 && (
-            <AnimeCarousel title="Top Airing" animes={topAiringAnimes} />
+            <AnimeCarousel title="Top Airing" animes={filterUniqueAnimes(topAiringAnimes)} />
           )}
           
           {topUpcomingAnimes && topUpcomingAnimes.length > 0 && (
-            <AnimeCarousel title="Top Upcoming" animes={topUpcomingAnimes} />
+            <AnimeCarousel title="Top Upcoming" animes={filterUniqueAnimes(topUpcomingAnimes)} />
           )}
 
           {mostPopularAnimes && mostPopularAnimes.length > 0 && (
-            <AnimeCarousel title="Most Popular" animes={mostPopularAnimes} />
+            <AnimeCarousel title="Most Popular" animes={filterUniqueAnimes(mostPopularAnimes)} />
           )}
         </div>
       </div>
