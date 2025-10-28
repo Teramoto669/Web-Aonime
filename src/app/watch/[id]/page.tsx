@@ -9,11 +9,8 @@ import { Terminal } from "lucide-react"
 
 async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeNum: initialEpisodeNum }: { animeId: string, episodeId: string, episodeNum: number }) {
     try {
-        const [detailsData, episodesData] = await Promise.all([
-            getAnimeDetails(animeId),
-            getAnimeEpisodes(animeId)
-        ]);
-
+        const episodesData = await getAnimeEpisodes(animeId);
+        
         let episodeId = initialEpisodeId;
         let episodeNum = initialEpisodeNum;
 
@@ -38,7 +35,11 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
             )
         }
 
-        const serversData = await getEpisodeServers(episodeId);
+        const [detailsData, serversData] = await Promise.all([
+            getAnimeDetails(animeId),
+            getEpisodeServers(episodeId)
+        ]);
+
         const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
 
         return (
@@ -67,7 +68,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
 
     } catch (error) {
         console.error(error);
-        const errorAnimeId = initialEpisodeId.split("?ep=")[0];
+        const errorAnimeId = animeId || (initialEpisodeId ? initialEpisodeId.split("?ep=")[0] : '');
         return (
             <div className="container mx-auto px-4 py-8">
                 <Alert variant="destructive">
@@ -75,7 +76,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
                     <AlertTitle>Error loading episode!</AlertTitle>
                     <AlertDescription>
                         Could not fetch episode data. The API might be down or the episode is not available. 
-                        <Link href={`/anime/${errorAnimeId}`} className="underline ml-2">Go back to details</Link>
+                        {errorAnimeId && <Link href={`/anime/${errorAnimeId}`} className="underline ml-2">Go back to details</Link>}
                     </AlertDescription>
                 </Alert>
             </div>
@@ -111,7 +112,7 @@ export default function WatchPage({ params, searchParams }: {
     const rawEpisodeId = typeof searchParams.ep === 'string' ? searchParams.ep : '';
     // The episodeId might contain extra query params, so we clean it up.
     const episodeId = rawEpisodeId.split('?')[0];
-    const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 1;
+    const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 0;
 
     return (
         <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${episodeId}`}>
