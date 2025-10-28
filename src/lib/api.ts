@@ -33,7 +33,7 @@ const getApiBaseUrl = () => {
 
 async function fetcher<T>(endpoint: string, url?: string): Promise<T> {
   const API_BASE_URL = url || getApiBaseUrl();
-  const fullUrl = `${API_BASE_URL}${endpoint}`;
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
   
   try {
       const res = await fetch(fullUrl, { next: { revalidate: 3600 } }); // Using revalidate for ISR
@@ -79,8 +79,11 @@ export const getSearchSuggestions = (query: string) =>
 export const getEpisodeServers = (episodeId: string) =>
   fetcher<AnimeServers>(`/episode/servers?episodeId=${episodeId}`);
 
-export const getEpisodeSources = (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') =>
-  fetcher<AnimeSources>(`/episode/sources?animeEpisodeId=${episodeId}&server=${server}&category=${category}`);
+export const getEpisodeSources = (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') => {
+    // The API expects a malformed URL with two '?', so we build it manually.
+    const endpoint = `${getApiBaseUrl()}/episode/sources?animeEpisodeId=${episodeId}&server=${server}&category=${category}`;
+    return fetcher<AnimeSources>(endpoint, '');
+}
 
 export const getCategory = (category: string, page: number = 1) =>
   fetcher<any>(`/category/${category}?page=${page}`);
