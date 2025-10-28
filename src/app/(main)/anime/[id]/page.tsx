@@ -1,3 +1,4 @@
+
 import { getAnimeDetails, getAnimeEpisodes } from "@/lib/api";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
         const { anime, recommendedAnimes } = detailsData;
         const { info, moreInfo } = anime;
         const { stats } = info;
+        const firstEpisode = episodesData.episodes[0];
 
         const statItems = [
             { icon: Star, label: "Rating", value: stats.rating },
@@ -62,11 +64,13 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         </div>
                         
                         <div className="pt-6">
-                            <Button asChild size="lg">
-                                <Link href={`/watch/${id}?ep=${episodesData.episodes[0]?.episodeId}&num=1`}>
-                                    <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
-                                </Link>
-                            </Button>
+                            {firstEpisode && (
+                                <Button asChild size="lg">
+                                    <Link href={`/watch/${id}?ep=${firstEpisode.episodeId}&num=${firstEpisode.number}`}>
+                                        <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
+                                    </Link>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
