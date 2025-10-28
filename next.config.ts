@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.myanimelist.net',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
