@@ -17,6 +17,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
         let episodeId = initialEpisodeId;
         let episodeNum = initialEpisodeNum;
 
+        // If no episodeId is provided in the URL, default to the first episode
         if (!episodeId && episodesData.episodes.length > 0) {
             episodeId = episodesData.episodes[0].episodeId;
             episodeNum = episodesData.episodes[0].number;
@@ -49,7 +50,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold">{detailsData.anime.info.name}</h1>
-                            <p className="text-lg text-muted-foreground">Episode {episodeNum}: {currentEpisode?.title}</p>
+                            <p className="text-lg text-muted-foreground">Episode {episodeNum}{currentEpisode?.title ? `: ${currentEpisode.title}`: ''}</p>
                         </div>
                     </div>
                     <div className="lg:col-span-1">
@@ -66,6 +67,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
 
     } catch (error) {
         console.error(error);
+        const errorAnimeId = initialEpisodeId.split("?ep=")[0];
         return (
             <div className="container mx-auto px-4 py-8">
                 <Alert variant="destructive">
@@ -73,7 +75,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
                     <AlertTitle>Error loading episode!</AlertTitle>
                     <AlertDescription>
                         Could not fetch episode data. The API might be down or the episode is not available. 
-                        <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
+                        <Link href={`/anime/${errorAnimeId}`} className="underline ml-2">Go back to details</Link>
                     </AlertDescription>
                 </Alert>
             </div>
