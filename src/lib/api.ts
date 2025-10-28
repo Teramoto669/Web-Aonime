@@ -17,30 +17,39 @@ const getApiBaseUrl = () => {
   }
   
   // Server-side: use absolute path
-  const url = process.env.NEXT_PUBLIC_APP_URL;
-  if (!url) {
-    // Fallback for local development if NEXT_PUBLIC_APP_URL is not set
-    return 'http://localhost:9002/api/v2/hianime';
-  }
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:9002';
   
+  // Ensure https protocol
+  const protocol = url.startsWith('localhost') ? 'http' : 'https';
+
   // Ensure no trailing slash and append the api path
-  return `${url.replace(/\/$/, '')}/api/v2/hianime`;
+  return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
 };
 
 
 async function fetcher<T>(endpoint: string): Promise<T> {
   const API_BASE_URL = getApiBaseUrl();
-  const res = await fetch(`${API_BASE_URL}${endpoint}`, { cache: 'no-store' });
-  if (!res.ok) {
-    const errorInfo = await res.text();
-    console.error(`Error fetching from ${API_BASE_URL}${endpoint}: ${res.status}`, errorInfo);
-    throw new Error(`An error occurred while fetching the data from ${endpoint}. Status: ${res.status}`);
+  const fullUrl = `${API_BASE_URL}${endpoint}`;
+  
+  try {
+      const res = await fetch(fullUrl, { cache: 'no-store' });
+      if (!res.ok) {
+        const errorInfo = await res.text();
+        console.error(`Error fetching from ${fullUrl}: ${res.status}`, errorInfo);
+        throw new Error(`An error occurred while fetching the data from ${endpoint}. Status: ${res.status}`);
+      }
+      const json = await res.json();
+      if (json.success === false) {
+        throw new Error(`API returned an error for endpoint ${endpoint}: ${json.message || 'Unknown error'}`);
+      }
+      return json.data;
+  } catch(e) {
+    if (e instanceof Error) {
+        console.error(`Failed to fetch ${fullUrl}: ${e.message}`);
+        throw new Error(`Failed to fetch from ${endpoint}: ${e.message}`);
+    }
+    throw new Error(`An unknown error occurred while fetching from ${endpoint}`);
   }
-  const json = await res.json();
-  if (json.success === false) {
-    throw new Error(`API returned an error for endpoint ${endpoint}: ${json.message || 'Unknown error'}`);
-  }
-  return json.data;
 }
 
 export const getHomeData = () => fetcher<HomeData>('/home');
