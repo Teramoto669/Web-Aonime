@@ -9,7 +9,10 @@ import { Terminal } from "lucide-react"
 
 async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeNum: initialEpisodeNum }: { animeId: string, episodeId: string, episodeNum: number }) {
     try {
-        const episodesData = await getAnimeEpisodes(animeId);
+        const [detailsData, episodesData] = await Promise.all([
+            getAnimeDetails(animeId),
+            getAnimeEpisodes(animeId)
+        ]);
         
         let episodeId = initialEpisodeId;
         let episodeNum = initialEpisodeNum;
@@ -35,10 +38,7 @@ async function WatchPageContent({ animeId, episodeId: initialEpisodeId, episodeN
             )
         }
         
-        const [detailsData, serversData] = await Promise.all([
-            getAnimeDetails(animeId),
-            getEpisodeServers(episodeId)
-        ]);
+        const serversData = await getEpisodeServers(episodeId);
 
         const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
 
