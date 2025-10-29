@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: 'Aonime Stream',
@@ -29,6 +30,7 @@ export default function RootLayout({
           <Footer />
         </div>
         <Toaster />
+        <SpeedInsights />
       </body>
     </html>
   );
