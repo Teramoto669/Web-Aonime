@@ -6,13 +6,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SortClient } from "@/app/(main)/browse/SortClient";
 
 const sortOptions = [
-  { value: '_relevance', label: 'Default' },
-  { value: 'recently_added', label: 'Recently Added' },
-  { value: 'recently_updated', label: 'Recently Updated' },
+  { value: '-relevance', label: 'Default' },
+  { value: 'recently-added', label: 'Recently Added' },
+  { value: 'recently-updated', label: 'Recently Updated' },
   { value: 'score', label: 'Score' },
-  { value: 'name_az', label: 'Name (A-Z)' },
-  { value: 'released_date', label: 'Released Date' },
-  { value: 'most_watched', label: 'Most Watched' },
+  { value: 'name-az', label: 'Name (A-Z)' },
+  { value: 'released-date', label: 'Released Date' },
+  { value: 'most-watched', label: 'Most Watched' },
 ];
 
 async function SearchResults({ query, page, sort }: { query: string, page: number, sort: string }) {
