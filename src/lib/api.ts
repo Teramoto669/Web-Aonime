@@ -18,10 +18,6 @@ const getApiBaseUrl = () => {
   
   // Server-side: use absolute path
   if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel') {
-    const bypassToken = process.env.VERCEL_BYPASS_TOKEN;
-    if (bypassToken) {
-      return `https://test-123-beta.vercel.app/api/v2/hianime?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${bypassToken}`;
-    }
     return 'https://test-123-beta.vercel.app/api/v2/hianime';
   }
 
@@ -45,7 +41,13 @@ const getApiBaseUrl = () => {
 
 async function fetcher<T>(endpoint: string, url?: string): Promise<T> {
   const API_BASE_URL = url === '' ? '' : (url || getApiBaseUrl());
-  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  let fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+  if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel' && process.env.VERCEL_BYPASS_TOKEN) {
+    const bypassToken = process.env.VERCEL_BYPASS_TOKEN;
+    const separator = fullUrl.includes('?') ? '&' : '?';
+    fullUrl = `${fullUrl}${separator}x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${bypassToken}`;
+  }
   
   try {
       const res = await fetch(fullUrl);
