@@ -113,7 +113,8 @@ export const getAnimeEpisodes = (id: string) =>
   fetcher<AnimeEpisodes>(`/anime/${id}/episodes`);
 
 export const searchAnime = (query: string, page: number = 1, sort: string = '_relevance') => {
-  const sortParam = sort === '_relevance' ? '' : `&sort=${sort}`;
+  const formattedSort = sort.replace(/_/g, '-');
+  const sortParam = formattedSort === '-relevance' ? '' : `&sort=${formattedSort}`;
   return fetcher<SearchResults>(`/search?q=${encodeURIComponent(query)}&page=${page}${sortParam}`);
 };
 
