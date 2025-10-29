@@ -1,9 +1,3 @@
-# Firebase Studio
-
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
-
 ## Rust M3U8 proxy configuration
 
 The video player can be configured to use an external Rust-based m3u8 proxy (recommended) which accepts `url`, `headers` and `origin` query parameters.
