@@ -207,6 +207,7 @@ export type Source = {
   url: string;
   isM3U8: boolean;
   quality?: string;
+  html?: string;  // For iframe/embed sources
 };
 
 export type Subtitle = {
@@ -224,4 +225,16 @@ export type AnimeSources = {
   subtitles: Subtitle[];
   anilistID: number | null;
   malID: number | null;
+  meta?: {
+    embed?: {
+      url: string;
+      width: string;
+      height: string;
+      attrs: {
+        frameborder: string;
+        scrolling: string;
+        allowfullscreen: boolean;
+      };
+    };
+  };
 };

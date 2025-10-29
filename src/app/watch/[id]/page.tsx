@@ -105,15 +105,23 @@ function LoadingSkeleton() {
     )
 }
 
-export default function WatchPage({ params, searchParams }: { 
-    params: { id: string },
-    searchParams: { [key: string]: string | string[] | undefined } 
+export default async function WatchPage({
+    params,
+    searchParams,
+}: {
+    params: { id: string };
+    searchParams: { [key: string]: string | string[] | undefined };
 }) {
-    const animeId = params.id;
-    const rawEpisodeId = typeof searchParams.ep === 'string' ? searchParams.ep : '';
-    // The episodeId might contain extra query params like `?ep=...`, so we clean it.
-    const episodeId = rawEpisodeId.split('?')[0];
-    const episodeNum = typeof searchParams.num === 'string' ? Number(searchParams.num) : 0;
+    // params and searchParams are proxied values in Next.js App Router
+    // awaiting them resolves the underlying plain objects and avoids the
+    // "should be awaited before using its properties" warning.
+    const resolvedParams = await params;
+    const resolvedSearchParams = await searchParams;
+
+    const animeId = resolvedParams.id;
+    // Keep the full episodeId including the ?ep= part
+    const episodeId = typeof resolvedSearchParams.ep === 'string' ? resolvedSearchParams.ep : '';
+    const episodeNum = typeof resolvedSearchParams.num === 'string' ? Number(resolvedSearchParams.num) : 0;
 
     return (
         <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${episodeId}`}>

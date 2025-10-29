@@ -8,6 +8,20 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Cache and optimization configuration
+  headers: async () => {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=3600, stale-while-revalidate=60',
+          },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

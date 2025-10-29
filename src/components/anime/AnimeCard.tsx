@@ -15,18 +15,21 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
 
   return (
     <Link href={`/anime/${anime.id}`} className={`group block h-full ${className}`}>
-      <Card className="overflow-hidden border-0 bg-transparent shadow-none rounded-lg h-full flex flex-col">
+      <Card className="overflow-visible border-0 bg-transparent shadow-sm rounded-lg h-full flex flex-col">
         <div className="relative aspect-[2/3] w-full">
-          <Image
-            src={anime.poster}
-            alt={anime.name}
-            fill
-            sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
-            className="object-cover rounded-md transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-             <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-md">
+          {/* wrapper scales and has shadow so the shadow grows with the image */}
+          <div className="relative overflow-hidden rounded-md transition-transform duration-300 group-hover:scale-105 shadow-lg w-full h-full">
+            <Image
+              src={anime.poster}
+              alt={anime.name}
+              fill
+              sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <PlayIcon className="h-12 w-12 text-white" />
+              </div>
             </div>
           </div>
            {anime.rank && (

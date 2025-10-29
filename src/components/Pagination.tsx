@@ -49,7 +49,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
     if (startPage > 1) {
       pages.push(
         <PaginationItem key="1">
-          <PaginationLink href={createPageURL(1)}>1</PaginationLink>
+          <PaginationLink onClick={() => handlePageChange(1)}>1</PaginationLink>
         </PaginationItem>
       );
       if (startPage > 2) {
@@ -60,7 +60,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
     for (let i = startPage; i <= endPage; i++) {
       pages.push(
         <PaginationItem key={i}>
-          <PaginationLink href={createPageURL(i)} isActive={i === currentPage}>
+          <PaginationLink onClick={() => handlePageChange(i)} isActive={i === currentPage}>
             {i}
           </PaginationLink>
         </PaginationItem>
@@ -73,7 +73,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
       }
       pages.push(
         <PaginationItem key={totalPages}>
-          <PaginationLink href={createPageURL(totalPages)}>{totalPages}</PaginationLink>
+          <PaginationLink onClick={() => handlePageChange(totalPages)}>{totalPages}</PaginationLink>
         </PaginationItem>
       );
     }
@@ -86,8 +86,8 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
     <ShadcnPagination>
       <PaginationContent>
         <PaginationItem>
-          <PaginationPrevious 
-            href={currentPage > 1 ? createPageURL(currentPage - 1) : '#'} 
+          <PaginationPrevious
+            onClick={() => handlePageChange(currentPage - 1)}
             aria-disabled={currentPage <= 1}
             className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
           />
@@ -96,8 +96,8 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
         {renderPageNumbers()}
         
         <PaginationItem>
-          <PaginationNext 
-            href={hasNextPage ? createPageURL(currentPage + 1) : '#'} 
+          <PaginationNext
+            onClick={() => handlePageChange(currentPage + 1)}
             aria-disabled={!hasNextPage}
             className={!hasNextPage ? "pointer-events-none opacity-50" : undefined}
           />

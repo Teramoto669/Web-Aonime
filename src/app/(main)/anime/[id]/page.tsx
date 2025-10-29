@@ -122,10 +122,15 @@ function LoadingSkeleton() {
   )
 }
 
-export default function AnimeDetailsPage({ params }: { params: { id: string } }) {
-  return (
-    <Suspense fallback={<LoadingSkeleton />}>
-        <AnimeDetailsPageContent id={params.id} />
-    </Suspense>
-  );
+export default async function AnimeDetailsPage({ params }: { params: { id: string } }) {
+    // Await the params proxy per Next.js App Router guidance to avoid the
+    // "params should be awaited before using its properties" runtime warning.
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
+
+    return (
+        <Suspense fallback={<LoadingSkeleton />}>
+                <AnimeDetailsPageContent id={id} />
+        </Suspense>
+    );
 }

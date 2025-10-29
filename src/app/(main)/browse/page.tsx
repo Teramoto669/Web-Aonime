@@ -1,4 +1,4 @@
-import { getAnimeList } from "@/lib/api";
+import { getAnimeList, getCategoryList } from "@/lib/api";
 import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { Pagination } from "@/components/Pagination";
 import {
@@ -13,17 +13,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { SortClient } from "./SortClient";
 
+// Valid category and azlist options based on API documentation
 const SORT_OPTIONS = [
-    { value: 'a-z', label: 'A-Z' },
-    { value: 'z-a', label: 'Z-A' },
-    { value: 'latest-updated', label: 'Latest Updated' },
-    { value: 'latest-added', label: 'Latest Added' },
-    { value: 'popular', label: 'Popular' },
+    // Category endpoints
+    { value: 'recently-updated', label: 'Recently Updated' },
+    { value: 'recently-added', label: 'Recently Added' },
+    { value: 'most-popular', label: 'Most Popular' },
+    { value: 'top-airing', label: 'Top Airing' },
+    { value: 'most-favorite', label: 'Most Favorite' },
+    // Special handling for A-Z list
+    { value: 'a-z', label: 'Alphabetical (A-Z)' },
 ];
 
 async function BrowsePageContent({ page, sort }: { page: number, sort: string }) {
   try {
-    const data = await getAnimeList(sort, page);
+    // Convert a-z to just 'a' for azlist endpoint
+    let data;
+    if (sort === 'a-z') {
+      data = await getAnimeList('a', page);
+    } else {
+      data = await getCategoryList(sort, page);
+    }
     return (
       <div className="space-y-8">
         <AnimeGrid animes={data.animes} />
@@ -55,9 +65,11 @@ function LoadingSkeleton() {
     );
 }
 
-export default function BrowsePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
-  const page = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
-  const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'latest-updated';
+export default async function BrowsePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+  // Await searchParams to fix Next.js warning
+  const params = await Promise.resolve(searchParams);
+  const page = typeof params.page === 'string' ? Number(params.page) : 1;
+  const sort = typeof params.sort === 'string' ? params.sort : 'recently-updated';  // Changed from latest-updated to recently-updated
 
   return (
     <div className="space-y-8">

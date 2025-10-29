@@ -79,15 +79,16 @@ export function Search() {
         shouldFilter={false}
         className="overflow-visible bg-transparent"
       >
-        <div
-          className="group flex items-center rounded-lg border px-3 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background"
-        >
-          <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+        <div className="group relative rounded-lg border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+          {/* Icon positioned absolutely to avoid duplicate icons and ensure consistent spacing */}
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            <SearchIcon className="h-4 w-4 opacity-50" />
+          </div>
           <CommandInput
             value={query}
             onValueChange={setQuery}
             placeholder="Search anime..."
-            className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onBlur={() => setTimeout(() => setIsOpen(false), 200)}
             onFocus={() => {
               if (query.length > 2) setIsOpen(true);
