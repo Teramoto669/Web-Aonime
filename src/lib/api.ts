@@ -18,6 +18,10 @@ const getApiBaseUrl = () => {
   
   // Server-side: use absolute path
   if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel') {
+    const bypassToken = process.env.VERCEL_BYPASS_TOKEN;
+    if (bypassToken) {
+      return `https://test-123-beta.vercel.app/api/v2/hianime?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${bypassToken}`;
+    }
     return 'https://test-123-beta.vercel.app/api/v2/hianime';
   }
 

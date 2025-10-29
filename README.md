@@ -20,3 +20,11 @@ $env:NEXT_PUBLIC_RUST_PROXY='http://127.0.0.1:8080'; npm run dev
 ```
 
 If `NEXT_PUBLIC_RUST_PROXY` is not set, the player falls back to `http://127.0.0.1:8080`.
+
+## Features
+
+- Uses aniwatch-api
+- Browse anime
+- Search anime
+- View anime details
+- Watch anime episodes
