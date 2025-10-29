@@ -19,6 +19,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 export function Search() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -93,6 +95,12 @@ export function Search() {
             onFocus={() => {
               if (query.length > 2) setIsOpen(true);
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && query.trim().length > 0) {
+                e.preventDefault();
+                handleSubmit(e as any); // Cast to any because React.FormEvent<HTMLFormElement> is expected
+              }
+            }}
           />
         </div>
 
@@ -126,9 +134,18 @@ export function Search() {
                           />
                         </div>
                         <div className="flex flex-col overflow-hidden">
-                          <p className="font-semibold truncate">
-                            {suggestion.name}
-                          </p>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="font-semibold truncate">
+                                  {suggestion.name}
+                                </p>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{suggestion.name}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           <p className="text-xs text-muted-foreground truncate">
                             {suggestion.jname}
                           </p>

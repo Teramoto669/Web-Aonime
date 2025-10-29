@@ -3,10 +3,21 @@ import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { Pagination } from "@/components/Pagination";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SortClient } from "@/app/(main)/browse/SortClient";
 
-async function SearchResults({ query, page }: { query: string, page: number }) {
+const sortOptions = [
+  { value: '_relevance', label: 'Default' },
+  { value: 'recently_added', label: 'Recently Added' },
+  { value: 'recently_updated', label: 'Recently Updated' },
+  { value: 'score', label: 'Score' },
+  { value: 'name_az', label: 'Name (A-Z)' },
+  { value: 'released_date', label: 'Released Date' },
+  { value: 'most_watched', label: 'Most Watched' },
+];
+
+async function SearchResults({ query, page, sort }: { query: string, page: number, sort: string }) {
   try {
-    const data = await searchAnime(query, page);
+    let data = await searchAnime(query, page, sort);
 
     if (data.animes.length === 0) {
       return <p className="text-center text-muted-foreground">No results found for "{query}".</p>;
@@ -45,9 +56,11 @@ function LoadingSkeleton() {
     );
 }
 
-export default function SearchPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
-  const query = typeof searchParams.q === 'string' ? searchParams.q : '';
-  const page = typeof searchParams.page === 'string' ? Number(searchParams.page) : 1;
+export default async function SearchPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
+  const resolvedSearchParams = await searchParams;
+  const query = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q : '';
+  const page = typeof resolvedSearchParams.page === 'string' ? Number(resolvedSearchParams.page) : 1;
+  const sort = typeof resolvedSearchParams.sort === 'string' ? resolvedSearchParams.sort : '_relevance';
 
   if (!query) {
     return (
@@ -60,11 +73,14 @@ export default function SearchPage({ searchParams }: { searchParams: { [key: str
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">
-        Search results for <span className="text-primary">"{query}"</span>
-      </h1>
-      <Suspense fallback={<LoadingSkeleton />} key={`${query}-${page}`}>
-        <SearchResults query={query} page={page} />
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">
+          Search results for <span className="text-primary">"{query}"</span>
+        </h1>
+        <SortClient sortOptions={sortOptions} currentSort={sort} />
+      </div>
+      <Suspense fallback={<LoadingSkeleton />} key={`${query}-${page}-${sort}`}>
+        <SearchResults query={query} page={page} sort={sort} />
       </Suspense>
     </div>
   );

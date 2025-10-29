@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { PlayIcon, Tv, Clapperboard } from 'lucide-react';
 import type { AnimeBase } from '@/lib/types';
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 type AnimeCardProps = {
   anime: AnimeBase & { rank?: number };
   className?: string;
@@ -48,9 +50,18 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
           )}
         </div>
         <CardContent className="p-0 pt-3 flex-grow flex flex-col">
-          <h3 className="font-semibold text-base leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors">
-            {anime.name}
-          </h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="font-semibold text-base leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors">
+                  {anime.name}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{anime.name}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {hasEpisodes && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
               {anime.episodes?.sub && <span>SUB: {anime.episodes.sub}</span>}

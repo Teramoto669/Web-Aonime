@@ -69,7 +69,7 @@ export function VideoPlayer({ episodeId, servers }: VideoPlayerProps) {
             {hasSubbed && hasDubbed && (
                 <Tabs
                     value={selectedCategory}
-                    onValueChange={(value) => setSelectedCategory(value as 'sub' | 'dub')}
+                    onValueChange={(value: string) => setSelectedCategory(value as 'sub' | 'dub')}
                     className="mt-4"
                 >
                     <TabsList className="grid grid-cols-2">

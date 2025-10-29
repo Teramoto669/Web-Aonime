@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
+  console.log(`[Proxy] Received request for target: ${target}`);
+
   try {
     // Build headers to forward upstream.
     // We accept a special header 'x-proxy-headers' containing an encoded JSON map of headers
@@ -40,11 +42,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    console.log(`[Proxy] Forwarding headers: ${JSON.stringify(forwarded)}`);
+
     const upstreamRes = await fetch(target, {
       headers: forwarded,
       // do not cache by default
       cache: 'no-store',
     });
+
+    console.log(`[Proxy] Upstream response status: ${upstreamRes.status} ${upstreamRes.statusText}`);
 
     const contentType = upstreamRes.headers.get('content-type') || '';
 

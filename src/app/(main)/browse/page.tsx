@@ -13,35 +13,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { SortClient } from "./SortClient";
 
-// Valid category and azlist options based on API documentation
 const SORT_OPTIONS = [
-    // Category endpoints
     { value: 'recently-updated', label: 'Recently Updated' },
     { value: 'recently-added', label: 'Recently Added' },
     { value: 'most-popular', label: 'Most Popular' },
     { value: 'top-airing', label: 'Top Airing' },
     { value: 'most-favorite', label: 'Most Favorite' },
-    // Special handling for A-Z list
     { value: 'a-z', label: 'Alphabetical (A-Z)' },
 ];
 
-async function BrowsePageContent({ page, sort }: { page: number, sort: string }) {
+async function BrowsePageContent({ page, sort, azlist }: { page: number, sort: string, azlist?: string }) {
   try {
-    // Convert a-z to just 'a' for azlist endpoint
     let data;
     if (sort === 'a-z') {
-      data = await getAnimeList('a', page);
+      const azParam = azlist === 'all' || !azlist ? 'a' : azlist;
+      data = await getAnimeList(azParam, page);
     } else {
       data = await getCategoryList(sort, page);
     }
     return (
       <div className="space-y-8">
         <AnimeGrid animes={data.animes} />
-        <Pagination 
-          currentPage={data.currentPage}
-          totalPages={data.totalPages}
-          hasNextPage={data.hasNextPage}
-        />
+        {data.totalPages > 1 && (
+          <Pagination
+            currentPage={data.currentPage}
+            totalPages={data.totalPages}
+            hasNextPage={data.hasNextPage}
+          />
+        )}
       </div>
     );
   } catch(error) {
@@ -66,10 +65,10 @@ function LoadingSkeleton() {
 }
 
 export default async function BrowsePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
-  // Await searchParams to fix Next.js warning
   const params = await Promise.resolve(searchParams);
   const page = typeof params.page === 'string' ? Number(params.page) : 1;
-  const sort = typeof params.sort === 'string' ? params.sort : 'recently-updated';  // Changed from latest-updated to recently-updated
+  const sort = typeof params.sort === 'string' ? params.sort : 'recently-updated';
+  const azlist = typeof params.azlist === 'string' ? params.azlist : undefined;
 
   return (
     <div className="space-y-8">
@@ -77,11 +76,11 @@ export default async function BrowsePage({ searchParams }: { searchParams: { [ke
         <h1 className="text-3xl font-bold">Browse Anime</h1>
         <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sort by:</span>
-            <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
+            <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} currentAzlist={azlist} />
         </div>
       </div>
-      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}`}>
-        <BrowsePageContent page={page} sort={sort} />
+      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${azlist}`}>
+        <BrowsePageContent page={page} sort={sort} azlist={azlist} />
       </Suspense>
     </div>
   );

@@ -106,8 +106,10 @@ export const getAnimeDetails = (id: string) =>
 export const getAnimeEpisodes = (id: string) =>
   fetcher<AnimeEpisodes>(`/anime/${id}/episodes`);
 
-export const searchAnime = (query: string, page: number = 1) =>
-  fetcher<SearchResults>(`/search?q=${encodeURIComponent(query)}&page=${page}`);
+export const searchAnime = (query: string, page: number = 1, sort: string = '_relevance') => {
+  const sortParam = sort === '_relevance' ? '' : `&sort=${sort}`;
+  return fetcher<SearchResults>(`/search?q=${encodeURIComponent(query)}&page=${page}${sortParam}`);
+};
 
 export const getSearchSuggestions = (query: string) =>
   fetcher<SearchSuggestion>(`/search/suggestion?q=${encodeURIComponent(query)}`);
@@ -192,15 +194,12 @@ export const getEpisodeServersFull = async (animeEpisodeId: string) => {
 export const getAnimeStreamingVideos = async ({
   animeEpisodeId,
   type = 'sub',
-  server,
 }: {
   animeEpisodeId: string;
   type?: string;
-  server?: string;
 }) => {
   const formattedEpisodeId = animeEpisodeId.replace('?ep=', '$episode$');
   const qs: string[] = [`episodeId=${encodeURIComponent(formattedEpisodeId)}`, `type=${encodeURIComponent(type)}`];
-  if (server) qs.push(`server=${encodeURIComponent(server)}`);
   const url = `https://yumaapi.vercel.app/watch?${qs.join('&')}`;
   const res = await fetch(url);
   if (!res.ok) {
