@@ -21,7 +21,7 @@ import {
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function Search() {
+export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpanded: boolean; setIsSearchExpanded: (expanded: boolean) => void }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -75,13 +75,13 @@ export function Search() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative w-full">
+    <form onSubmit={handleSubmit} className={cn("relative transition-all", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
       <Command
         ref={commandRef}
         shouldFilter={false}
         className="overflow-visible bg-transparent"
       >
-        <div className="group relative rounded-lg border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+        <div className={cn("group relative rounded-lg border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background transition-all", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
           {/* Icon positioned absolutely to avoid duplicate icons and ensure consistent spacing */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             <SearchIcon className="h-4 w-4 opacity-50" />
@@ -91,9 +91,13 @@ export function Search() {
             onValueChange={setQuery}
             placeholder="Search anime..."
             className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+            onBlur={() => {
+              setTimeout(() => setIsOpen(false), 200);
+              setIsSearchExpanded(false);
+            }}
             onFocus={() => {
               if (query.length > 2) setIsOpen(true);
+              setIsSearchExpanded(true);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && query.trim().length > 0) {
