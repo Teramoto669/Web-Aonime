@@ -23,7 +23,8 @@ If `NEXT_PUBLIC_RUST_PROXY` is not set, the player falls back to `http://127.0.0
 
 ## Features
 
-- Uses aniwatch-api
+- [Uses aniwatch-api](https://github.com/ghoshRitesh12/aniwatch-api)
+- [Uses megaplay.buzz/api](https://megaplay.buzz/api)
 - Browse anime
 - Search anime
 - View anime details
