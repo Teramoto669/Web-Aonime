@@ -28,6 +28,22 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const commandRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+
+    const checkDeviceType = () => {
+      const userAgent = typeof window.navigator === 'undefined' ? '' : navigator.userAgent;
+      const mobileRegex = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|rim)|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i;
+      const tabletRegex = /android|ipad|playbook|silk/i;
+
+      setIsMobileDevice(mobileRegex.test(userAgent) || tabletRegex.test(userAgent));
+    };
+
+    checkDeviceType();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -74,6 +90,18 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     }
   };
 
+  const getPlaceholder = () => {
+    if (!mounted) { // During SSR or initial client render before mounted
+      return "Search anime...";
+    }
+
+    if (isMobileDevice && !isSearchExpanded) {
+      return ""; // Hide on mobile when not expanded
+    } else {
+      return "Search anime..."; // Show in all other cases
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="relative transition-all">
       <Command
@@ -89,7 +117,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder={isSearchExpanded ? "" : "Search anime..."}
+            placeholder={getPlaceholder()}
             className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onBlur={() => {
               setTimeout(() => setIsOpen(false), 200);
