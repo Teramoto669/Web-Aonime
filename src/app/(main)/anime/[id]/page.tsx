@@ -6,6 +6,7 @@ import { PlayCircle, Star, Clapperboard, Tv, Clock, Calendar } from "lucide-reac
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
+import { Characters } from "@/components/anime/Characters";
 import { EpisodeList } from "@/components/anime/EpisodeList";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -33,13 +34,16 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
             <div className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     <div className="md:col-span-1">
-                        <Image
-                            src={info.poster}
-                            alt={info.name}
-                            width={300}
-                            height={450}
-                            className="rounded-lg w-full"
-                        />
+                        <div className="relative aspect-[2/3] w-full">
+                            <Image
+                                src={info.poster}
+                                alt={info.name}
+                                fill
+                                className="rounded-lg object-cover"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                priority
+                            />
+                        </div>
                     </div>
                     <div className="md:col-span-3 space-y-4">
                         <h1 className="text-4xl font-black">{info.name}</h1>
@@ -76,6 +80,10 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
 
                 {episodesData && episodesData.episodes.length > 0 && (
                     <EpisodeList animeId={id} episodes={episodesData.episodes} totalEpisodes={episodesData.totalEpisodes} />
+                )}
+
+                {anime.info.charactersVoiceActors && anime.info.charactersVoiceActors.length > 0 && (
+                    <Characters characters={anime.info.charactersVoiceActors} />
                 )}
 
                 {recommendedAnimes && recommendedAnimes.length > 0 && (

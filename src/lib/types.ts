@@ -115,7 +115,7 @@ export type AnimeInfo = {
     duration: string;
   };
   promotionalVideos: PromotionalVideo[];
-  characterVoiceActor: CharacterVoiceActor[];
+  charactersVoiceActors: CharacterVoiceActor[];
 };
 
 export type MoreInfo = {
