@@ -89,7 +89,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="Search anime..."
+            placeholder={isSearchExpanded ? "" : "Search anime..."}
             className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onBlur={() => {
               setTimeout(() => setIsOpen(false), 200);
