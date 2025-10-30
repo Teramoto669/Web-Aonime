@@ -24,10 +24,11 @@ function extractEpisodeId(watchUrl: string): string {
 type VideoPlayerProps = {
     episodeId: string;
     servers: AnimeServers;
+    selectedCategory: 'sub' | 'dub';
+    setSelectedCategory: (category: 'sub' | 'dub') => void;
 }
 
-export function VideoPlayer({ episodeId, servers }: VideoPlayerProps) {
-    const [selectedCategory, setSelectedCategory] = useState<'sub' | 'dub'>(servers.sub.length > 0 ? 'sub' : 'dub');
+export function VideoPlayer({ episodeId, servers, selectedCategory, setSelectedCategory }: VideoPlayerProps) {
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -65,19 +66,6 @@ export function VideoPlayer({ episodeId, servers }: VideoPlayerProps) {
                 />
             </div>
             
-            {/* Language selection UI */}
-            {hasSubbed && hasDubbed && (
-                <Tabs
-                    value={selectedCategory}
-                    onValueChange={(value: string) => setSelectedCategory(value as 'sub' | 'dub')}
-                    className="mt-4"
-                >
-                    <TabsList className="grid grid-cols-2">
-                        <TabsTrigger value="sub">Subbed</TabsTrigger>
-                        <TabsTrigger value="dub">Dubbed</TabsTrigger>
-                    </TabsList>
-                </Tabs>
-            )}
         </div>
     );
 }
