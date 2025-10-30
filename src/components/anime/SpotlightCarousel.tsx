@@ -37,7 +37,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
         <CarouselContent>
           {animes.map((anime) => (
             <CarouselItem key={anime.id}>
-              <div className="w-full h-[40vh] md:h-[60vh] lg:h-[80vh] relative">
+              <div className="w-full min-h-[40vh] md:h-[60vh] lg:h-[80vh] relative">
                 <div className="absolute inset-0">
                   <Image
                     src={anime.poster}
@@ -48,7 +48,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                 </div>
-                <div className="relative z-10 container mx-auto px-4 h-full flex flex-col justify-end pb-12 md:pb-20">
+                <div className="relative z-10 container mx-auto px-4 h-full flex flex-col pt-14 pb-12 md:pb-20 md:pt-0 lg:pt-20">
                   <div className="md:w-3/4 lg:w-1/2 space-y-4">
                     <Badge className="text-lg bg-primary/90 text-primary-foreground">Spotlight #{anime.rank}</Badge>
                     <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
