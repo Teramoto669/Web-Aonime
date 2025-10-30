@@ -69,13 +69,13 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     e.preventDefault();
     if (query.trim().length > 0) {
       setIsOpen(false);
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+      router.push(`/search?q=${encodeURIComponent(query.trim())}&sort=-relevance&page=1`);
       setQuery("");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn("relative transition-all", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
+    <form onSubmit={handleSubmit} className="relative transition-all">
       <Command
         ref={commandRef}
         shouldFilter={false}
@@ -108,9 +108,9 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
           />
         </div>
 
-        <CommandList className="absolute top-full mt-2 w-full">
+        <CommandList className="absolute top-full mt-2 w-full scrollbar-hide">
           {isOpen && (
-            <div className="animate-in fade-in-0 zoom-in-95 rounded-lg border bg-popover text-popover-foreground shadow-md outline-none">
+            <div className="animate-in fade-in-0 zoom-in-95 rounded-lg border bg-popover text-popover-foreground shadow-md outline-none overflow-hidden">
               {isLoading && (
                 <div className="p-4 flex items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin" />

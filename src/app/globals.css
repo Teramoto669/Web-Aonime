@@ -87,3 +87,13 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom CSS to hide scrollbar while keeping content scrollable */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
