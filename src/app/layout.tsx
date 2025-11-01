@@ -8,7 +8,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: 'Aonime Stream',
-  description: 'A minimal anime streaming website built with Next.js.',
+  description: 'Anime Streaming Website',
 };
 
 export default function RootLayout({
