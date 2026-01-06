@@ -34,7 +34,7 @@ const getApiBaseUrl = () => {
   }
 
   // Fallback for local development
-  return 'http://localhost:9002/api/v2/hianime';
+  return 'https://test-123-beta.vercel.app/api/v2/hianime';
 };
 
 
