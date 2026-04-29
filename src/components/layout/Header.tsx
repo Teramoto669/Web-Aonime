@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Search } from "@/components/Search";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,9 @@ export default function Header() {
         </div>
         <div className={cn("flex flex-1 items-center justify-between space-x-2 transition-all", "md:justify-end", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
           <div className={cn("w-full flex-1 transition-all", "md:w-auto md:flex-none", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
-            <Search isSearchExpanded={isSearchExpanded} setIsSearchExpanded={setIsSearchExpanded} />
+            <Suspense fallback={<div className="w-[200px] h-10 bg-muted rounded-md" />}>
+              <Search isSearchExpanded={isSearchExpanded} setIsSearchExpanded={setIsSearchExpanded} />
+            </Suspense>
           </div>
         </div>
       </div>
