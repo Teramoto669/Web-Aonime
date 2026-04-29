@@ -3,17 +3,18 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayIcon, Tv, Clapperboard } from 'lucide-react';
-import type { AnimeBase } from '@/lib/types';
-
+import type { AnimeListItem } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type AnimeCardProps = {
-  anime: AnimeBase & { rank?: number };
+  anime: AnimeListItem;
   className?: string;
 };
 
 export function AnimeCard({ anime, className }: AnimeCardProps) {
-  const hasEpisodes = anime.episodes && (anime.episodes.sub || anime.episodes.dub);
+  const subCount = Number(anime.sub_episodes) || 0;
+  const dubCount = Number(anime.dub_episodes) || 0;
+  const hasEpisodes = subCount > 0 || dubCount > 0;
 
   return (
     <Link href={`/anime/${anime.id}`} className={`group block h-full ${className}`}>
@@ -22,8 +23,8 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
           {/* wrapper scales and has shadow so the shadow grows with the image */}
           <div className="relative overflow-hidden rounded-md transition-transform duration-300 group-hover:scale-105 shadow-lg w-full h-full">
             <Image
-              src={anime.poster}
-              alt={anime.name}
+              src={anime.poster || '/placeholder.jpg'}
+              alt={anime.title}
               fill
               sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
               className="object-cover"
@@ -34,7 +35,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
               </div>
             </div>
           </div>
-           {anime.rank && (
+          {anime.rank && (
             <Badge
               variant="destructive"
               className="absolute top-2 left-2 bg-primary/90 text-primary-foreground text-lg font-bold border-0"
@@ -42,7 +43,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
               #{anime.rank}
             </Badge>
           )}
-           {anime.type && (
+          {anime.type && (
             <Badge className="absolute top-2 right-2 border-0">
               {anime.type === 'TV' ? <Tv className="w-3 h-3 mr-1"/> : <Clapperboard className="w-3 h-3 mr-1"/>}
               {anime.type}
@@ -54,19 +55,19 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <h3 className="font-semibold text-base leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors">
-                  {anime.name}
+                  {anime.title}
                 </h3>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{anime.name}</p>
+                <p>{anime.title}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
           {hasEpisodes && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-              {anime.episodes?.sub && <span>SUB: {anime.episodes.sub}</span>}
-              {anime.episodes?.dub && <span className="text-muted-foreground/50">|</span>}
-              {anime.episodes?.dub && <span>DUB: {anime.episodes.dub}</span>}
+              {subCount > 0 && <span>SUB: {subCount}</span>}
+              {subCount > 0 && dubCount > 0 && <span className="text-muted-foreground/50">|</span>}
+              {dubCount > 0 && <span>DUB: {dubCount}</span>}
             </div>
           )}
         </CardContent>

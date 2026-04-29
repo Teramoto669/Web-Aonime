@@ -6,11 +6,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { AnimeCard } from "./AnimeCard";
-import type { AnimeBase } from "@/lib/types";
+import type { AnimeListItem } from "@/lib/types";
 
 type AnimeCarouselProps = {
   title: string;
-  animes: (AnimeBase & { rank?: number })[];
+  animes: AnimeListItem[];
 };
 
 export function AnimeCarousel({ title, animes }: AnimeCarouselProps) {

@@ -1,51 +1,47 @@
-import { getAnimeList, getCategoryList } from "@/lib/api";
+import { browseAnime, getFilters } from "@/lib/api";
 import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { Pagination } from "@/components/Pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 import { SortClient } from "./SortClient";
+import { FilterMenu } from "@/components/FilterMenu";
 
 const SORT_OPTIONS = [
-    { value: 'recently-updated', label: 'Recently Updated' },
-    { value: 'recently-added', label: 'Recently Added' },
-    { value: 'most-popular', label: 'Most Popular' },
-    { value: 'top-airing', label: 'Top Airing' },
-    { value: 'most-favorite', label: 'Most Favorite' },
-    { value: 'a-z', label: 'Alphabetical (A-Z)' },
+    { value: 'updated_date',  label: 'Recently Updated' },
+    { value: 'added_date',    label: 'Recently Added' },
+    { value: 'trending',      label: 'Trending' },
+    { value: 'most_viewed',   label: 'Most Viewed' },
+    { value: 'most_followed', label: 'Most Followed' },
+    { value: 'title_az',      label: 'Alphabetical (A-Z)' },
+    { value: 'avg_score',     label: 'Average Score' },
+    { value: 'mal_score',     label: 'MAL Score' },
+    { value: 'release_date',  label: 'Release Date' },
 ];
 
-async function BrowsePageContent({ page, sort, azlist }: { page: number, sort: string, azlist?: string }) {
+async function BrowsePageContent({ page, sort, filters }: { page: number; sort: string; filters: Record<string, string[]> }) {
   try {
-    let data;
-    if (sort === 'a-z') {
-      const azParam = azlist === 'all' || !azlist ? 'a' : azlist;
-      data = await getAnimeList(azParam, page);
-    } else {
-      data = await getCategoryList(sort, page);
-    }
+    const data = await browseAnime({ page, limit: 24, sort, ...filters });
+    const animes = data.data ?? [];
     return (
       <div className="space-y-8">
-        <AnimeGrid animes={data.animes} />
-        {data.totalPages > 1 && (
+        <AnimeGrid animes={animes} />
+        {animes.length >= 24 && (
           <Pagination
-            currentPage={data.currentPage}
-            totalPages={data.totalPages}
-            hasNextPage={data.hasNextPage}
+            currentPage={page}
+            totalPages={page + 1}
+            hasNextPage={true}
           />
+        )}
+        {animes.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            No anime found matching your filters.
+          </div>
         )}
       </div>
     );
-  } catch(error) {
+  } catch (error) {
     console.error(error);
-    return <p className="text-destructive text-center">Could not fetch anime list. The API might be down.</p>
+    return <p className="text-destructive text-center">Could not fetch anime list. The API might be down.</p>;
   }
 }
 
@@ -64,23 +60,42 @@ function LoadingSkeleton() {
     );
 }
 
-export default async function BrowsePage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
-  const params = await Promise.resolve(searchParams);
+export default async function BrowsePage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const params = await props.searchParams;
   const page = typeof params.page === 'string' ? Number(params.page) : 1;
-  const sort = typeof params.sort === 'string' ? params.sort : 'recently-updated';
-  const azlist = typeof params.azlist === 'string' ? params.azlist : undefined;
+  const sort = typeof params.sort === 'string' ? params.sort : 'updated_date';
+
+  const filterKeys = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'];
+  const filters: Record<string, string[]> = {};
+  
+  for (const key of filterKeys) {
+    const val = params[key];
+    if (val) {
+      filters[key] = Array.isArray(val) ? val : [val];
+    }
+  }
+
+  // Generate a key for suspense so it reloads correctly
+  const filterKeyString = Object.entries(filters)
+    .map(([k, v]) => `${k}=${v.join(',')}`)
+    .join('&');
+
+  const filtersData = await getFilters().catch(() => null);
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold">Browse Anime</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">Browse Anime</h1>
+          {filtersData && <FilterMenu filtersData={filtersData} />}
+        </div>
         <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sort by:</span>
-            <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} currentAzlist={azlist} />
+            <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
         </div>
       </div>
-      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${azlist}`}>
-        <BrowsePageContent page={page} sort={sort} azlist={azlist} />
+      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${filterKeyString}`}>
+        <BrowsePageContent page={page} sort={sort} filters={filters} />
       </Suspense>
     </div>
   );

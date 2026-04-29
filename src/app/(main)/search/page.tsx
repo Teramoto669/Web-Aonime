@@ -1,50 +1,32 @@
-import { searchAnime } from "@/lib/api";
+import { browseAnime, getFilters } from "@/lib/api";
 import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { Pagination } from "@/components/Pagination";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SortClient } from "@/app/(main)/browse/SortClient";
+import { FilterMenu } from "@/components/FilterMenu";
 
-const sortOptions = [
-	{ value: "-relevance", label: "Default" },
-	{ value: "recently-added", label: "Recently Added" },
-	{ value: "recently-updated", label: "Recently Updated" },
-	{ value: "score", label: "Score" },
-	{ value: "name-az", label: "Name (A-Z)" },
-	{ value: "released-date", label: "Released Date" },
-	{ value: "most-watched", label: "Most Watched" },
-];
-
-async function SearchResults({
-	query,
-	page,
-	sort,
-}: {
-	query: string;
-	page: number;
-	sort: string;
-}) {
+async function SearchResults({ query, page, filters }: { query: string; page: number; filters: Record<string, string[]> }) {
 	try {
-		let data = await searchAnime(query, page, sort);
+		const data = await browseAnime({ keyword: query, page, limit: 24, sort: 'updated_date', ...filters });
 
-		if (data.animes.length === 0) {
+		if (!data.data || data.data.length === 0) {
 			return (
 				<p className="text-center text-muted-foreground">
-					No results found for "{query}".
+					No results found for &quot;{query}&quot;.
 				</p>
 			);
 		}
 
 		return (
 			<div className="space-y-8">
-				<AnimeGrid animes={data.animes} />
-				{data.totalPages > 1 && (
-					<Pagination
-						currentPage={data.currentPage}
-						totalPages={data.totalPages}
-						hasNextPage={data.hasNextPage}
-					/>
-				)}
+				<AnimeGrid animes={data.data} />
+                {data.data.length >= 24 && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={page + 1}
+                        hasNextPage={true}
+                    />
+                )}
 			</div>
 		);
 	} catch (error) {
@@ -72,24 +54,14 @@ function LoadingSkeleton() {
 	);
 }
 
-export default async function SearchPage({
-	searchParams,
-}: {
-	searchParams: { [key: string]: string | string[] | undefined };
-}) {
-	const resolvedSearchParams = await searchParams;
+export default async function SearchPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+	const resolvedSearchParams = await props.searchParams;
 	const query =
-		typeof resolvedSearchParams.q === "string"
-			? resolvedSearchParams.q
-			: "";
+		typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : "";
 	const page =
 		typeof resolvedSearchParams.page === "string"
 			? Number(resolvedSearchParams.page)
 			: 1;
-	const sort =
-		typeof resolvedSearchParams.sort === "string"
-			? resolvedSearchParams.sort
-			: "_relevance";
 
 	if (!query) {
 		return (
@@ -102,20 +74,35 @@ export default async function SearchPage({
 		);
 	}
 
+    const filterKeys = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'];
+    const filters: Record<string, string[]> = {};
+    
+    for (const key of filterKeys) {
+        const val = resolvedSearchParams[key];
+        if (val) {
+            filters[key] = Array.isArray(val) ? val : [val];
+        }
+    }
+
+    const filterKeyString = Object.entries(filters)
+        .map(([k, v]) => `${k}=${v.join(',')}`)
+        .join('&');
+
+    const filtersData = await getFilters().catch(() => null);
+
 	return (
 		<div className="space-y-6">
-			<div className="flex justify-between items-center">
-				<h1 className="text-3xl font-bold">
-					Search results for{" "}
-					<span className="text-primary">"{query}"</span>
-				</h1>
-				<SortClient sortOptions={sortOptions} currentSort={sort} />
-			</div>
-			<Suspense
-				fallback={<LoadingSkeleton />}
-				key={`${query}-${page}-${sort}`}
-			>
-				<SearchResults query={query} page={page} sort={sort} />
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <h1 className="text-3xl font-bold">
+                        Search results for{" "}
+                        <span className="text-primary">&quot;{query}&quot;</span>
+                    </h1>
+                    {filtersData && <FilterMenu filtersData={filtersData} />}
+                </div>
+            </div>
+			<Suspense fallback={<LoadingSkeleton />} key={`${query}-${page}-${filterKeyString}`}>
+				<SearchResults query={query} page={page} filters={filters} />
 			</Suspense>
 		</div>
 	);

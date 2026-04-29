@@ -1,8 +1,8 @@
 import { AnimeCard } from "./AnimeCard";
-import type { AnimeBase } from "@/lib/types";
+import type { AnimeListItem } from "@/lib/types";
 
 type AnimeGridProps = {
-  animes: (AnimeBase & { rank?: number })[];
+  animes: AnimeListItem[];
 }
 
 export function AnimeGrid({ animes }: AnimeGridProps) {

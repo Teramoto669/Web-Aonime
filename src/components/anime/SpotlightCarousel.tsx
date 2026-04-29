@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import Image from "next/image";
 import Link from 'next/link';
@@ -12,11 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlayCircle, Info } from 'lucide-react';
-import type { SpotlightAnime } from "@/lib/types";
-import Autoplay from "embla-carousel-autoplay"
+import type { AnimeListItem } from "@/lib/types";
+import Autoplay from "embla-carousel-autoplay";
 
 type SpotlightCarouselProps = {
-  animes: SpotlightAnime[];
+  animes: AnimeListItem[];
 };
 
 export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
@@ -40,8 +40,8 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
               <div className="w-full min-h-[40vh] md:h-[60vh] lg:h-[80vh] relative">
                 <div className="absolute inset-0">
                   <Image
-                    src={anime.poster}
-                    alt={anime.name}
+                    src={anime.poster || '/placeholder.jpg'}
+                    alt={anime.title}
                     fill
                     className="object-cover brightness-50"
                     priority
@@ -50,16 +50,25 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                 </div>
                 <div className="relative z-10 container mx-auto px-4 h-full flex flex-col pt-14 pb-12 md:pb-20 md:pt-0 lg:pt-20">
                   <div className="md:w-3/4 lg:w-1/2 space-y-4">
-                    <Badge className="text-lg bg-primary/90 text-primary-foreground">Spotlight #{anime.rank}</Badge>
+                    {anime.rank && (
+                      <Badge className="text-lg bg-primary/90 text-primary-foreground">
+                        Rank #{anime.rank}
+                      </Badge>
+                    )}
                     <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
-                      {anime.name}
+                      {anime.title}
                     </h1>
-                    <p className="text-sm md:text-base text-gray-300 line-clamp-3">
-                      {anime.description}
-                    </p>
+                    {anime.description && (
+                      <p className="text-sm md:text-base text-gray-300 line-clamp-3">
+                        {anime.description}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2">
-                      {anime.otherInfo.map((info, index) => (
-                         <Badge key={index} variant="secondary">{info}</Badge>
+                      {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
+                      {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
+                      {anime.release && <Badge variant="secondary">{anime.release}</Badge>}
+                      {anime.genres && anime.genres.split(',').slice(0, 3).map(g => (
+                        <Badge key={g.trim()} variant="outline">{g.trim()}</Badge>
                       ))}
                     </div>
                     <div className="flex items-center gap-4 pt-4">
@@ -69,9 +78,9 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                         </Link>
                       </Button>
                       <Button asChild variant="outline" size="lg">
-                         <Link href={`/anime/${anime.id}`}>
-                           <Info className="mr-2 h-5 w-5" /> Details
-                         </Link>
+                        <Link href={`/anime/${anime.id}`}>
+                          <Info className="mr-2 h-5 w-5" /> Details
+                        </Link>
                       </Button>
                     </div>
                   </div>
@@ -81,8 +90,8 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
           ))}
         </CarouselContent>
         <div className="absolute bottom-4 right-4 md:bottom-10 md:right-10 z-10 flex gap-2">
-            <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0"/>
-            <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0"/>
+          <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0"/>
+          <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0"/>
         </div>
       </Carousel>
     </div>

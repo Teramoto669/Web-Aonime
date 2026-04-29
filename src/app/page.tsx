@@ -3,7 +3,7 @@ import { SpotlightCarousel } from '@/components/anime/SpotlightCarousel';
 import { AnimeCarousel } from '@/components/anime/AnimeCarousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
-import type { AnimeBase } from '@/lib/types';
+import type { AnimeListItem } from '@/lib/types';
 
 async function HomePageContent() {
   try {
@@ -16,52 +16,45 @@ async function HomePageContent() {
         </div>
       );
     }
-    
-    const filterUniqueAnimes = <T extends AnimeBase>(animes: T[]): T[] => {
+
+    const deduped = <T extends AnimeListItem>(animes: T[]): T[] => {
       if (!animes) return [];
       const seen = new Set<string>();
-      return animes.filter(anime => {
-        if (!anime || !anime.id) return false;
-        const isDuplicate = seen.has(anime.id);
-        seen.add(anime.id);
-        return !isDuplicate;
+      return animes.filter(a => {
+        if (!a?.id) return false;
+        if (seen.has(a.id)) return false;
+        seen.add(a.id);
+        return true;
       });
-    }
+    };
 
-    const {
-      spotlightAnimes,
-      trendingAnimes,
-      latestEpisodeAnimes,
-      topUpcomingAnimes,
-      topAiringAnimes,
-      mostPopularAnimes,
-    } = homeData;
+    const { banner, latest_updates, top_trending } = homeData;
 
     return (
       <div className="space-y-12 md:space-y-16 lg:space-y-20 pb-20">
-        {spotlightAnimes && spotlightAnimes.length > 0 && (
-          <SpotlightCarousel animes={filterUniqueAnimes(spotlightAnimes)} />
+        {banner && banner.length > 0 && (
+          <SpotlightCarousel animes={deduped(banner)} />
         )}
-        
+
         <div className="container mx-auto px-4 space-y-12 md:space-y-16">
-          {trendingAnimes && trendingAnimes.length > 0 && (
-            <AnimeCarousel title="Trending Now" animes={filterUniqueAnimes(trendingAnimes)} />
-          )}
-          
-          {latestEpisodeAnimes && latestEpisodeAnimes.length > 0 && (
-            <AnimeCarousel title="Latest Episodes" animes={filterUniqueAnimes(latestEpisodeAnimes)} />
+          {top_trending?.NOW && top_trending.NOW.length > 0 && (
+            <AnimeCarousel title="Trending Now" animes={deduped(top_trending.NOW)} />
           )}
 
-          {topAiringAnimes && topAiringAnimes.length > 0 && (
-            <AnimeCarousel title="Top Airing" animes={filterUniqueAnimes(topAiringAnimes)} />
-          )}
-          
-          {topUpcomingAnimes && topUpcomingAnimes.length > 0 && (
-            <AnimeCarousel title="Top Upcoming" animes={filterUniqueAnimes(topUpcomingAnimes)} />
+          {latest_updates && latest_updates.length > 0 && (
+            <AnimeCarousel title="Latest Episodes" animes={deduped(latest_updates)} />
           )}
 
-          {mostPopularAnimes && mostPopularAnimes.length > 0 && (
-            <AnimeCarousel title="Most Popular" animes={filterUniqueAnimes(mostPopularAnimes)} />
+          {top_trending?.DAY && top_trending.DAY.length > 0 && (
+            <AnimeCarousel title="Top Today" animes={deduped(top_trending.DAY)} />
+          )}
+
+          {top_trending?.WEEK && top_trending.WEEK.length > 0 && (
+            <AnimeCarousel title="Top This Week" animes={deduped(top_trending.WEEK)} />
+          )}
+
+          {top_trending?.MONTH && top_trending.MONTH.length > 0 && (
+            <AnimeCarousel title="Top This Month" animes={deduped(top_trending.MONTH)} />
           )}
         </div>
       </div>
@@ -96,7 +89,7 @@ function LoadingSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 export default function Home() {

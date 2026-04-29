@@ -1,267 +1,124 @@
+// src/lib/api.ts
+// AnimeKai API client — https://anime-kai-api-main-test.vercel.app/api
+
 import type {
   HomeData,
-  AnimeList,
-  AnimeAboutInfo,
+  AnimeDetail,
   AnimeEpisodes,
-  AnimeServers,
-  AnimeSources,
-  SearchResults,
-  SearchSuggestion,
+  ServersResponse,
+  SourceResponse,
+  BrowseResponse,
+  FiltersResponse,
 } from './types';
 
-const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    // Client-side: use relative path
-    return '/api/v2/hianime';
-  }
-  
-  // Server-side: use absolute path
-  if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel') {
-    return 'https://test-123-beta.vercel.app/api/v2/hianime';
-  }
+const BASE_URL = 'https://anime-kai-api-main-test.vercel.app/api';
 
-  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-  
-  // Ensure https protocol, unless it's localhost
-  const protocol = url && url.includes('localhost') ? 'http' : 'https';
+// ─── Generic fetcher ─────────────────────────────────────────────────────────
 
-  if (url) {
-    // Ensure no trailing slash and append the api path
-    if (url.includes('localhost')) {
-      return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
-    }
-    return `${protocol}://${url.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/v2/hianime`;
-  }
-
-  // Fallback for local development
-  return 'https://test-123-beta.vercel.app/api/v2/hianime';
-};
-
-
-async function fetcher<T>(endpoint: string, url?: string): Promise<T> {
-  const API_BASE_URL = url === '' ? '' : (url || getApiBaseUrl());
-  let fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-
-  if (process.env.ANIWATCH_API_DEPLOYMENT_ENV === 'vercel' && process.env.VERCEL_BYPASS_TOKEN) {
-    const bypassToken = process.env.VERCEL_BYPASS_TOKEN;
-    const separator = fullUrl.includes('?') ? '&' : '?';
-    fullUrl = `${fullUrl}${separator}x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${bypassToken}`;
-  }
-  
+async function fetcher<T>(path: string): Promise<T> {
+  const url = `${BASE_URL}${path}`;
   try {
-      const res = await fetch(fullUrl);
-      if (!res.ok) {
-        const errorInfo = await res.text();
-        console.error(`Error fetching from ${fullUrl}: ${res.status}`, errorInfo);
-        throw new Error(`An error occurred while fetching the data from ${endpoint}. Status: ${res.status}`);
-      }
-      const json = await res.json();
-      if (json.success === false) {
-        throw new Error(`API returned an error for endpoint ${endpoint}: ${json.message || 'Unknown error'}`);
-      }
-      return json.data;
-  } catch(e) {
-    if (e instanceof Error) {
-        console.error(`Failed to fetch ${fullUrl}: ${e.message}`);
-        throw new Error(`Failed to fetch from ${endpoint}: ${e.message}`);
-    }
-    throw new Error(`An unknown error occurred while fetching from ${endpoint}`);
-  }
-}
-
-async function fetcherRaw<T>(endpoint: string, url?: string): Promise<{ success: boolean; data: T; message?: string }> {
-  const API_BASE_URL = url === '' ? '' : (url || getApiBaseUrl());
-  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  try {
-    const res = await fetch(fullUrl);
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+    });
     if (!res.ok) {
-      const errorInfo = await res.text();
-      console.error(`Error fetching from ${fullUrl}: ${res.status}`, errorInfo);
-      throw new Error(`An error occurred while fetching the data from ${endpoint}. Status: ${res.status}`);
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} from ${url}: ${text}`);
     }
     const json = await res.json();
-    return json;
+    if (json.success === false) {
+      throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
+    }
+    return json as T;
   } catch (e) {
-    if (e instanceof Error) {
-      console.error(`Failed to fetch ${fullUrl}: ${e.message}`);
-      throw new Error(`Failed to fetch from ${endpoint}: ${e.message}`);
+    if (e instanceof Error) throw e;
+    throw new Error(`Unknown error fetching ${url}`);
+  }
+}
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
+
+export const getHomeData = (): Promise<HomeData> =>
+  fetcher<HomeData>('/home');
+
+// ─── Anime Detail (includes episodes) ────────────────────────────────────────
+
+export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
+  fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}`);
+
+// ─── Episodes ─────────────────────────────────────────────────────────────────
+
+export const getAnimeEpisodes = (slug: string): Promise<AnimeEpisodes> =>
+  fetcher<AnimeEpisodes>(`/episodes/${encodeURIComponent(slug)}`);
+
+// ─── Servers (from episode token) ────────────────────────────────────────────
+
+/**
+ * Fetches available streaming servers for an episode.
+ * Pass the episode `token` returned by /api/episodes/[slug].
+ */
+export const getEpisodeServers = (token: string): Promise<ServersResponse> =>
+  fetcher<ServersResponse>(`/servers/${encodeURIComponent(token)}`);
+
+// ─── Source (from server link_id) ─────────────────────────────────────────────
+
+/**
+ * Resolves the embed URL for a specific server.
+ * Pass the `link_id` returned by /api/servers/[token].
+ */
+export const getEpisodeSource = (linkId: string): Promise<SourceResponse> =>
+  fetcher<SourceResponse>(`/source/${encodeURIComponent(linkId)}`);
+
+// ─── Browse / Search ─────────────────────────────────────────────────────────
+
+export type BrowseParams = {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  keyword?: string;
+  type?: string[];
+  genre?: string[];
+  status?: string[];
+  season?: string[];
+  year?: string[];
+  rating?: string[];
+  country?: string[];
+  language?: string[];
+};
+
+export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams();
+
+  if (params.page)    qs.set('page',    String(params.page));
+  if (params.limit)   qs.set('limit',   String(params.limit));
+  if (params.sort)    qs.set('sort',    params.sort);
+  if (params.keyword) qs.set('keyword', params.keyword);
+
+  const arrayFields = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'] as const;
+  for (const key of arrayFields) {
+    const values = params[key];
+    if (values && values.length > 0) {
+      values.forEach(v => qs.append(`${key}[]`, v));
     }
-    throw new Error(`An unknown error occurred while fetching from ${endpoint}`);
   }
-}
 
-export const getHomeData = () => fetcher<HomeData>('/home');
+  // Always exclude Boys Love (ID 184)
+  qs.append('genre[]', '-184');
 
-export const getAnimeList = (sort: string = 'a', page: number = 1) => {
-  const validSort = sort === 'a-z' ? 'a' : sort;
-  return fetcher<AnimeList>(`/azlist/${validSort}?page=${page}`);
-};
-  
-export const getGenreList = (genre: string, page: number = 1) =>
-  fetcher<AnimeList>(`/genre/${genre}?page=${page}`);
-
-export const getCategoryList = (category: string, page: number = 1) =>
-  fetcher<AnimeList>(`/category/${category}?page=${page}`);
-
-export const getAnimeDetails = (id: string) =>
-  fetcher<AnimeAboutInfo>(`/anime/${id}`);
-
-export const getAnimeEpisodes = (id: string) =>
-  fetcher<AnimeEpisodes>(`/anime/${id}/episodes`);
-
-export const searchAnime = (query: string, page: number = 1, sort: string = '_relevance') => {
-  const formattedSort = sort.replace(/_/g, '-');
-  const sortParam = formattedSort === '-relevance' ? '' : `&sort=${formattedSort}`;
-  return fetcher<SearchResults>(`/search?q=${encodeURIComponent(query)}&page=${page}${sortParam}`);
+  const path = `/browse${qs.toString() ? `?${qs.toString()}` : ''}`;
+  return fetcher<BrowseResponse>(path);
 };
 
-export const getSearchSuggestions = (query: string) =>
-  fetcher<SearchSuggestion>(`/search/suggestion?q=${encodeURIComponent(query)}`);
+export const searchAnime = (keyword: string, page = 1): Promise<BrowseResponse> =>
+  browseAnime({ keyword, page, limit: 20, sort: 'updated_date' });
 
-export interface AnimeServer {
-  serverId: number;
-  serverName: string;
-}
+// ─── Filters ─────────────────────────────────────────────────────────────────
 
-export interface AnimeServersResponse {
-  episodeId: string;
-  episodeNo: number;
-  sub: AnimeServer[];
-  dub: AnimeServer[];
-  raw: AnimeServer[];
-}
-
-const extractEpisodeId = (watchUrl: string): string => {
-  const epMatch = watchUrl.match(/[?&]ep=(\d+)/);
-  if (epMatch) return epMatch[1];
-  
-  const dashMatch = watchUrl.match(/-(\d+)$/);
-  if (dashMatch) return dashMatch[1];
-  
-  if (/^\d+$/.test(watchUrl)) return watchUrl;
-  
-  throw new Error(`Could not extract episode ID from: ${watchUrl}`);
-};
-
-export const getEpisodeServers = async (animeEpisodeId: string) => {
-  const formattedId = animeEpisodeId.includes('?ep=') ? 
-    animeEpisodeId : 
-    animeEpisodeId.replace(/[-](\d+)$/, '?ep=$1');
-  const data = await fetcher<AnimeServersResponse>(`/episode/servers?animeEpisodeId=${formattedId}`);
-
-  const priority = ['megacloud', 'mega'];
-
-  const prioritize = (list: AnimeServer[] = []) => {
-    const lowerMap = list.map(s => ({ ...s, _name: s.serverName.toLowerCase() }));
-    const prioritized: AnimeServer[] = [];
-    const rest: AnimeServer[] = [];
-
-    lowerMap.forEach(item => {
-      if (priority.includes(item._name)) {
-        prioritized.push({ serverId: item.serverId, serverName: item.serverName });
-      } else {
-        rest.push({ serverId: item.serverId, serverName: item.serverName });
-      }
-    });
-
-    prioritized.sort((a, b) => priority.indexOf(a.serverName.toLowerCase()) - priority.indexOf(b.serverName.toLowerCase()));
-
-    return [...prioritized, ...rest];
-  };
-
-  return {
-    ...data,
-    sub: prioritize(data.sub),
-    dub: prioritize(data.dub),
-    raw: prioritize(data.raw),
-  } as AnimeServersResponse;
-};
-
-export const getEpisodeServersFull = async (animeEpisodeId: string) => {
-  const formattedId = animeEpisodeId.includes('?ep=') ? animeEpisodeId : animeEpisodeId.replace(/[-](\d+)$/, '?ep=$1');
-  const endpoint = `/episode/servers?animeEpisodeId=${formattedId}`;
-  return fetcherRaw<AnimeServersResponse>(endpoint);
-};
-
-export const getAnimeStreamingVideos = async ({
-  animeEpisodeId,
-  type = 'sub',
-}: {
-  animeEpisodeId: string;
-  type?: string;
-}) => {
-  const formattedEpisodeId = animeEpisodeId.replace('?ep=', '$episode$');
-  const qs: string[] = [`episodeId=${encodeURIComponent(formattedEpisodeId)}`, `type=${encodeURIComponent(type)}`];
-  const url = `https://yumaapi.vercel.app/watch?${qs.join('&')}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Yuma API returned ${res.status}: ${text}`);
+export const getFilters = async (): Promise<FiltersResponse> => {
+  const data = await fetcher<FiltersResponse>('/filters');
+  // Hide Boys Love from filter options
+  if (data && data.genre) {
+    data.genre = data.genre.filter(g => g.value !== '184');
   }
-  const data = await res.json();
-  return data as any;
+  return data;
 };
-
-const getMegaplayEmbed = (epId: string, category: string): AnimeSources => {
-  const embedUrl = `https://megaplay.buzz/stream/s-2/${epId}/${category}`;
-  console.info(`[api] creating Megaplay embed URL: ${embedUrl}`);
-  
-  return {
-    sources: [{
-      url: embedUrl,
-      isM3U8: false,
-      quality: 'auto'
-    }],
-    headers: {
-      'Referer': 'https://megacloud.blog/',
-      'User-Agent': 'Mozilla/5.0'
-    },
-    subtitles: [],
-    anilistID: null,
-    malID: null,
-    meta: {
-      embed: {
-        url: embedUrl,
-        width: '100%',
-        height: '100%',
-        attrs: {
-          frameborder: '0',
-          scrolling: 'no',
-          allowfullscreen: true
-        }
-      }
-    }
-  };
-};
-
-export const getEpisodeSources = async (
-  episodeId: string, 
-  server: string = 'megacloud',
-  category: 'sub' | 'dub' | 'raw' = 'sub'
-) => {
-  // Force Megaplay only
-  try {
-    const epId = extractEpisodeId(episodeId);
-    const embedUrl = `https://megaplay.buzz/stream/s-2/${epId}/${category}`;
-    return {
-      sources: [{
-        url: embedUrl,
-        isM3U8: false,
-        quality: 'auto'
-      }],
-      headers: {
-        'Referer': 'https://megacloud.blog/',
-        'User-Agent': 'Mozilla/5.0'
-      },
-      subtitles: [],
-      anilistID: null,
-      malID: null
-    } as AnimeSources;
-  } catch (error) {
-    console.error('Error getting megaplay source:', error);
-    throw error;
-  }
-}
-
-export const getCategory = (category: string, page: number = 1) =>
-  fetcher<any>(`/category/${category}?page=${page}`);

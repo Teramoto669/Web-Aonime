@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'static.anikai.to',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'img.hianime.to',
         port: '',
         pathname: '/**',
