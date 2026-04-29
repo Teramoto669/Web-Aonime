@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpanded: boolean; setIsSearchExpanded: (expanded: boolean) => void }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -26,20 +25,10 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     checkDeviceType();
   }, []);
 
-  useEffect(() => {
-    const urlQuery = searchParams.get("q");
-    if (urlQuery) {
-      setQuery(urlQuery);
-    }
-  }, [searchParams]);
-
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (query.trim().length > 0) {
       router.push(`/search?q=${encodeURIComponent(query.trim())}&page=1`);
-      setIsSearchExpanded(false);
-    } else {
-      router.push(`/browse`);
       setQuery("");
       setIsSearchExpanded(false);
     }
@@ -47,9 +36,6 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
-    if (e.target.value.trim().length === 0) {
-      router.push(`/browse`);
-    }
   };
 
   const getPlaceholder = () => {
