@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpanded: boolean; setIsSearchExpanded: (expanded: boolean) => void }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -25,12 +26,29 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     checkDeviceType();
   }, []);
 
+  useEffect(() => {
+    const urlQuery = searchParams.get("q");
+    if (urlQuery) {
+      setQuery(urlQuery);
+    }
+  }, [searchParams]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (query.trim().length > 0) {
       router.push(`/search?q=${encodeURIComponent(query.trim())}&page=1`);
+      setIsSearchExpanded(false);
+    } else {
+      router.push(`/browse`);
       setQuery("");
       setIsSearchExpanded(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    if (e.target.value.trim().length === 0) {
+      router.push(`/browse`);
     }
   };
 
@@ -55,7 +73,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleInputChange}
           placeholder={getPlaceholder()}
           className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           onBlur={() => {

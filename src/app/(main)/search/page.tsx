@@ -4,10 +4,24 @@ import { Pagination } from "@/components/Pagination";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FilterMenu } from "@/components/FilterMenu";
+import { SortClient } from "./SortClient";
 
-async function SearchResults({ query, page, filters }: { query: string; page: number; filters: Record<string, string[]> }) {
+const SORT_OPTIONS = [
+	{ value: 'most_relevance', label: 'Most Relevance' },
+	{ value: 'most_viewed', label: 'Most Viewed' },
+	{ value: 'most_followed', label: 'Most Followed' },
+	{ value: 'trending', label: 'Trending' },
+	{ value: 'updated_date', label: 'Recently Updated' },
+	{ value: 'added_date', label: 'Recently Added' },
+	{ value: 'avg_score', label: 'Average Score' },
+	{ value: 'mal_score', label: 'MAL Score' },
+	{ value: 'release_date', label: 'Release Date' },
+	{ value: 'title_az', label: 'Alphabetical (A-Z)' },
+];
+
+async function SearchResults({ query, page, sort, filters }: { query: string; page: number; sort: string; filters: Record<string, string[]> }) {
 	try {
-		const data = await browseAnime({ keyword: query, page, limit: 24, sort: 'updated_date', ...filters });
+		const data = await browseAnime({ keyword: query, page, limit: 24, sort, ...filters });
 
 		if (!data.data || data.data.length === 0) {
 			return (
@@ -62,6 +76,10 @@ export default async function SearchPage(props: { searchParams: Promise<{ [key: 
 		typeof resolvedSearchParams.page === "string"
 			? Number(resolvedSearchParams.page)
 			: 1;
+	const sort =
+		typeof resolvedSearchParams.sort === "string"
+			? resolvedSearchParams.sort
+			: "most_relevance";
 
 	if (!query) {
 		return (
@@ -100,9 +118,10 @@ export default async function SearchPage(props: { searchParams: Promise<{ [key: 
                     </h1>
                     {filtersData && <FilterMenu filtersData={filtersData} />}
                 </div>
+                <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
             </div>
-			<Suspense fallback={<LoadingSkeleton />} key={`${query}-${page}-${filterKeyString}`}>
-				<SearchResults query={query} page={page} filters={filters} />
+			<Suspense fallback={<LoadingSkeleton />} key={`${query}-${page}-${sort}-${filterKeyString}`}>
+				<SearchResults query={query} page={page} sort={sort} filters={filters} />
 			</Suspense>
 		</div>
 	);
