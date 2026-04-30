@@ -39,6 +39,7 @@ export default async function WatchPage({
     const animeId = resolvedParams.id;
     let currentToken = typeof resolvedSearchParams.token === 'string' ? resolvedSearchParams.token : '';
     let currentNum = typeof resolvedSearchParams.num === 'string' ? resolvedSearchParams.num : '';
+    let currentRange = typeof resolvedSearchParams.range === 'string' ? resolvedSearchParams.range : '';
 
     try {
         const [detailsData, episodesData] = await Promise.all([
@@ -83,6 +84,7 @@ export default async function WatchPage({
                     animeId={animeId}
                     token={currentToken}
                     episodeNum={currentNum}
+                    episodeRange={currentRange}
                     detailsData={detailsData}
                     episodesData={episodesData}
                     serversData={serversData}

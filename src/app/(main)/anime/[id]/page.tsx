@@ -6,7 +6,7 @@ import { PlayCircle, Star, Tv, Calendar } from "lucide-react";
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
-import { EpisodeList } from "@/components/anime/EpisodeList";
+import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { Skeleton } from "@/components/ui/skeleton";
 
 async function AnimeDetailsPageContent({ id }: { id: string }) {
@@ -94,7 +94,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                 </div>
 
                 {episodesData.episodes.length > 0 && (
-                    <EpisodeList
+                    <EpisodeListClient
                         animeId={id}
                         episodes={episodesData.episodes}
                         totalEpisodes={episodesData.count ?? episodesData.episodes.length}

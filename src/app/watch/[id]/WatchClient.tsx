@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { EpisodeList } from "@/components/anime/EpisodeList";
+import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { VideoPlayer } from "./VideoPlayer";
 import Link from 'next/link'
 import Image from "next/image";
@@ -12,6 +12,7 @@ interface WatchClientProps {
     animeId: string;
     token: string;
     episodeNum: string;
+    episodeRange?: string;
     detailsData: AnimeDetail;
     episodesData: AnimeEpisodes;
     serversData: ServersResponse;
@@ -19,7 +20,7 @@ interface WatchClientProps {
 
 type CategoryType = 'sub' | 'softsub' | 'dub';
 
-export function WatchClient({ animeId, token, episodeNum, detailsData, episodesData, serversData }: WatchClientProps) {
+export function WatchClient({ animeId, token, episodeNum, episodeRange, detailsData, episodesData, serversData }: WatchClientProps) {
     const servers = serversData.servers || {};
     
     // Determine available categories
@@ -142,12 +143,13 @@ export function WatchClient({ animeId, token, episodeNum, detailsData, episodesD
                 </div>
                 
                 <div className="lg:col-span-1">
-                    <EpisodeList
+                    <EpisodeListClient
                         animeId={animeId}
                         episodes={episodesData.episodes}
                         totalEpisodes={episodesData.count || episodesData.episodes.length}
                         currentEpisode={episodeNum}
                         hideIcons={true}
+                        initialRange={episodeRange}
                     />
                 </div>
             </div>
