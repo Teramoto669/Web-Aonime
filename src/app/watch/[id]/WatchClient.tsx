@@ -10,6 +10,7 @@ import type { AnimeDetail, AnimeEpisodes, ServersResponse, ServerItem } from "@/
 
 interface WatchClientProps {
     animeId: string;
+    anilistId?: string;
     token: string;
     episodeNum: string;
     episodeRange?: string;
@@ -20,7 +21,7 @@ interface WatchClientProps {
 
 type CategoryType = 'sub' | 'softsub' | 'dub';
 
-export function WatchClient({ animeId, token, episodeNum, episodeRange, detailsData, episodesData, serversData }: WatchClientProps) {
+export function WatchClient({ animeId, anilistId, token, episodeNum, episodeRange, detailsData, episodesData, serversData }: WatchClientProps) {
     const servers = serversData.servers || {};
     
     // Determine available categories
@@ -56,6 +57,8 @@ export function WatchClient({ animeId, token, episodeNum, episodeRange, detailsD
 
     const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
     const title = detailsData.title || animeId;
+    const fallbackCategory = selectedCategory === 'softsub' ? 'sub' : selectedCategory;
+    const canUseFallback = Boolean(anilistId && episodeNum);
 
     const parsedGenres = (() => {
         const g = detailsData.detail?.genres;
@@ -75,8 +78,13 @@ export function WatchClient({ animeId, token, episodeNum, episodeRange, detailsD
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <div className="lg:col-span-3 space-y-6">
                     <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-lg">
-                        {selectedLinkId ? (
-                            <VideoPlayer linkId={selectedLinkId} />
+                        {selectedLinkId || canUseFallback ? (
+                            <VideoPlayer
+                                linkId={selectedLinkId}
+                                anilistId={anilistId}
+                                episodeNum={episodeNum}
+                                category={fallbackCategory}
+                            />
                         ) : (
                             <div className="flex items-center justify-center w-full h-full text-muted-foreground">
                                 No server available for this episode.

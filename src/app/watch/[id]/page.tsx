@@ -82,6 +82,7 @@ export default async function WatchPage({
             <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentToken}`}>
                 <WatchClient
                     animeId={animeId}
+                    anilistId={detailsData.al_id}
                     token={currentToken}
                     episodeNum={currentNum}
                     episodeRange={currentRange}

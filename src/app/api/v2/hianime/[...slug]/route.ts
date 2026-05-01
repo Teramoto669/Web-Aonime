@@ -78,34 +78,32 @@ export async function GET(
     });
   }
   
-  // If this is a sources request, return megaplay iframe info
+  // If this is a sources request, proxy to the upstream API (do not intercept)
   if (slug === 'episode/sources') {
-    const epId = searchParams.get('animeEpisodeId');
-    const category = searchParams.get('category') || 'sub';
-    
-    if (!epId) {
-      return new NextResponse('Missing episode ID', {status: 400});
-    }
-
-    // Extract numeric episode ID
-    const numericId = epId.match(/[?&]ep=(\d+)/)?.[1] || epId.match(/-(\d+)$/)?.[1] || epId;
-
-    // Return megaplay embed configuration
-    return NextResponse.json({
-      success: true,
-      data: {
-        sources: [{
-          url: `https://megaplay.buzz/stream/s-2/${numericId}/${category}`,
-          isM3U8: false,
-          quality: 'auto'
-        }],
+    const targetUrl = `${API_BASE_URL}/${slug}?${searchParams.toString()}`;
+    try {
+      const response = await fetch(targetUrl, {
         headers: {
-          'Referer': 'https://megacloud.blog/',
-          'User-Agent': 'Mozilla/5.0'
+          'Content-Type': 'application/json',
         },
-        subtitles: []
+        next: { revalidate: 3600 }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return new NextResponse(errorText, { status: response.status });
       }
-    });
+
+      const data = await response.json();
+      return NextResponse.json(data);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`[API PROXY] Failed to fetch ${targetUrl}: ${error.message}`);
+      } else {
+        console.error(`[API PROXY] An unknown error occurred while fetching ${targetUrl}`);
+      }
+      return new NextResponse('Internal Server Error', { status: 500 });
+    }
   }
 
   // For all other requests, proxy as normal

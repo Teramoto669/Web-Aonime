@@ -47,6 +47,7 @@ export type AnimeDetailInfo = {
 
 export type AnimeDetail = {
   success: boolean;
+  al_id?: string;
   title?: string;
   description?: string;
   poster?: string;
@@ -103,6 +104,15 @@ export type ServersResponse = {
 export type SourceResponse = {
   success: boolean;
   embed_url?: string;
+};
+
+export type FetchVideoSourceResponse = {
+  success: boolean;
+  embedUrl?: string;
+  canEmbed?: boolean;
+  animeKaiUrl?: string | null;
+  megaplayUrl?: string | null;
+  error?: string;
 };
 
 // ─── Browse ───────────────────────────────────────────────────────────────────

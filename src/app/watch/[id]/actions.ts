@@ -1,8 +1,72 @@
 "use server";
 
 import { getEpisodeSource } from "@/lib/api";
+import { buildMegaplayStreamUrl } from "@/lib/utils";
 
-export async function fetchVideoSource(linkId: string) {
+type FetchVideoSourceOptions = {
+    anilistId?: string;
+    episodeNum?: string;
+    category?: string;
+};
+
+async function probeUrl(url: string) {
+    try {
+        const res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            redirect: 'follow',
+            headers: {
+                'Referer': 'https://megacloud.blog/',
+                'Origin': 'https://megacloud.blog',
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+        });
+
+        const body = await res.text().catch(() => '');
+        const normalizedBody = body.toLowerCase();
+        const looksLikeMegaplayError =
+            res.status === 404 ||
+            res.status === 410 ||
+            normalizedBody.includes('oops! something went wrong') ||
+            normalizedBody.includes('the page you\'re looking for doesn\'t exist or has been moved') ||
+            normalizedBody.includes('error code: 404') ||
+            normalizedBody.includes('error code: 410') ||
+            normalizedBody.includes('we\'re sorry!') ||
+            normalizedBody.includes('copyright violation');
+
+        return {
+            ok: res.ok && !looksLikeMegaplayError,
+            status: res.status,
+        };
+    } catch (error) {
+        return {
+            ok: false,
+            status: 0,
+        };
+    }
+}
+
+export async function fetchVideoSource(linkId: string, options: FetchVideoSourceOptions = {}) {
+    const megaplayUrl = buildMegaplayStreamUrl(options.anilistId, options.episodeNum, options.category);
+
+    if (!linkId) {
+        if (megaplayUrl) {
+            return {
+                success: true,
+                embedUrl: megaplayUrl,
+                canEmbed: true,
+                animeKaiUrl: null,
+                megaplayUrl: null,
+            };
+        }
+
+        return {
+            success: false,
+            error: "Missing link id for video source"
+        };
+    }
+
     try {
         const response = await getEpisodeSource(linkId);
         let canEmbed = true;
@@ -24,12 +88,50 @@ export async function fetchVideoSource(linkId: string) {
             }
         }
 
+        if (response.embed_url && !canEmbed && megaplayUrl) {
+            const megaplayProbe = await probeUrl(megaplayUrl);
+
+            if (megaplayProbe.ok) {
+                return {
+                    success: true,
+                    embedUrl: megaplayUrl,
+                    canEmbed: true,
+                    animeKaiUrl: response.embed_url,
+                    megaplayUrl,
+                };
+            }
+
+            return {
+                success: true,
+                embedUrl: response.embed_url,
+                canEmbed: false,
+                animeKaiUrl: response.embed_url,
+                megaplayUrl: null,
+            };
+        }
+
         return { 
             success: true, 
             embedUrl: response.embed_url,
-            canEmbed
+            canEmbed,
+            animeKaiUrl: response.embed_url,
+            megaplayUrl,
         };
     } catch (error: any) {
+        if (megaplayUrl) {
+            const megaplayProbe = await probeUrl(megaplayUrl);
+
+            if (megaplayProbe.ok) {
+                return {
+                    success: true,
+                    embedUrl: megaplayUrl,
+                    canEmbed: true,
+                    animeKaiUrl: null,
+                    megaplayUrl,
+                };
+            }
+        }
+
         return { 
             success: false, 
             error: error.message || "Failed to fetch video source" 

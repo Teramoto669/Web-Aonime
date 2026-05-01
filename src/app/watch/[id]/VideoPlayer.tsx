@@ -6,9 +6,12 @@ import { fetchVideoSource } from "./actions";
 
 type VideoPlayerProps = {
     linkId: string;
+    anilistId?: string;
+    episodeNum?: string;
+    category?: string;
 }
 
-export function VideoPlayer({ linkId }: VideoPlayerProps) {
+export function VideoPlayer({ linkId, anilistId, episodeNum, category }: VideoPlayerProps) {
     const [embedUrl, setEmbedUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -18,13 +21,19 @@ export function VideoPlayer({ linkId }: VideoPlayerProps) {
         let mounted = true;
 
         async function fetchSource() {
-            if (!linkId) return;
+            if (!linkId && !(anilistId && episodeNum)) {
+                return;
+            }
             
             setIsLoading(true);
             setError(null);
             
             try {
-                const response = await fetchVideoSource(linkId);
+                const response = await fetchVideoSource(linkId, {
+                    anilistId,
+                    episodeNum,
+                    category,
+                });
                 if (mounted) {
                     if (response.success && response.embedUrl) {
                         setCanEmbed(response.canEmbed !== false);
@@ -58,7 +67,7 @@ export function VideoPlayer({ linkId }: VideoPlayerProps) {
         return () => {
             mounted = false;
         };
-    }, [linkId]);
+    }, [linkId, anilistId, episodeNum, category]);
 
     if (isLoading) {
         return (
@@ -79,18 +88,18 @@ export function VideoPlayer({ linkId }: VideoPlayerProps) {
         );
     }
 
-    // Use the dynamic canEmbed flag to check if the iframe is allowed
     if (!canEmbed) {
         // Remove autoplay params for the external link so the browser doesn't force-mute it
         let externalUrl = embedUrl;
+
         try {
-            const urlObj = new URL(embedUrl);
+            const urlObj = new URL(externalUrl);
             urlObj.searchParams.delete('autoPlay');
             urlObj.searchParams.delete('autostart');
             externalUrl = urlObj.toString();
         } catch (e) {
             // fallback if URL parsing fails
-            externalUrl = embedUrl.replace(/[?&]autoPlay=1/, '').replace(/[?&]autostart=true/, '');
+            externalUrl = (externalUrl || '').replace(/[?&]autoPlay=1/, '').replace(/[?&]autostart=true/, '');
         }
 
         return (
@@ -104,7 +113,7 @@ export function VideoPlayer({ linkId }: VideoPlayerProps) {
                     href={externalUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="px-6 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    className="px-6 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                 >
                     Watch in New Tab
                 </a>
