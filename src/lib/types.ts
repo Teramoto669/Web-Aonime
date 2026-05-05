@@ -101,17 +101,46 @@ export type ServersResponse = {
   servers?: ServerCategories;
 };
 
+export type VideoSource = {
+  url: string;
+  original_url?: string;
+  isM3U8: boolean;
+};
+
+export type SkipTiming = {
+  intro?: [number, number];
+  outro?: [number, number];
+};
+
+export type Track = {
+  kind?: string;
+  url?: string;
+  src?: string;
+  srclang?: string;
+  lang?: string;
+  label?: string;
+};
+
 export type SourceResponse = {
   success: boolean;
   embed_url?: string;
+  embed_origin_url?: string;
+  sources?: VideoSource[];
+  tracks?: Track[];
+  skip?: SkipTiming;
+  download?: string;
 };
 
 export type FetchVideoSourceResponse = {
   success: boolean;
   embedUrl?: string;
+  m3u8Url?: string | null;
   canEmbed?: boolean;
   animeKaiUrl?: string | null;
   megaplayUrl?: string | null;
+  sources?: VideoSource[];
+  tracks?: Track[];
+  skip?: SkipTiming;
   error?: string;
 };
 
