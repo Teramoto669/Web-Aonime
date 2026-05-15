@@ -65,21 +65,30 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Base URL of the external scraper API — proxy URLs are relative to this
-    const EXTERNAL_PROXY_BASE = 'https://anikoto-scrap.vercel.app';
+    // Priority chain for proxy base:
+    // 1. CF Worker (fastest, free unlimited bandwidth)
+    // 2. anikoto-scrap external proxy (their bandwidth)
+    // 3. Our own /api/proxy (fallback)
+    const CF_PROXY = process.env.NEXT_PUBLIC_CF_PROXY_URL; // e.g. https://xxx.workers.dev
+    const EXT_PROXY = 'https://anikoto-scrap.vercel.app';
 
     useEffect(() => {
         if (source.proxyUrl) {
-            // Convert relative "/api/proxy?url=..." to absolute external URL
-            // so ALL traffic (manifest + segments) flows through anikoto-scrap's proxy,
-            // not our Vercel — eliminates our bandwidth usage entirely
-            const absUrl = source.proxyUrl.startsWith('http')
-                ? source.proxyUrl
-                : `${EXTERNAL_PROXY_BASE}${source.proxyUrl}`;
+            let absUrl: string;
+            if (source.proxyUrl.startsWith('http')) {
+                // Already absolute
+                absUrl = CF_PROXY
+                    ? source.proxyUrl.replace('https://anikoto-scrap.vercel.app', CF_PROXY)
+                    : source.proxyUrl;
+            } else {
+                // Relative path like "/api/proxy?url=..."
+                const base = CF_PROXY || EXT_PROXY;
+                absUrl = `${base}${source.proxyUrl}`;
+            }
             setPlayerUrl({ m3u8: absUrl });
         } else if (source.m3u8) {
-            // Fallback: route through our proxy (needs Referer header)
-            const url = `/api/proxy?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
+            const base = CF_PROXY || '';
+            const url = `${base}/api/proxy?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
             setPlayerUrl({ m3u8: url });
         } else if (source.url) {
             setPlayerUrl({ embed: source.url });
