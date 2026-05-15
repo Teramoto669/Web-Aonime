@@ -326,7 +326,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         position: "absolute",
         left: 0,
         right: 0,
-        bottom: isFullscreen ? "5%" : "52px",
+        bottom: isFullscreen ? "8%" : "52px",
         display: "flex",
         justifyContent: "center",
         pointerEvents: "none",
