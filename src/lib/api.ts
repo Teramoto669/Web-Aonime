@@ -68,11 +68,13 @@ export const searchAnime = (keyword: string, refresh?: boolean): Promise<BrowseR
 
 export type FilterParams = {
   keyword?: string;
-  genre?: string[];
+  genre?: string[];      // genre[] = genre ids
+  term_type?: string[]; // term_type[] = type names (Movie, OVA, etc.)
   season?: string[];
   year?: string[];
-  type?: string[];
   status?: string[];
+  language?: string[];
+  rating?: string[];
   sort?: string;
   page?: number;
   refresh?: boolean;
@@ -81,29 +83,22 @@ export type FilterParams = {
 export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> => {
   const qs = new URLSearchParams();
 
-  if (params.keyword) qs.set('keyword', params.keyword);
-  if (params.sort) qs.set('sort', params.sort);
-  if (params.page) qs.set('page', String(params.page));
-  if (params.refresh) qs.set('refresh', '1');
+  if (params.keyword)  qs.set('keyword', params.keyword);
+  if (params.sort)     qs.set('sort', params.sort);
+  if (params.page)     qs.set('page', String(params.page));
+  if (params.refresh)  qs.set('refresh', '1');
 
-  if (params.genre?.length) {
-    params.genre.forEach(g => qs.append('genre[]', g));
-  }
-  if (params.season?.length) {
-    params.season.forEach(s => qs.append('season[]', s));
-  }
-  if (params.year?.length) {
-    params.year.forEach(y => qs.append('year[]', y));
-  }
-  if (params.type?.length) {
-    params.type.forEach(t => qs.append('type[]', t));
-  }
-  if (params.status?.length) {
-    params.status.forEach(st => qs.append('status[]', st));
-  }
+  params.genre?.forEach(g     => qs.append('genre[]', g));
+  params.term_type?.forEach(t => qs.append('term_type[]', t));
+  params.season?.forEach(s    => qs.append('season[]', s));
+  params.year?.forEach(y      => qs.append('year[]', y));
+  params.status?.forEach(st   => qs.append('status[]', st));
+  params.language?.forEach(l  => qs.append('language[]', l));
+  params.rating?.forEach(r    => qs.append('rating[]', r));
 
   return fetcher<BrowseResponse>(`/filter?${qs.toString()}`);
 };
+
 
 // ─── Latest Episodes ──────────────────────────────────────────────────────────
 
@@ -168,29 +163,30 @@ export type BrowseParams = {
   limit?: number;
   sort?: string;
   keyword?: string;
-  type?: string[];
-  genre?: string[];
+  genre?: string[];      // genre ids
+  term_type?: string[];  // type names (Movie, OVA, etc.)
   status?: string[];
   season?: string[];
   year?: string[];
   rating?: string[];
-  country?: string[];
   language?: string[];
 };
 
 export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
-  const filterParams: FilterParams = {
-    page: params.page,
-    sort: params.sort,
-    keyword: params.keyword,
-    type: params.type,
-    genre: params.genre,
-    status: params.status,
-    season: params.season,
-    year: params.year,
-  };
-  return filterAnime(filterParams);
+  return filterAnime({
+    page:      params.page,
+    sort:      params.sort,
+    keyword:   params.keyword,
+    genre:     params.genre,
+    term_type: params.term_type,
+    status:    params.status,
+    season:    params.season,
+    year:      params.year,
+    language:  params.language,
+    rating:    params.rating,
+  });
 };
+
 
 export const getFilters = async (): Promise<any> => {
   const response = await fetcher<any>('/filter');

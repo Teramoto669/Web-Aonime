@@ -142,10 +142,16 @@ export type BrowseResponse = {
 
 // ─── Filter Options ───────────────────────────────────────────────────────────
 
+export type GenreOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type FilterOptions = {
-  genres?: string[];
+  genres?: GenreOption[];  // genre[] in URL uses id, not slug
   years?: string[];
-  types?: string[];
+  types?: string[];        // term_type[] in URL
   seasons?: string[];
   statuses?: string[];
   languages?: string[];

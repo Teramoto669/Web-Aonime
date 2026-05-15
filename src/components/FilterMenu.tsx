@@ -17,13 +17,23 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { FilterOptions } from "@/lib/types";
 
 type FilterMenuProps = {
   filtersData: FilterOptions;
 };
+
+// All URL param keys used (with [] variants for clearing)
+const ALL_FILTER_KEYS = [
+  'genre', 'genre[]',
+  'term_type', 'term_type[]',
+  'status', 'status[]',
+  'season', 'season[]',
+  'year', 'year[]',
+  'language', 'language[]',
+  'rating', 'rating[]',
+];
 
 export function FilterMenu({ filtersData }: FilterMenuProps) {
   const router = useRouter();
@@ -33,158 +43,93 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
 
-  // Initialize selected filters from URL
+  // Sync from URL on open
   useEffect(() => {
-    const currentFilters: Record<string, string[]> = {};
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'language', 'rating'];
-    
-    arrayKeys.forEach(key => {
-      const values = searchParams.getAll(`${key}[]`); // The new API expects genre[], year[], etc. Wait, no, searchParams in Next.js might be genre or genre[].
-      const valuesNoBrackets = searchParams.getAll(key);
-      const allValues = [...values, ...valuesNoBrackets];
-      if (allValues.length > 0) {
-        currentFilters[key] = Array.from(new Set(allValues));
-      }
+    const current: Record<string, string[]> = {};
+    ['genre', 'term_type', 'status', 'season', 'year', 'language', 'rating'].forEach(key => {
+      const vals = [...searchParams.getAll(`${key}[]`), ...searchParams.getAll(key)];
+      if (vals.length > 0) current[key] = Array.from(new Set(vals));
     });
-    
-    setSelectedFilters(currentFilters);
-  }, [searchParams, isOpen]); // re-sync when opening sheet
+    setSelectedFilters(current);
+  }, [searchParams, isOpen]);
 
   const handleToggle = (category: string, value: string) => {
     setSelectedFilters(prev => {
-      const categoryValues = prev[category] || [];
-      if (categoryValues.includes(value)) {
-        return {
-          ...prev,
-          [category]: categoryValues.filter(v => v !== value)
-        };
-      } else {
-        return {
-          ...prev,
-          [category]: [...categoryValues, value]
-        };
-      }
+      const list = prev[category] || [];
+      return {
+        ...prev,
+        [category]: list.includes(value) ? list.filter(v => v !== value) : [...list, value],
+      };
     });
   };
 
   const handleApply = () => {
     const params = new URLSearchParams(searchParams.toString());
-    
-    // Clear old filter array params
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'language', 'rating',
-                        'type[]', 'genre[]', 'status[]', 'season[]', 'year[]', 'language[]', 'rating[]'];
-    arrayKeys.forEach(key => params.delete(key));
-
-    // Apply new filters
+    ALL_FILTER_KEYS.forEach(k => params.delete(k));
     Object.entries(selectedFilters).forEach(([key, values]) => {
-      values.forEach(value => {
-        params.append(`${key}[]`, value);
-      });
+      values.forEach(v => params.append(`${key}[]`, v));
     });
-
-    // Reset page to 1 when applying new filters
     params.set('page', '1');
-
     router.push(`${pathname}?${params.toString()}`);
     setIsOpen(false);
   };
 
-  const handleClear = () => {
-    setSelectedFilters({});
-  };
+  const handleClear = () => setSelectedFilters({});
 
-  const handleGenreToggle = (value: string) => {
-    setSelectedFilters(prev => {
-      const genres = prev['genre'] || [];
-      const includeVal = value;
-      const excludeVal = `-${value}`;
-      
-      let newGenres = [...genres];
-      
-      if (genres.includes(includeVal)) {
-        // Switch from Include to Exclude
-        newGenres = newGenres.filter(v => v !== includeVal);
-        newGenres.push(excludeVal);
-      } else if (genres.includes(excludeVal)) {
-        // Switch from Exclude to Neutral
-        newGenres = newGenres.filter(v => v !== excludeVal);
-      } else {
-        // Switch from Neutral to Include
-        newGenres.push(includeVal);
-      }
-      
-      return { ...prev, genre: newGenres };
-    });
-  };
-
-  const renderFilterCategory = (title: string, categoryKey: string, optionsKey: keyof FilterOptions) => {
-    const options = filtersData[optionsKey] as string[] | undefined;
+  // Render simple string[] category (types, statuses, seasons, years, languages, ratings)
+  const renderCategory = (title: string, categoryKey: string, options?: string[]) => {
     if (!options || options.length === 0) return null;
-
-    const selectedList = selectedFilters[categoryKey] || [];
-
+    const selected = selectedFilters[categoryKey] || [];
     return (
       <AccordionItem value={categoryKey} key={categoryKey}>
-        <AccordionTrigger className="text-sm font-medium capitalize">{title}</AccordionTrigger>
+        <AccordionTrigger className="text-sm font-medium">{title}</AccordionTrigger>
         <AccordionContent>
           <div className="flex flex-wrap gap-2 pt-2 pb-1">
-            {options.map((option) => {
-              const isIncluded = selectedList.includes(option);
-              
-              return (
-                <Button
-                  key={option}
-                  variant={isIncluded ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleToggle(categoryKey, option)}
-                  className="h-8 rounded-full px-3 text-xs capitalize"
-                >
-                  {option.replace(/-/g, ' ')}
-                </Button>
-              );
-            })}
+            {options.map(opt => (
+              <Button
+                key={opt}
+                variant={selected.includes(opt) ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleToggle(categoryKey, opt)}
+                className="h-8 rounded-full px-3 text-xs"
+              >
+                {opt}
+              </Button>
+            ))}
           </div>
         </AccordionContent>
       </AccordionItem>
     );
   };
 
-  const renderGenreCategory = () => {
-    const options = filtersData.genres as string[] | undefined;
+  // Genre uses id as value, name as label
+  const renderGenres = () => {
+    const options = filtersData.genres;
     if (!options || options.length === 0) return null;
-
-    const genres = selectedFilters['genre'] || [];
-
+    const selected = selectedFilters['genre'] || [];
     return (
-      <AccordionItem value="genre" key="genre">
-        <AccordionTrigger className="text-sm font-medium capitalize">Genre</AccordionTrigger>
+      <AccordionItem value="genre">
+        <AccordionTrigger className="text-sm font-medium">Genre</AccordionTrigger>
         <AccordionContent>
           <div className="flex flex-wrap gap-2 pt-2 pb-1">
-            {options.map((option) => {
-              const isIncluded = genres.includes(option);
-              const isExcluded = genres.includes(`-${option}`);
-              
-              let variant: "default" | "outline" | "destructive" = "outline";
-              if (isIncluded) variant = "default";
-              else if (isExcluded) variant = "destructive";
-
-              return (
-                <Button
-                  key={option}
-                  variant={variant}
-                  size="sm"
-                  onClick={() => handleGenreToggle(option)}
-                  className="h-8 rounded-full px-3 text-xs capitalize"
-                >
-                  {isExcluded ? '− ' : (isIncluded ? '+ ' : '')}{option.replace(/-/g, ' ')}
-                </Button>
-              );
-            })}
+            {options.map(g => (
+              <Button
+                key={g.id}
+                variant={selected.includes(g.id) ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleToggle('genre', g.id)}
+                className="h-8 rounded-full px-3 text-xs"
+              >
+                {g.name}
+              </Button>
+            ))}
           </div>
         </AccordionContent>
       </AccordionItem>
     );
   };
+
+  const activeCount = Object.values(selectedFilters).reduce((acc, v) => acc + v.length, 0);
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -192,22 +137,27 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
         <Button variant="outline" className="flex items-center gap-2">
           <FilterIcon className="w-4 h-4" />
           Filter
+          {activeCount > 0 && (
+            <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col h-full p-0">
         <SheetHeader className="p-6 pb-2 border-b">
           <SheetTitle>Filter Anime</SheetTitle>
         </SheetHeader>
-        
+
         <ScrollArea className="flex-grow p-6 pt-0">
           <Accordion type="multiple" className="w-full">
-            {renderFilterCategory("Type", "type", "types")}
-            {renderGenreCategory()}
-            {renderFilterCategory("Status", "status", "statuses")}
-            {renderFilterCategory("Season", "season", "seasons")}
-            {renderFilterCategory("Year", "year", "years")}
-            {renderFilterCategory("Language", "language", "languages")}
-            {renderFilterCategory("Rating", "rating", "ratings")}
+            {renderCategory("Type", "term_type", filtersData.types)}
+            {renderGenres()}
+            {renderCategory("Status", "status", filtersData.statuses)}
+            {renderCategory("Season", "season", filtersData.seasons)}
+            {renderCategory("Year", "year", filtersData.years)}
+            {renderCategory("Language", "language", filtersData.languages)}
+            {renderCategory("Rating", "rating", filtersData.ratings)}
           </Accordion>
         </ScrollArea>
 
