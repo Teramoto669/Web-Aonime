@@ -19,17 +19,23 @@ export async function GET(req: NextRequest) {
 
   const refererParam = searchParams.get('referer');
 
-  // ── Only handle manifest (.m3u8) requests ────────────────────────────────
-  // Segments are served DIRECTLY from CDN by the browser — we only proxy manifests
-  // to inject the Referer header, which the browser cannot set itself.
-  const isManifest = target.includes('.m3u8') || target.includes('master') || target.includes('playlist');
+  // Determine what this URL is
+  const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
+  const isSubtitle  = /\.vtt/i.test(target) || /subtitles\//i.test(target);
 
-  if (!isManifest) {
-    // For non-manifest URLs, redirect browser directly to CDN — no Vercel bandwidth used.
-    // The browser will fetch the segment directly. CDN may or may not enforce Referer.
-    return Response.redirect(target, 302);
+  // Video segments: redirect directly to CDN — zero Vercel bandwidth
+  // (anything that isn't a manifest or subtitle)
+  if (!isManifest && !isSubtitle) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': target,
+        ...corsHeaders,
+      },
+    });
   }
 
+  // Manifests and subtitles: proxy through Vercel (tiny files, need Referer/CORS)
   try {
     const forwarded: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -47,27 +53,35 @@ export async function GET(req: NextRequest) {
     });
 
     if (!upstreamRes.ok) {
-      return NextResponse.json({ error: `Upstream error: ${upstreamRes.status}` }, { status: upstreamRes.status });
+      return NextResponse.json({ error: `Upstream ${upstreamRes.status}` }, { status: upstreamRes.status });
     }
 
-    const contentType = upstreamRes.headers.get('content-type') || '';
-    const text = await upstreamRes.text();
+    // ── Subtitle (VTT) — proxy as-is ──────────────────────────────────────
+    if (isSubtitle) {
+      return new Response(upstreamRes.body, {
+        status: upstreamRes.status,
+        headers: {
+          'content-type': 'text/vtt; charset=utf-8',
+          ...corsHeaders,
+        },
+      });
+    }
 
-    // Rewrite manifest: point segments to DIRECT CDN URLs (not proxied)
-    // Only proxy sub-manifests (variant playlists) since they also need Referer
+    // ── Manifest (m3u8) — rewrite URLs ────────────────────────────────────
+    const text = await upstreamRes.text();
     const lines = text.split('\n');
     const rewritten = lines.map((line) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return line;
       try {
         const resolved = new URL(trimmed, target).toString();
-        // If it's another manifest (.m3u8), keep proxying it (tiny text file)
-        if (resolved.includes('.m3u8') || /\/playlist|\/master/i.test(resolved)) {
+        // Sub-manifests (variant playlists) still need proxy
+        if (/\.m3u8/i.test(resolved) || /\/(master|playlist|index)/i.test(resolved)) {
           let proxied = `/api/proxy?url=${encodeURIComponent(resolved)}`;
           if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;
           return proxied;
         }
-        // Segments go DIRECT to CDN — no Vercel bandwidth used
+        // Segments → direct CDN URL (no proxy, no Vercel bandwidth)
         return resolved;
       } catch {
         return line;

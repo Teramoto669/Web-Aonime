@@ -65,18 +65,29 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Base URL of the external scraper API — proxy URLs are relative to this
+    const EXTERNAL_PROXY_BASE = 'https://anikoto-scrap.vercel.app';
+
     useEffect(() => {
-        console.log("[VideoPlayer] source:", source);
-        console.log("[VideoPlayer] tracks:", tracks);
-        if (source.proxyUrl || source.m3u8) {
-            setPlayerUrl({ m3u8: source.proxyUrl || source.m3u8 });
+        if (source.proxyUrl) {
+            // Convert relative "/api/proxy?url=..." to absolute external URL
+            // so ALL traffic (manifest + segments) flows through anikoto-scrap's proxy,
+            // not our Vercel — eliminates our bandwidth usage entirely
+            const absUrl = source.proxyUrl.startsWith('http')
+                ? source.proxyUrl
+                : `${EXTERNAL_PROXY_BASE}${source.proxyUrl}`;
+            setPlayerUrl({ m3u8: absUrl });
+        } else if (source.m3u8) {
+            // Fallback: route through our proxy (needs Referer header)
+            const url = `/api/proxy?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
+            setPlayerUrl({ m3u8: url });
         } else if (source.url) {
             setPlayerUrl({ embed: source.url });
         } else {
             setError("No streaming source available");
         }
         setIsLoading(false);
-    }, [source, tracks]);
+    }, [source]);
 
     if (isLoading) {
         return (
