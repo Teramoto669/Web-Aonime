@@ -166,6 +166,17 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     .map((l, i) => ({ height: l.height || 0, bitrate: l.bitrate || 0, index: i }))
                     .sort((a, b) => b.height - a.height);
                 setQualityLevels(levels);
+
+                // Restore saved quality preference
+                const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
+                if (savedHeight > 0) {
+                    const matched = data.levels.findIndex(l => l.height === savedHeight);
+                    if (matched !== -1) {
+                        hls.currentLevel = matched;
+                        setCurrentLevel(matched);
+                    }
+                }
+
                 video.play().catch(() => {});
             });
 
@@ -226,6 +237,15 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         if (hlsRef.current) hlsRef.current.currentLevel = idx;
         setCurrentLevel(idx);
         setShowQualityMenu(false);
+        // Persist preference by height (-1 = Auto)
+        if (idx === -1) {
+            localStorage.removeItem("preferred-quality-height");
+        } else {
+            const q = qualityLevels.find(l => l.index === idx);
+            if (q && q.height > 0) {
+                localStorage.setItem("preferred-quality-height", String(q.height));
+            }
+        }
     };
 
     const currentQualityLabel = (): string => {
