@@ -158,18 +158,17 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         if (HLS.isSupported()) {
             const hls = new HLS({
                 debug: false,
-                startLevel: -1,           // Auto quality on start
-                // Buffer tuning — pre-fetch more to reduce stalls
-                maxBufferLength: 60,      // Keep 60s in buffer (default 30)
-                maxMaxBufferLength: 120,  // Allow up to 120s buffer
-                maxBufferSize: 80 * 1000 * 1000,  // 80MB buffer
-                // Prefetch next segment in advance
-                startFragPrefetch: true,
-                // ABR — be conservative when switching up to avoid stalling
-                abrEwmaFastLive: 3,
-                abrEwmaSlowLive: 9,
-                abrBandWidthFactor: 0.8,       // Use 80% of estimated bandwidth
-                abrBandWidthUpFactor: 0.6,     // Even more conservative on up-switch
+                startLevel: -1,
+                maxBufferLength: 20,
+                maxMaxBufferLength: 40,
+                maxBufferSize: 30 * 1000 * 1000,
+                startFragPrefetch: false,
+                abrBandWidthFactor: 0.8,
+                abrBandWidthUpFactor: 0.6,
+                // Allow cross-origin segment fetches (direct CDN)
+                xhrSetup: (xhr, url) => {
+                    xhr.withCredentials = false;
+                },
             });
             hlsRef.current = hls;
             hls.loadSource(m3u8Url);
