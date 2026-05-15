@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Lightweight proxy for m3u8 and segment requests.
-// Usage: /api/proxy?url=<encoded upstream url>&referer=<encoded referer>
-// The proxy forwards the referer query param as Referer/Origin headers upstream,
-// and rewrites m3u8 manifests so that segment URLs are proxied as well.
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const target = searchParams.get('url');
@@ -87,13 +86,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // For binary responses (segments, etc.) pipe through.
-    // IMPORTANT: CDNs often disguise .ts video segments with fake extensions (image/png, image/jpeg, etc.)
-    // to bypass hotlink protection. Force correct type so HLS.js can decode them.
-    const buffer = await upstreamRes.arrayBuffer();
-    const headers: Record<string, string> = { ...corsHeaders };
-
-    // If content-type is not a real media/subtitle type, it's a disguised TS segment
+    // For binary responses (segments, etc.) stream directly — do NOT buffer.
+    // CDNs disguise .ts segments as image/png, image/jpeg, etc.
+    // Force application/octet-stream so HLS.js decodes them correctly.
     const isRealMediaType =
       contentType.includes('mpegurl') ||
       contentType.includes('mp4') ||
@@ -101,9 +96,13 @@ export async function GET(req: NextRequest) {
       contentType.includes('vtt') ||
       contentType === 'application/octet-stream';
 
-    headers['content-type'] = isRealMediaType ? contentType : 'application/octet-stream';
-
-    return new Response(buffer, { status: upstreamRes.status, headers });
+    return new Response(upstreamRes.body, {
+      status: upstreamRes.status,
+      headers: {
+        ...corsHeaders,
+        'content-type': isRealMediaType ? contentType : 'application/octet-stream',
+      },
+    });
 
   } catch (err: any) {
     console.error('[Proxy] Error:', err);
