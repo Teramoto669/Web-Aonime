@@ -65,31 +65,28 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Priority chain for proxy base:
-    // 1. CF Worker (fastest, free unlimited bandwidth)
-    // 2. anikoto-scrap external proxy (their bandwidth)
-    // 3. Our own /api/proxy (fallback)
-    const CF_PROXY = process.env.NEXT_PUBLIC_CF_PROXY_URL; // e.g. https://xxx.workers.dev
+    // CF Worker base URL (no trailing slash, always https://)
+    const rawCfProxy = process.env.NEXT_PUBLIC_CF_PROXY_URL ?? '';
+    const CF_PROXY = rawCfProxy
+        ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
+        : '';
     const EXT_PROXY = 'https://anikoto-scrap.vercel.app';
 
     useEffect(() => {
         if (source.proxyUrl) {
-            let absUrl: string;
-            if (source.proxyUrl.startsWith('http')) {
-                // Already absolute
-                absUrl = CF_PROXY
-                    ? source.proxyUrl.replace('https://anikoto-scrap.vercel.app', CF_PROXY)
-                    : source.proxyUrl;
-            } else {
-                // Relative path like "/api/proxy?url=..."
-                const base = CF_PROXY || EXT_PROXY;
-                absUrl = `${base}${source.proxyUrl}`;
-            }
-            setPlayerUrl({ m3u8: absUrl });
+            // source.proxyUrl is like "/api/proxy?url=...&referer=..."
+            // CF Worker reads ?url= and ?referer= at any path, so we just
+            // extract the query string and append to worker base URL
+            const queryString = source.proxyUrl.includes('?')
+                ? source.proxyUrl.slice(source.proxyUrl.indexOf('?'))   // "?url=...&referer=..."
+                : `?url=${encodeURIComponent(source.proxyUrl)}`;
+
+            const base = CF_PROXY || EXT_PROXY;
+            setPlayerUrl({ m3u8: `${base}/${queryString}` });
         } else if (source.m3u8) {
             const base = CF_PROXY || '';
-            const url = `${base}/api/proxy?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            setPlayerUrl({ m3u8: url });
+            const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
+            setPlayerUrl({ m3u8: base ? `${base}/${qs}` : `/api/proxy${qs}` });
         } else if (source.url) {
             setPlayerUrl({ embed: source.url });
         } else {

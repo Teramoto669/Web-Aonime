@@ -1,10 +1,8 @@
 /**
  * Aonime Proxy — Cloudflare Worker
  *
- * Proxies HLS manifests and subtitle VTT files with Referer spoofing.
- * Video segments are returned directly from CDN (redirect) to save bandwidth.
- *
- * Free limits: 100K requests/day, unlimited bandwidth on Cloudflare Workers free tier.
+ * Proxies ALL HLS requests (manifests, segments, subtitles) with Referer spoofing.
+ * CF Workers free tier: 100K req/day, UNLIMITED bandwidth — safe for video proxying.
  */
 
 const CORS_HEADERS = {
@@ -27,18 +25,7 @@ export default {
       return Response.json({ error: 'Missing url parameter' }, { status: 400 });
     }
 
-    const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
-    const isSubtitle  = /\.vtt/i.test(target) || /subtitles\//i.test(target);
-
-    // ── Video segments → redirect to CDN directly (no bandwidth used here) ──
-    if (!isManifest && !isSubtitle) {
-      return new Response(null, {
-        status: 302,
-        headers: { Location: target, ...CORS_HEADERS },
-      });
-    }
-
-    // ── Fetch manifests / subtitles with spoofed headers ────────────────────
+    // Build upstream headers with spoofed Referer
     const upstreamHeaders = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Accept': '*/*',
@@ -59,6 +46,10 @@ export default {
       return Response.json({ error: `Upstream ${upstreamRes.status}` }, { status: upstreamRes.status });
     }
 
+    const contentType = upstreamRes.headers.get('content-type') || '';
+    const isManifest  = /\.m3u8/i.test(target) || contentType.includes('mpegurl');
+    const isSubtitle  = /\.vtt/i.test(target) || contentType.includes('vtt');
+
     // ── Subtitle → proxy as-is ───────────────────────────────────────────────
     if (isSubtitle) {
       return new Response(upstreamRes.body, {
@@ -67,32 +58,48 @@ export default {
       });
     }
 
-    // ── Manifest → rewrite segment/sub-manifest URLs ─────────────────────────
-    const workerBase = new URL(request.url).origin; // e.g. https://proxy.yourname.workers.dev
-    const text = await upstreamRes.text();
-    const rewritten = text.split('\n').map(line => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) return line;
-      try {
-        const resolved = new URL(trimmed, target).toString();
-        // Sub-manifests still need proxy
-        if (/\.m3u8/i.test(resolved) || /\/(master|playlist|index)/i.test(resolved)) {
+    // ── Manifest → rewrite ALL URLs to go through this worker ────────────────
+    if (isManifest) {
+      const workerBase = new URL(request.url).origin;
+      const text = await upstreamRes.text();
+      const rewritten = text.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        try {
+          const resolved = new URL(trimmed, target).toString();
+          // ALL segment and sub-manifest URLs → through this worker
           let url = `${workerBase}/?url=${encodeURIComponent(resolved)}`;
           if (referer) url += `&referer=${encodeURIComponent(referer)}`;
           return url;
+        } catch {
+          return line;
         }
-        // Segments → direct CDN URL (CF redirects for free)
-        return resolved;
-      } catch {
-        return line;
-      }
-    }).join('\n');
+      }).join('\n');
 
-    return new Response(rewritten, {
+      return new Response(rewritten, {
+        status: upstreamRes.status,
+        headers: {
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'Cache-Control': 'no-store',
+          ...CORS_HEADERS,
+        },
+      });
+    }
+
+    // ── Video segment → stream with corrected content-type ───────────────────
+    // CDNs disguise .ts segments as image/jpg, image/png etc. to prevent hotlinking.
+    // Force application/octet-stream so HLS.js decodes them correctly.
+    const isRealMedia = contentType.includes('video') ||
+                        contentType.includes('audio') ||
+                        contentType.includes('octet-stream') ||
+                        contentType.includes('mp4') ||
+                        contentType.includes('mpegurl');
+
+    return new Response(upstreamRes.body, {
       status: upstreamRes.status,
       headers: {
-        'Content-Type': 'application/vnd.apple.mpegurl',
-        'Cache-Control': 'no-store',
+        'Content-Type': isRealMedia ? contentType : 'application/octet-stream',
+        'Cache-Control': 'public, max-age=3600',
         ...CORS_HEADERS,
       },
     });
