@@ -273,7 +273,22 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             const fsEl = document.fullscreenElement
                 ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
                 ?? null;
-            setIsFullscreen(!!fsEl);
+            const isFs = !!fsEl;
+            setIsFullscreen(isFs);
+
+            if (isFs) {
+                try {
+                    if (window.screen && screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock("landscape").catch((err) => console.warn("Orientation lock failed:", err));
+                    }
+                } catch (e) {}
+            } else {
+                try {
+                    if (window.screen && screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock();
+                    }
+                } catch (e) {}
+            }
         };
         document.addEventListener("fullscreenchange", onFsChange);
         document.addEventListener("webkitfullscreenchange", onFsChange);
