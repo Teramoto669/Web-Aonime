@@ -62,3 +62,9 @@ body {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
 }
+
+/* Hide native video fullscreen button so our custom button is used instead.
+   This ensures the subtitle overlay (inside the container) stays visible. */
+video::-webkit-media-controls-fullscreen-button {
+    display: none !important;
+}
