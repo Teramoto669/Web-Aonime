@@ -23,7 +23,7 @@ async function SearchResults({ query, page, sort, filters }: { query: string; pa
 	try {
 		const data = await browseAnime({ keyword: query, page, limit: 24, sort, ...filters });
 
-		if (!data.data || data.data.length === 0) {
+		if (!data.results || data.results.length === 0) {
 			return (
 				<p className="text-center text-muted-foreground">
 					No results found for &quot;{query}&quot;.
@@ -33,8 +33,8 @@ async function SearchResults({ query, page, sort, filters }: { query: string; pa
 
 		return (
 			<div className="space-y-8">
-				<AnimeGrid animes={data.data} />
-                {data.data.length >= 24 && (
+				<AnimeGrid animes={data.results} />
+                {data.results.length >= 24 && (
                     <Pagination
                         currentPage={page}
                         totalPages={page + 1}

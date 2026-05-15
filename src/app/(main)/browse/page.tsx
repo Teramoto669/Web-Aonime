@@ -21,7 +21,7 @@ const SORT_OPTIONS = [
 async function BrowsePageContent({ page, sort, filters }: { page: number; sort: string; filters: Record<string, string[]> }) {
   try {
     const data = await browseAnime({ page, limit: 24, sort, ...filters });
-    const animes = data.data ?? [];
+    const animes = data.results ?? [];
     return (
       <div className="space-y-8">
         <AnimeGrid animes={animes} />

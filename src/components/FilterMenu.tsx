@@ -19,10 +19,10 @@ import {
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { FiltersResponse, FilterOption } from "@/lib/types";
+import type { FilterOptions } from "@/lib/types";
 
 type FilterMenuProps = {
-  filtersData: FiltersResponse;
+  filtersData: FilterOptions;
 };
 
 export function FilterMenu({ filtersData }: FilterMenuProps) {
@@ -36,12 +36,14 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
   // Initialize selected filters from URL
   useEffect(() => {
     const currentFilters: Record<string, string[]> = {};
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'];
+    const arrayKeys = ['type', 'genre', 'status', 'season', 'year'];
     
     arrayKeys.forEach(key => {
-      const values = searchParams.getAll(key);
-      if (values.length > 0) {
-        currentFilters[key] = values;
+      const values = searchParams.getAll(`${key}[]`); // The new API expects genre[], year[], etc. Wait, no, searchParams in Next.js might be genre or genre[].
+      const valuesNoBrackets = searchParams.getAll(key);
+      const allValues = [...values, ...valuesNoBrackets];
+      if (allValues.length > 0) {
+        currentFilters[key] = Array.from(new Set(allValues));
       }
     });
     
@@ -69,13 +71,13 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
     const params = new URLSearchParams(searchParams.toString());
     
     // Clear old filter array params
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'];
+    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'type[]', 'genre[]', 'status[]', 'season[]', 'year[]'];
     arrayKeys.forEach(key => params.delete(key));
 
     // Apply new filters
     Object.entries(selectedFilters).forEach(([key, values]) => {
       values.forEach(value => {
-        params.append(key, value);
+        params.append(`${key}[]`, value);
       });
     });
 
@@ -114,8 +116,8 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
     });
   };
 
-  const renderFilterCategory = (title: string, categoryKey: keyof FiltersResponse) => {
-    const options = filtersData[categoryKey] as FilterOption[] | undefined;
+  const renderFilterCategory = (title: string, categoryKey: string, optionsKey: keyof FilterOptions) => {
+    const options = filtersData[optionsKey] as string[] | undefined;
     if (!options || options.length === 0) return null;
 
     const selectedList = selectedFilters[categoryKey] || [];
@@ -126,17 +128,17 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
         <AccordionContent>
           <div className="flex flex-wrap gap-2 pt-2 pb-1">
             {options.map((option) => {
-              const isIncluded = selectedList.includes(option.value);
+              const isIncluded = selectedList.includes(option);
               
               return (
                 <Button
-                  key={option.value}
+                  key={option}
                   variant={isIncluded ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handleToggle(categoryKey, option.value)}
-                  className="h-8 rounded-full px-3 text-xs"
+                  onClick={() => handleToggle(categoryKey, option)}
+                  className="h-8 rounded-full px-3 text-xs capitalize"
                 >
-                  {option.label}
+                  {option.replace(/-/g, ' ')}
                 </Button>
               );
             })}
@@ -147,7 +149,7 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
   };
 
   const renderGenreCategory = () => {
-    const options = filtersData.genre as FilterOption[] | undefined;
+    const options = filtersData.genres as string[] | undefined;
     if (!options || options.length === 0) return null;
 
     const genres = selectedFilters['genre'] || [];
@@ -158,8 +160,8 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
         <AccordionContent>
           <div className="flex flex-wrap gap-2 pt-2 pb-1">
             {options.map((option) => {
-              const isIncluded = genres.includes(option.value);
-              const isExcluded = genres.includes(`-${option.value}`);
+              const isIncluded = genres.includes(option);
+              const isExcluded = genres.includes(`-${option}`);
               
               let variant: "default" | "outline" | "destructive" = "outline";
               if (isIncluded) variant = "default";
@@ -167,13 +169,13 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
 
               return (
                 <Button
-                  key={option.value}
+                  key={option}
                   variant={variant}
                   size="sm"
-                  onClick={() => handleGenreToggle(option.value)}
-                  className="h-8 rounded-full px-3 text-xs"
+                  onClick={() => handleGenreToggle(option)}
+                  className="h-8 rounded-full px-3 text-xs capitalize"
                 >
-                  {isExcluded ? '− ' : (isIncluded ? '+ ' : '')}{option.label}
+                  {isExcluded ? '− ' : (isIncluded ? '+ ' : '')}{option.replace(/-/g, ' ')}
                 </Button>
               );
             })}
@@ -198,14 +200,11 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
         
         <ScrollArea className="flex-grow p-6 pt-0">
           <Accordion type="multiple" className="w-full">
-            {renderFilterCategory("Type", "type")}
+            {renderFilterCategory("Type", "type", "types")}
             {renderGenreCategory()}
-            {renderFilterCategory("Status", "status")}
-            {renderFilterCategory("Season", "season")}
-            {renderFilterCategory("Year", "year")}
-            {renderFilterCategory("Rating", "rating")}
-            {renderFilterCategory("Language", "language")}
-            {renderFilterCategory("Country", "country")}
+            {renderFilterCategory("Status", "status", "statuses")}
+            {renderFilterCategory("Season", "season", "seasons")}
+            {renderFilterCategory("Year", "year", "years")}
           </Accordion>
         </ScrollArea>
 

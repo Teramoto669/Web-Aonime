@@ -1,4 +1,4 @@
-import { getAnimeDetails, getAnimeEpisodes, getEpisodeServers } from "@/lib/api";
+import { getAnimeDetails, getAnimeEpisodes, getWatchData } from "@/lib/api";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from 'next/link'
@@ -30,45 +30,41 @@ export default async function WatchPage({
     params,
     searchParams,
 }: {
-    params: { id: string };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const resolvedParams = await params;
     const resolvedSearchParams = await searchParams;
 
     const animeId = resolvedParams.id;
-    let currentToken = typeof resolvedSearchParams.token === 'string' ? resolvedSearchParams.token : '';
-    let currentNum = typeof resolvedSearchParams.num === 'string' ? resolvedSearchParams.num : '';
+    let currentEp = typeof resolvedSearchParams.ep === 'string' ? resolvedSearchParams.ep : '1';
     let currentRange = typeof resolvedSearchParams.range === 'string' ? resolvedSearchParams.range : '';
 
     try {
-        const [detailsData, episodesData] = await Promise.all([
-            getAnimeDetails(animeId),
-            getAnimeEpisodes(animeId)
+        const detailsData = await getAnimeDetails(animeId);
+        
+        // Use the slug from details response
+        const slug = detailsData.slug || animeId;
+        
+        const [episodesData, watchData] = await Promise.all([
+            getAnimeEpisodes(slug),
+            getWatchData(slug, currentEp)
         ]);
 
-        // Find token if not provided but num is
-        if (!currentToken && currentNum) {
-            const ep = episodesData.episodes.find(e => e.number === currentNum);
-            if (ep) {
-                currentToken = ep.token || '';
-            }
+        // Validate episode number
+        const episodeExists = episodesData.episodes.some(e => e.number === currentEp);
+        if (!episodeExists && episodesData.episodes.length > 0) {
+            currentEp = episodesData.episodes[0].number;
         }
 
-        // Default to the first episode if none specified
-        if (!currentToken && episodesData.episodes.length > 0) {
-            currentToken = episodesData.episodes[0].token || '';
-            currentNum = episodesData.episodes[0].number;
-        }
-
-        if (!currentToken) {
+        if (!watchData || !watchData.sources || watchData.sources.length === 0) {
             return (
                 <div className="container mx-auto px-4 py-8">
                     <Alert variant="destructive">
                         <Terminal className="h-4 w-4" />
-                        <AlertTitle>No episodes available!</AlertTitle>
+                        <AlertTitle>No streaming sources available!</AlertTitle>
                         <AlertDescription>
-                            This anime doesn't seem to have any episodes yet.
+                            This episode doesn't seem to have any streaming sources yet.
                             <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
                         </AlertDescription>
                     </Alert>
@@ -76,19 +72,15 @@ export default async function WatchPage({
             )
         }
 
-        const serversData = await getEpisodeServers(currentToken);
-
         return (
-            <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentToken}`}>
+            <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentEp}`}>
                 <WatchClient
                     animeId={animeId}
-                    anilistId={detailsData.al_id}
-                    token={currentToken}
-                    episodeNum={currentNum}
+                    episodeNum={currentEp}
                     episodeRange={currentRange}
                     detailsData={detailsData}
                     episodesData={episodesData}
-                    serversData={serversData}
+                    watchData={watchData}
                 />
             </Suspense>
         );

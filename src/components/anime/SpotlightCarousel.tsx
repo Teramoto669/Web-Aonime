@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlayCircle, Info } from 'lucide-react';
 import type { AnimeListItem } from "@/lib/types";
+import { getAnimeSlug } from "@/lib/types";
 import Autoplay from "embla-carousel-autoplay";
 
 type SpotlightCarouselProps = {
@@ -36,11 +37,11 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
       >
         <CarouselContent>
           {animes.map((anime) => (
-            <CarouselItem key={anime.id}>
+            <CarouselItem key={getAnimeSlug(anime)}>
               <div className="w-full min-h-[40vh] md:h-[60vh] lg:h-[80vh] relative">
                 <div className="absolute inset-0">
                   <Image
-                    src={anime.poster || '/placeholder.jpg'}
+                    src={anime.image || '/placeholder.jpg'}
                     alt={anime.title}
                     fill
                     className="object-cover brightness-50"
@@ -58,27 +59,24 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                     <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
                       {anime.title}
                     </h1>
-                    {anime.description && (
+                    {anime.synopsis && (
                       <p className="text-sm md:text-base text-gray-300 line-clamp-3">
-                        {anime.description}
+                        {anime.synopsis}
                       </p>
                     )}
                     <div className="flex flex-wrap gap-2">
                       {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
                       {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
-                      {anime.release && <Badge variant="secondary">{anime.release}</Badge>}
-                      {anime.genres && anime.genres.split(',').slice(0, 3).map(g => (
-                        <Badge key={g.trim()} variant="outline">{g.trim()}</Badge>
-                      ))}
+                      {anime.date && <Badge variant="secondary">{anime.date}</Badge>}
                     </div>
                     <div className="flex items-center gap-4 pt-4">
                       <Button asChild size="lg">
-                        <Link href={`/anime/${anime.id}`}>
+                        <Link href={`/anime/${getAnimeSlug(anime)}`}>
                           <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
                         </Link>
                       </Button>
                       <Button asChild variant="outline" size="lg">
-                        <Link href={`/anime/${anime.id}`}>
+                        <Link href={`/anime/${getAnimeSlug(anime)}`}>
                           <Info className="mr-2 h-5 w-5" /> Details
                         </Link>
                       </Button>

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayIcon, Tv, Clapperboard } from 'lucide-react';
 import type { AnimeListItem } from '@/lib/types';
+import { getAnimeSlug } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type AnimeCardProps = {
@@ -12,18 +13,18 @@ type AnimeCardProps = {
 };
 
 export function AnimeCard({ anime, className }: AnimeCardProps) {
-  const subCount = Number(anime.sub_episodes) || 0;
-  const dubCount = Number(anime.dub_episodes) || 0;
+  const subCount = Number(anime.episodes?.sub) || 0;
+  const dubCount = Number(anime.episodes?.dub) || 0;
   const hasEpisodes = subCount > 0 || dubCount > 0;
 
   return (
-    <Link href={`/anime/${anime.id}`} className={`group block h-full ${className}`}>
+    <Link href={`/anime/${getAnimeSlug(anime)}`} className={`group block h-full ${className}`}>
       <Card className="overflow-visible border-0 bg-transparent shadow-sm rounded-lg h-full flex flex-col">
         <div className="relative aspect-[2/3] w-full">
           {/* wrapper scales and has shadow so the shadow grows with the image */}
           <div className="relative overflow-hidden rounded-md transition-transform duration-300 group-hover:scale-105 shadow-lg w-full h-full">
             <Image
-              src={anime.poster || '/placeholder.jpg'}
+              src={anime.image || '/placeholder.jpg'}
               alt={anime.title}
               fill
               sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"

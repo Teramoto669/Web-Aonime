@@ -1,19 +1,24 @@
 // src/lib/api.ts
-// AnimeKai API client — https://anime-kai-api-main-test.vercel.app/api
+// Anikoto Scrap API client — https://anikoto-scrap.vercel.app/api
 
 import type {
   HomeData,
   AnimeDetail,
   AnimeEpisodes,
-  ServersResponse,
-  SourceResponse,
+  WatchData,
   BrowseResponse,
   FiltersResponse,
 } from './types';
 
-const BASE_URL = 'https://anime-kai-api-main-test.vercel.app/api';
+const BASE_URL = 'https://anikoto-scrap.vercel.app/api';
 
 // ─── Generic fetcher ─────────────────────────────────────────────────────────
+
+interface ApiResponse<T> {
+  ok: boolean;
+  data?: T;
+  message?: string;
+}
 
 async function fetcher<T>(path: string): Promise<T> {
   const url = `${BASE_URL}${path}`;
@@ -25,11 +30,11 @@ async function fetcher<T>(path: string): Promise<T> {
       const text = await res.text().catch(() => '');
       throw new Error(`HTTP ${res.status} from ${url}: ${text}`);
     }
-    const json = await res.json();
-    if (json.success === false) {
+    const json = (await res.json()) as ApiResponse<T>;
+    if (json.ok === false) {
       throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
     }
-    return json as T;
+    return json.data as T;
   } catch (e) {
     if (e instanceof Error) throw e;
     throw new Error(`Unknown error fetching ${url}`);
@@ -41,7 +46,7 @@ async function fetcher<T>(path: string): Promise<T> {
 export const getHomeData = (): Promise<HomeData> =>
   fetcher<HomeData>('/home');
 
-// ─── Anime Detail (includes episodes) ────────────────────────────────────────
+// ─── Anime Detail ────────────────────────────────────────────────────────────
 
 export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
   fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}`);
@@ -49,27 +54,114 @@ export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
 export const getAnimeEpisodes = (slug: string): Promise<AnimeEpisodes> =>
-  fetcher<AnimeEpisodes>(`/episodes/${encodeURIComponent(slug)}`);
+  fetcher<AnimeEpisodes>(`/anime/${encodeURIComponent(slug)}/episodes`);
 
-// ─── Servers (from episode token) ────────────────────────────────────────────
+// ─── Search ───────────────────────────────────────────────────────────────────
 
-/**
- * Fetches available streaming servers for an episode.
- * Pass the episode `token` returned by /api/episodes/[slug].
- */
-export const getEpisodeServers = (token: string): Promise<ServersResponse> =>
-  fetcher<ServersResponse>(`/servers/${encodeURIComponent(token)}`);
+export const searchAnime = (keyword: string, refresh?: boolean): Promise<BrowseResponse> => {
+  const params = new URLSearchParams({ keyword });
+  if (refresh) params.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/search?${params.toString()}`);
+};
 
-// ─── Source (from server link_id) ─────────────────────────────────────────────
+// ─── Filter ───────────────────────────────────────────────────────────────────
 
-/**
- * Resolves the embed URL for a specific server.
- * Pass the `link_id` returned by /api/servers/[token].
- */
-export const getEpisodeSource = (linkId: string): Promise<SourceResponse> =>
-  fetcher<SourceResponse>(`/source/${encodeURIComponent(linkId)}`);
+export type FilterParams = {
+  keyword?: string;
+  genre?: string[];
+  season?: string[];
+  year?: string[];
+  type?: string[];
+  status?: string[];
+  sort?: string;
+  page?: number;
+  refresh?: boolean;
+};
 
-// ─── Browse / Search ─────────────────────────────────────────────────────────
+export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams();
+
+  if (params.keyword) qs.set('keyword', params.keyword);
+  if (params.sort) qs.set('sort', params.sort);
+  if (params.page) qs.set('page', String(params.page));
+  if (params.refresh) qs.set('refresh', '1');
+
+  if (params.genre?.length) {
+    params.genre.forEach(g => qs.append('genre[]', g));
+  }
+  if (params.season?.length) {
+    params.season.forEach(s => qs.append('season[]', s));
+  }
+  if (params.year?.length) {
+    params.year.forEach(y => qs.append('year[]', y));
+  }
+  if (params.type?.length) {
+    params.type.forEach(t => qs.append('type[]', t));
+  }
+  if (params.status?.length) {
+    params.status.forEach(st => qs.append('status[]', st));
+  }
+
+  return fetcher<BrowseResponse>(`/filter?${qs.toString()}`);
+};
+
+// ─── Latest Episodes ──────────────────────────────────────────────────────────
+
+export type LatestParams = {
+  type?: 'latest-updated' | 'new-release' | 'most-viewed';
+  page?: number;
+  refresh?: boolean;
+};
+
+export const getLatestAnime = (params: LatestParams = {}): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set('type', params.type);
+  if (params.page) qs.set('page', String(params.page));
+  if (params.refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/latest?${qs.toString()}`);
+};
+
+// ─── Status ────────────────────────────────────────────────────────────────────
+
+export type StatusParams = {
+  type?: 'currently-airing' | 'finished-airing' | 'not-yet-aired';
+  page?: number;
+  refresh?: boolean;
+};
+
+export const getByStatus = (params: StatusParams = {}): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set('type', params.type);
+  if (params.page) qs.set('page', String(params.page));
+  if (params.refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/status?${qs.toString()}`);
+};
+
+// ─── Genre ────────────────────────────────────────────────────────────────────
+
+export const getByGenre = (genre: string, page = 1): Promise<BrowseResponse> =>
+  fetcher<BrowseResponse>(`/genre/${encodeURIComponent(genre)}?page=${page}`);
+
+// ─── Type ─────────────────────────────────────────────────────────────────────
+
+export const getByType = (type: string, page = 1): Promise<BrowseResponse> =>
+  fetcher<BrowseResponse>(`/type/${encodeURIComponent(type)}?page=${page}`);
+
+// ─── Schedule ──────────────────────────────────────────────────────────────────
+
+export const getSchedule = (refresh?: boolean): Promise<any> => {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  return fetcher<any>(`/schedule?${params.toString()}`);
+};
+
+// ─── Watch (Streaming Sources) ────────────────────────────────────────────────
+
+export const getWatchData = (slug: string, ep: string | number): Promise<WatchData> => {
+  return fetcher<WatchData>(`/watch/${encodeURIComponent(slug)}?ep=${ep}`);
+};
+
+// ─── Legacy Browse/Filters (for backwards compatibility) ──────────────────────
 
 export type BrowseParams = {
   page?: number;
@@ -87,38 +179,20 @@ export type BrowseParams = {
 };
 
 export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
-  const qs = new URLSearchParams();
-
-  if (params.page)    qs.set('page',    String(params.page));
-  if (params.limit)   qs.set('limit',   String(params.limit));
-  if (params.sort)    qs.set('sort',    params.sort);
-  if (params.keyword) qs.set('keyword', params.keyword);
-
-  const arrayFields = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'] as const;
-  for (const key of arrayFields) {
-    const values = params[key];
-    if (values && values.length > 0) {
-      values.forEach(v => qs.append(`${key}[]`, v));
-    }
-  }
-
-  // Always exclude Boys Love (ID 184)
-  qs.append('genre[]', '-184');
-
-  const path = `/browse${qs.toString() ? `?${qs.toString()}` : ''}`;
-  return fetcher<BrowseResponse>(path);
+  const filterParams: FilterParams = {
+    page: params.page,
+    sort: params.sort,
+    keyword: params.keyword,
+    type: params.type,
+    genre: params.genre,
+    status: params.status,
+    season: params.season,
+    year: params.year,
+  };
+  return filterAnime(filterParams);
 };
 
-export const searchAnime = (keyword: string, page = 1): Promise<BrowseResponse> =>
-  browseAnime({ keyword, page, limit: 20, sort: 'updated_date' });
-
-// ─── Filters ─────────────────────────────────────────────────────────────────
-
-export const getFilters = async (): Promise<FiltersResponse> => {
-  const data = await fetcher<FiltersResponse>('/filters');
-  // Hide Boys Love from filter options
-  if (data && data.genre) {
-    data.genre = data.genre.filter(g => g.value !== '184');
-  }
-  return data;
+export const getFilters = async (): Promise<any> => {
+  const response = await fetcher<any>('/filter');
+  return response.options;
 };

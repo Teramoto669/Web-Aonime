@@ -5,10 +5,10 @@ const API_BASE_URL = 'https://test-123-beta.vercel.app/api/v2/hianime';
 // This is a proxy to avoid CORS issues
 export async function GET(
   req: NextRequest,
-  context: { params: { slug: string[] } }
+  context: { params: Promise<{ slug: string[] }> }
 ) {
   // Make sure params is properly awaited
-  const params = await Promise.resolve(context.params);
+  const params = await context.params;
   const slug = params.slug.join('/');
   const {searchParams} = new URL(req.url);
 

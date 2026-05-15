@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Lightweight proxy for m3u8 and segment requests.
-// Usage: /api/proxy?url=<encoded upstream url>
-// The proxy forwards most request headers to the upstream target and
-// rewrites m3u8 manifests so that segment URLs are proxied as well.
+// Usage: /api/proxy?url=<encoded upstream url>&referer=<encoded referer>
+// The proxy forwards the referer query param as Referer/Origin headers upstream,
+// and rewrites m3u8 manifests so that segment URLs are proxied as well.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const target = searchParams.get('url');
@@ -12,61 +12,67 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
-  console.log(`[Proxy] Received request for target: ${target}`);
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
+  };
 
   try {
-    // Build headers to forward upstream.
-    // We accept a special header 'x-proxy-headers' containing an encoded JSON map of headers
-    // that the client wants the proxy to add when calling upstream (useful to forward Referer etc.).
-    const forwarded: Record<string, string> = {};
-    req.headers.forEach((value, key) => {
-      // Skip host header to avoid confusing upstream
-      if (key.toLowerCase() === 'host') return;
-      // We'll not forward the x-proxy-headers header itself
-      if (key.toLowerCase() === 'x-proxy-headers') return;
-      forwarded[key] = value as string;
-    });
+    const forwarded: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
 
-    // If the client supplied encoded proxy headers, parse and merge them (they overwrite existing keys)
+    // Read referer param from query string and forward as Referer + Origin headers
+    const refererParam = searchParams.get('referer');
+    if (refererParam) {
+      forwarded['Referer'] = refererParam;
+      try {
+        forwarded['Origin'] = new URL(refererParam).origin;
+      } catch (_) {}
+    }
+
+    // Optional: extra headers from x-proxy-headers
     const encodedProxyHeaders = req.headers.get('x-proxy-headers');
     if (encodedProxyHeaders) {
       try {
-        const decoded = decodeURIComponent(encodedProxyHeaders);
-        const extra = JSON.parse(decoded) as Record<string, string>;
+        const extra = JSON.parse(decodeURIComponent(encodedProxyHeaders)) as Record<string, string>;
         Object.entries(extra).forEach(([k, v]) => {
-          if (v !== undefined && v !== null) forwarded[k] = String(v);
+          if (v != null) forwarded[k] = String(v);
         });
       } catch (e) {
-        // ignore malformed header
-        console.warn('Invalid x-proxy-headers payload', e);
+        console.warn('[Proxy] Invalid x-proxy-headers payload', e);
       }
     }
 
-    console.log(`[Proxy] Forwarding headers: ${JSON.stringify(forwarded)}`);
+    console.log(`[Proxy] Fetching ${target} with referer: ${forwarded['Referer'] ?? 'none'}`);
 
     const upstreamRes = await fetch(target, {
       headers: forwarded,
-      // do not cache by default
       cache: 'no-store',
     });
 
-    console.log(`[Proxy] Upstream response status: ${upstreamRes.status} ${upstreamRes.statusText}`);
-
     const contentType = upstreamRes.headers.get('content-type') || '';
+    console.log(`[Proxy] Upstream ${upstreamRes.status} content-type: ${contentType}`);
 
-    // If manifest, rewrite URLs to go through the proxy so segments are fetched via proxy too
-    if (contentType.includes('mpegurl') || target.endsWith('.m3u8')) {
+    // If m3u8 manifest, rewrite segment URLs to go through the proxy too
+    if (contentType.includes('mpegurl') || target.includes('.m3u8')) {
       const text = await upstreamRes.text();
       const lines = text.split('\n');
       const rewritten = lines
         .map((line) => {
           const trimmed = line.trim();
-          // Keep comments and empty lines
           if (!trimmed || trimmed.startsWith('#')) return line;
           try {
             const resolved = new URL(trimmed, target).toString();
-            return `/api/proxy?url=${encodeURIComponent(resolved)}`;
-          } catch (e) {
+            let proxied = `/api/proxy?url=${encodeURIComponent(resolved)}`;
+            if (refererParam) {
+              proxied += `&referer=${encodeURIComponent(refererParam)}`;
+            }
+            return proxied;
+          } catch {
             return line;
           }
         })
@@ -75,18 +81,43 @@ export async function GET(req: NextRequest) {
       return new Response(rewritten, {
         status: upstreamRes.status,
         headers: {
-          'content-type': contentType,
+          'content-type': 'application/vnd.apple.mpegurl',
+          ...corsHeaders,
         },
       });
     }
 
-    // For binary responses (segments, etc.) just pipe through
+    // For binary responses (segments, etc.) pipe through.
+    // IMPORTANT: CDNs often disguise .ts video segments with fake extensions (image/png, image/jpeg, etc.)
+    // to bypass hotlink protection. Force correct type so HLS.js can decode them.
     const buffer = await upstreamRes.arrayBuffer();
-    const headers: Record<string, string> = {};
-    if (contentType) headers['content-type'] = contentType;
+    const headers: Record<string, string> = { ...corsHeaders };
+
+    // If content-type is not a real media/subtitle type, it's a disguised TS segment
+    const isRealMediaType =
+      contentType.includes('mpegurl') ||
+      contentType.includes('mp4') ||
+      contentType.includes('webvtt') ||
+      contentType.includes('vtt') ||
+      contentType === 'application/octet-stream';
+
+    headers['content-type'] = isRealMediaType ? contentType : 'application/octet-stream';
+
     return new Response(buffer, { status: upstreamRes.status, headers });
+
   } catch (err: any) {
-    console.error('proxy error', err);
+    console.error('[Proxy] Error:', err);
     return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
+}
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    },
+  });
 }

@@ -11,32 +11,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 async function AnimeDetailsPageContent({ id }: { id: string }) {
     try {
-        const [detailsData, episodesData] = await Promise.all([
-            getAnimeDetails(id),
-            getAnimeEpisodes(id),
-        ]);
+        const detailsData = await getAnimeDetails(id);
+        
+        // Use the slug from details response for fetching episodes
+        const slug = detailsData.slug || id;
+        const episodesData = await getAnimeEpisodes(slug);
 
         const firstEpisode = episodesData.episodes[0];
 
-        // Parse genres — can be string or array from the API
-        const genresList = (() => {
-            const g = detailsData.detail?.genres;
-            let rawGenres: string[] = [];
-            if (Array.isArray(g)) rawGenres = g as string[];
-            else if (typeof g === 'string' && g) rawGenres = g.split(',').map(s => s.trim());
-            
-            return rawGenres
-                .filter(Boolean)
-                .map(genre => {
-                    const clean = genre.replace(/^\/genres?\//i, '');
-                    return clean.charAt(0).toUpperCase() + clean.slice(1);
-                });
-        })();
+        // Parse genres — already an array from the new API
+        const genresList = (detailsData.genres || []).map(genre => 
+            genre.charAt(0).toUpperCase() + genre.slice(1)
+        );
 
         const statItems = [
-            detailsData.rating    && { icon: Star,     label: "Rating",  value: detailsData.rating },
-            detailsData.type      && { icon: Tv,        label: "Type",    value: detailsData.type },
-            detailsData.detail?.date_aired && { icon: Calendar, label: "Aired", value: detailsData.detail.date_aired },
+            detailsData.rating && { icon: Star, label: "Rating", value: detailsData.rating },
+            detailsData.type && { icon: Tv, label: "Type", value: detailsData.type },
+            detailsData.aired && { icon: Calendar, label: "Aired", value: detailsData.aired },
         ].filter(Boolean) as { icon: React.ElementType; label: string; value: string }[];
 
         return (
@@ -45,7 +36,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                     <div className="md:col-span-1">
                         <div className="relative aspect-[2/3] w-full">
                             <Image
-                                src={detailsData.poster || '/placeholder.jpg'}
+                                src={detailsData.image || '/placeholder.jpg'}
                                 alt={detailsData.title ?? id}
                                 fill
                                 className="rounded-lg object-cover"
@@ -63,8 +54,8 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                                 ))}
                             </div>
                         )}
-                        {detailsData.description && (
-                            <p className="text-muted-foreground">{detailsData.description}</p>
+                        {detailsData.synopsis && (
+                            <p className="text-muted-foreground">{detailsData.synopsis}</p>
                         )}
 
                         {statItems.length > 0 && (
@@ -84,7 +75,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         <div className="pt-6">
                             {firstEpisode && (
                                 <Button asChild size="lg">
-                                    <Link href={`/watch/${id}?num=${firstEpisode.number}`}>
+                                    <Link href={`/watch/${id}?ep=${firstEpisode.number}`}>
                                         <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
                                     </Link>
                                 </Button>
@@ -95,9 +86,9 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
 
                 {episodesData.episodes.length > 0 && (
                     <EpisodeListClient
-                        animeId={id}
+                        animeId={slug}
                         episodes={episodesData.episodes}
-                        totalEpisodes={episodesData.count ?? episodesData.episodes.length}
+                        totalEpisodes={episodesData.episodes.length}
                     />
                 )}
             </div>
@@ -141,7 +132,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default async function AnimeDetailsPage({ params }: { params: { id: string } }) {
+export default async function AnimeDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = await params;
     const id = resolvedParams.id;
 

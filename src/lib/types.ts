@@ -1,154 +1,154 @@
 // src/lib/types.ts
-// AnimeKai API types (anime-kai-api-main-test.vercel.app/api)
+// Anikoto Scrap API types (anikoto-scrap.vercel.app/api)
 
 // ─── Shared / List Items ─────────────────────────────────────────────────────
 
 export type AnimeListItem = {
-  id: string;
+  id?: string;
+  slug?: string;
   title: string;
-  japanese_title?: string;
-  poster?: string;
-  url?: string;
-  current_episode?: string;
-  sub_episodes?: string;
-  dub_episodes?: string;
+  titleJp?: string;
+  image?: string;
+  href?: string;
+  watchUrl?: string;
+  watchHref?: string;
   type?: string;
-  // Banner-specific fields (present in home.banner and anime detail)
-  description?: string;
-  genres?: string;
+  episodes?: {
+    sub?: number;
+    dub?: number;
+    total?: number;
+  };
+  rank?: number;
   rating?: string;
-  release?: string;
   quality?: string;
-  rank?: string;
+  hasDub?: boolean;
+  hasSub?: boolean;
+  date?: string;
+  synopsis?: string;
 };
+
+// Helper function to extract slug from AnimeListItem
+export function getAnimeSlug(anime: AnimeListItem): string {
+  if (anime.slug) return anime.slug;
+  
+  if (anime.href) {
+    const parts = anime.href.split('/').filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+
+  if (anime.watchHref) {
+    const match = anime.watchHref.match(/watch\/([^/]+)/);
+    if (match?.[1]) return match[1];
+  }
+  
+  return anime.id || '';
+}
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
-export type TopTrending = {
-  NOW: AnimeListItem[];
-  DAY: AnimeListItem[];
-  WEEK: AnimeListItem[];
-  MONTH: AnimeListItem[];
-};
-
 export type HomeData = {
-  success: boolean;
-  banner: AnimeListItem[];
-  latest_updates: AnimeListItem[];
-  top_trending: TopTrending;
+  spotlight?: AnimeListItem[];
+  latestEpisodes?: AnimeListItem[];
+  newRelease?: AnimeListItem[];
+  newAdded?: AnimeListItem[];
+  justCompleted?: AnimeListItem[];
+  topDay?: AnimeListItem[];
+  topWeek?: AnimeListItem[];
+  topMonth?: AnimeListItem[];
 };
 
 // ─── Anime Detail ─────────────────────────────────────────────────────────────
 
-export type AnimeDetailInfo = {
-  genres?: string | string[];
-  date_aired?: string;
-};
-
 export type AnimeDetail = {
-  success: boolean;
-  al_id?: string;
+  id?: string;
+  slug?: string;
   title?: string;
-  description?: string;
-  poster?: string;
-  banner?: string;     // banner/wide image
-  type?: string;
+  titleJp?: string;
+  alternativeTitles?: string[];
+  image?: string;
   rating?: string;
-  mal_score?: string;
-  detail?: AnimeDetailInfo;
-  episodes?: Episode[];
+  quality?: string;
+  hasDub?: boolean;
+  hasSub?: boolean;
+  synopsis?: string;
+  type?: string;
+  premiered?: string;
+  aired?: string;
+  status?: string;
+  genres?: string[];
+  malScore?: number;
+  duration?: string;
+  episodeCount?: number | null;
+  studios?: string[];
+  producers?: string[];
+  watchUrl?: string;
 };
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
 export type Episode = {
   number: string;
-  slug?: string;
-  title?: string;
-  japanese_title?: string;
-  token?: string;
-  has_sub?: boolean;
-  has_dub?: boolean;
+  href?: string;
+  id?: string;
+  dataIds?: string;
+  hasDub?: boolean;
+  hasSub?: boolean;
 };
 
 export type AnimeEpisodes = {
-  success: boolean;
+  animeId?: string;
   slug?: string;
-  ani_id?: string;
-  title?: string;
-  count?: number;
   episodes: Episode[];
 };
 
-// ─── Servers & Source ─────────────────────────────────────────────────────────
-
-export type ServerItem = {
-  name?: string;
-  server_id?: string;
-  episode_id?: string;
-  link_id?: string;
-};
-
-export type ServerCategories = {
-  sub?: ServerItem[];
-  softsub?: ServerItem[];
-  dub?: ServerItem[];
-};
-
-export type ServersResponse = {
-  success: boolean;
-  watching?: string;
-  servers?: ServerCategories;
-};
-
-export type VideoSource = {
-  url: string;
-  original_url?: string;
-  isM3U8: boolean;
-};
-
-export type SkipTiming = {
-  intro?: [number, number];
-  outro?: [number, number];
-};
+// ─── Watch / Streaming ────────────────────────────────────────────────────────
 
 export type Track = {
-  kind?: string;
-  url?: string;
-  src?: string;
-  srclang?: string;
-  lang?: string;
+  file?: string;
   label?: string;
+  kind?: string;
+  default?: boolean;
+  proxyUrl?: string;
 };
 
-export type SourceResponse = {
-  success: boolean;
-  embed_url?: string;
-  embed_origin_url?: string;
-  sources?: VideoSource[];
+export type Source = {
+  server?: string;
+  url?: string;
+  m3u8?: string;
+  referer?: string;
+  proxyUrl?: string;
   tracks?: Track[];
-  skip?: SkipTiming;
-  download?: string;
 };
 
-export type FetchVideoSourceResponse = {
-  success: boolean;
-  embedUrl?: string;
-  m3u8Url?: string | null;
-  canEmbed?: boolean;
-  animeKaiUrl?: string | null;
-  megaplayUrl?: string | null;
-  sources?: VideoSource[];
-  tracks?: Track[];
-  skip?: SkipTiming;
-  error?: string;
+export type WatchData = {
+  episode?: Episode;
+  servers?: Array<{
+    id?: string;
+    name?: string;
+    type?: string;
+  }>;
+  sources?: Source[];
 };
 
-// ─── Browse ───────────────────────────────────────────────────────────────────
+// ─── Browse / Search ──────────────────────────────────────────────────────────
 
 export type BrowseResponse = {
-  success: boolean;
-  data: AnimeListItem[];
+  results?: AnimeListItem[];
+  currentPage?: number;
+  hasNextPage?: boolean;
+  params?: Record<string, string>;
+  options?: FilterOptions;
+};
+
+// ─── Filter Options ───────────────────────────────────────────────────────────
+
+export type FilterOptions = {
+  genres?: string[];
+  years?: string[];
+  types?: string[];
+  seasons?: string[];
+  statuses?: string[];
+  sorts?: string[];
 };
 
 export type FilterOption = {
@@ -157,13 +157,9 @@ export type FilterOption = {
 };
 
 export type FiltersResponse = {
-  success: boolean;
-  type?: FilterOption[];
-  genre?: FilterOption[];
-  status?: FilterOption[];
-  season?: FilterOption[];
-  year?: FilterOption[];
-  rating?: FilterOption[];
-  country?: FilterOption[];
-  language?: FilterOption[];
+  type?: string[];
+  genre?: string[];
+  status?: string[];
+  season?: string[];
+  year?: string[];
 };

@@ -3,7 +3,7 @@ import { SpotlightCarousel } from '@/components/anime/SpotlightCarousel';
 import { AnimeCarousel } from '@/components/anime/AnimeCarousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
-import type { AnimeListItem } from '@/lib/types';
+import { type AnimeListItem, getAnimeSlug } from '@/lib/types';
 
 async function HomePageContent() {
   try {
@@ -21,40 +21,37 @@ async function HomePageContent() {
       if (!animes) return [];
       const seen = new Set<string>();
       return animes.filter(a => {
-        if (!a?.id) return false;
-        if (seen.has(a.id)) return false;
-        seen.add(a.id);
+        const slug = getAnimeSlug(a);
+        if (!slug) return false;
+        if (seen.has(slug)) return false;
+        seen.add(slug);
         return true;
       });
     };
 
-    const { banner, latest_updates, top_trending } = homeData;
+    const { spotlight, latestEpisodes, topDay, topWeek, topMonth } = homeData;
 
     return (
       <div className="space-y-12 md:space-y-16 lg:space-y-20 pb-20">
-        {banner && banner.length > 0 && (
-          <SpotlightCarousel animes={deduped(banner)} />
+        {spotlight && spotlight.length > 0 && (
+          <SpotlightCarousel animes={deduped(spotlight)} />
         )}
 
         <div className="container mx-auto px-4 space-y-12 md:space-y-16">
-          {top_trending?.NOW && top_trending.NOW.length > 0 && (
-            <AnimeCarousel title="Trending Now" animes={deduped(top_trending.NOW)} />
+          {latestEpisodes && latestEpisodes.length > 0 && (
+            <AnimeCarousel title="Latest Episodes" animes={deduped(latestEpisodes)} />
           )}
 
-          {latest_updates && latest_updates.length > 0 && (
-            <AnimeCarousel title="Latest Episodes" animes={deduped(latest_updates)} />
+          {topDay && topDay.length > 0 && (
+            <AnimeCarousel title="Top Today" animes={deduped(topDay)} />
           )}
 
-          {top_trending?.DAY && top_trending.DAY.length > 0 && (
-            <AnimeCarousel title="Top Today" animes={deduped(top_trending.DAY)} />
+          {topWeek && topWeek.length > 0 && (
+            <AnimeCarousel title="Top This Week" animes={deduped(topWeek)} />
           )}
 
-          {top_trending?.WEEK && top_trending.WEEK.length > 0 && (
-            <AnimeCarousel title="Top This Week" animes={deduped(top_trending.WEEK)} />
-          )}
-
-          {top_trending?.MONTH && top_trending.MONTH.length > 0 && (
-            <AnimeCarousel title="Top This Month" animes={deduped(top_trending.MONTH)} />
+          {topMonth && topMonth.length > 0 && (
+            <AnimeCarousel title="Top This Month" animes={deduped(topMonth)} />
           )}
         </div>
       </div>

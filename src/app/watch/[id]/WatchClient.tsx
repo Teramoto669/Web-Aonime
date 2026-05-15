@@ -1,130 +1,118 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { VideoPlayer } from "./VideoPlayer";
-import Link from 'next/link'
+import Link from 'next/link';
 import Image from "next/image";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AnimeDetail, AnimeEpisodes, ServersResponse, ServerItem } from "@/lib/types";
+import type { AnimeDetail, AnimeEpisodes, WatchData, Source } from "@/lib/types";
 
 interface WatchClientProps {
     animeId: string;
-    anilistId?: string;
-    token: string;
     episodeNum: string;
     episodeRange?: string;
     detailsData: AnimeDetail;
     episodesData: AnimeEpisodes;
-    serversData: ServersResponse;
+    watchData: WatchData;
 }
 
-type CategoryType = 'sub' | 'softsub' | 'dub';
+export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData }: WatchClientProps) {
+    const allSources = watchData.sources || [];
+    const servers = watchData.servers || [];
 
-export function WatchClient({ animeId, anilistId, token, episodeNum, episodeRange, detailsData, episodesData, serversData }: WatchClientProps) {
-    const servers = serversData.servers || {};
-    
-    // Determine available categories
-    const categories: CategoryType[] = [];
-    if (servers.sub && servers.sub.length > 0) categories.push('sub');
-    if (servers.softsub && servers.softsub.length > 0) categories.push('softsub');
-    if (servers.dub && servers.dub.length > 0) categories.push('dub');
+    // Map each source to its type (sub/dub) using the servers array
+    const getSourceType = (source: Source): string => {
+        const matched = servers.find(s => s.name === source.server);
+        return matched?.type ?? "sub";
+    };
 
-    let defaultCategory: CategoryType = 'sub';
-    if (servers.softsub && servers.softsub.length > 0) {
-        defaultCategory = 'softsub';
-    } else if (servers.sub && servers.sub.length > 0) {
-        defaultCategory = 'sub';
-    } else if (servers.dub && servers.dub.length > 0) {
-        defaultCategory = 'dub';
-    }
+    const subSources = allSources.filter(s => getSourceType(s) !== "dub");
+    const dubSources = allSources.filter(s => getSourceType(s) === "dub");
 
-    const [selectedCategory, setSelectedCategory] = useState<CategoryType>(defaultCategory);
-    
-    // The current active server list based on selected category
-    const activeServers: ServerItem[] = servers[selectedCategory] || [];
-    
-    // Default to the first server in the selected category
-    const [selectedLinkId, setSelectedLinkId] = useState<string>(activeServers.length > 0 ? activeServers[0].link_id || '' : '');
+    const hasDub = dubSources.length > 0;
+    const hasSub = subSources.length > 0;
 
-    // Reset selected server when category changes
-    useEffect(() => {
-        const newActiveServers = servers[selectedCategory] || [];
-        if (newActiveServers.length > 0 && newActiveServers[0].link_id) {
-            setSelectedLinkId(newActiveServers[0].link_id);
-        }
-    }, [selectedCategory, servers]);
+    // Active category: "sub" or "dub"
+    const [category, setCategory] = useState<"sub" | "dub">(hasSub ? "sub" : "dub");
+    const [subServerIdx, setSubServerIdx] = useState(0);
+    const [dubServerIdx, setDubServerIdx] = useState(0);
 
-    const currentEpisode = episodesData.episodes.find(e => e.number === episodeNum);
+    const currentSources = category === "sub" ? subSources : dubSources;
+    const currentServerIdx = category === "sub" ? subServerIdx : dubServerIdx;
+    const setCurrentServerIdx = category === "sub" ? setSubServerIdx : setDubServerIdx;
+    const currentSource = currentSources[currentServerIdx] ?? null;
+
+    const slug = detailsData.slug || animeId;
     const title = detailsData.title || animeId;
-    const fallbackCategory = selectedCategory === 'softsub' ? 'sub' : selectedCategory;
-    const canUseFallback = Boolean(anilistId && episodeNum);
-
-    const parsedGenres = (() => {
-        const g = detailsData.detail?.genres;
-        if (!g) return '';
-        const list = Array.isArray(g) ? g : (typeof g === 'string' ? g.split(',') : []);
-        return list
-            .map(genre => {
-                const clean = genre.trim().replace(/^\/genres?\//i, '');
-                return clean.charAt(0).toUpperCase() + clean.slice(1);
-            })
-            .filter(Boolean)
-            .join(', ');
-    })();
 
     return (
         <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div className="lg:col-span-3 space-y-6">
-                    <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-lg">
-                        {selectedLinkId || canUseFallback ? (
+                <div className="lg:col-span-3 space-y-4">
+                    {/* Video Player */}
+                    <div className="w-full bg-black rounded-lg shadow-lg">
+                        {currentSource ? (
                             <VideoPlayer
-                                linkId={selectedLinkId}
-                                anilistId={anilistId}
-                                episodeNum={episodeNum}
-                                category={fallbackCategory}
+                                source={currentSource}
+                                tracks={currentSource.tracks || []}
                             />
                         ) : (
-                            <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                            <div className="aspect-video flex items-center justify-center text-muted-foreground">
                                 No server available for this episode.
                             </div>
                         )}
                     </div>
-                    
+
+                    {/* Title & Server Controls */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-bold">{title}</h1>
-                            <p className="text-lg text-muted-foreground mt-1">
-                                {serversData.watching || `Episode ${episodeNum}${currentEpisode?.title ? `: ${currentEpisode.title}` : ''}`}
-                            </p>
+                            <p className="text-lg text-muted-foreground mt-1">Episode {episodeNum}</p>
                         </div>
-                        
-                        {/* Server & Category Selection */}
-                        <div className="flex flex-col sm:items-end gap-3 min-w-[200px]">
-                            {categories.length > 1 && (
-                                <Tabs
-                                    value={selectedCategory}
-                                    onValueChange={(value: string) => setSelectedCategory(value as CategoryType)}
-                                    className="w-full sm:w-auto"
+
+                        {/* Sub / Dub + Server selector */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Sub/Dub toggle */}
+                            <div className="flex rounded-lg overflow-hidden border border-border">
+                                {hasSub && (
+                                    <button
+                                        onClick={() => setCategory("sub")}
+                                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                                            category === "sub"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-background text-muted-foreground hover:bg-muted"
+                                        }`}
+                                    >
+                                        SUB
+                                    </button>
+                                )}
+                                {hasDub && (
+                                    <button
+                                        onClick={() => setCategory("dub")}
+                                        className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                                            category === "dub"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-background text-muted-foreground hover:bg-muted"
+                                        }`}
+                                    >
+                                        DUB
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Server selector */}
+                            {currentSources.length > 1 && (
+                                <Select
+                                    value={String(currentServerIdx)}
+                                    onValueChange={(v) => setCurrentServerIdx(parseInt(v))}
                                 >
-                                    <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${categories.length}, minmax(0, 1fr))` }}>
-                                        {categories.includes('sub') && <TabsTrigger value="sub">Sub</TabsTrigger>}
-                                        {categories.includes('softsub') && <TabsTrigger value="softsub">SoftSub</TabsTrigger>}
-                                        {categories.includes('dub') && <TabsTrigger value="dub">Dub</TabsTrigger>}
-                                    </TabsList>
-                                </Tabs>
-                            )}
-                            
-                            {activeServers.length > 0 && (
-                                <Select value={selectedLinkId} onValueChange={setSelectedLinkId}>
-                                    <SelectTrigger className="w-full sm:w-[200px]">
+                                    <SelectTrigger className="w-[160px]">
                                         <SelectValue placeholder="Select Server" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {activeServers.map((server, idx) => (
-                                            <SelectItem key={`${server.server_id}-${idx}`} value={server.link_id || ''}>
-                                                {server.name || `Server ${idx + 1}`}
+                                        {currentSources.map((source, idx) => (
+                                            <SelectItem key={`server-${idx}`} value={String(idx)}>
+                                                {source.server || `Server ${idx + 1}`}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -133,10 +121,11 @@ export function WatchClient({ animeId, anilistId, token, episodeNum, episodeRang
                         </div>
                     </div>
 
-                    <Link href={`/anime/${animeId}`} className="flex items-center gap-4 mt-6 p-4 border rounded-lg hover:bg-accent/20 transition-colors">
+                    {/* Anime info link */}
+                    <Link href={`/anime/${slug}`} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/20 transition-colors">
                         <div className="relative h-24 w-16 flex-shrink-0">
                             <Image
-                                src={detailsData.poster || '/placeholder.jpg'}
+                                src={detailsData.image || '/placeholder.jpg'}
                                 alt={title}
                                 fill
                                 className="rounded-sm object-cover"
@@ -145,16 +134,18 @@ export function WatchClient({ animeId, anilistId, token, episodeNum, episodeRang
                         <div>
                             <p className="text-sm text-muted-foreground">Now Watching</p>
                             <h2 className="text-xl font-bold">{title}</h2>
-                            <p className="text-sm text-muted-foreground line-clamp-1">{parsedGenres || detailsData.type || 'Anime'}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                                {detailsData.genres?.join(', ') || detailsData.type || 'Anime'}
+                            </p>
                         </div>
                     </Link>
                 </div>
-                
+
                 <div className="lg:col-span-1">
                     <EpisodeListClient
-                        animeId={animeId}
+                        animeId={slug}
                         episodes={episodesData.episodes}
-                        totalEpisodes={episodesData.count || episodesData.episodes.length}
+                        totalEpisodes={episodesData.episodes.length}
                         currentEpisode={episodeNum}
                         hideIcons={true}
                         initialRange={episodeRange}

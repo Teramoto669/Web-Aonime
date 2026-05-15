@@ -1,262 +1,369 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
-import { fetchVideoSource } from "./actions";
+import { Loader2, AlertCircle, Settings, Subtitles, Check, ChevronDown } from "lucide-react";
 import HLS from "hls.js";
-import type { Track, SkipTiming } from "@/lib/types";
+import type { Source, Track } from "@/lib/types";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type VideoPlayerProps = {
-    linkId: string;
-    anilistId?: string;
-    episodeNum?: string;
-    category?: string;
+    source: Source;
+    tracks: Track[];
+};
+
+type QualityLevel = {
+    height: number;
+    bitrate: number;
+    index: number;
+};
+
+type VttCue = {
+    start: number;
+    end: number;
+    text: string;
+};
+
+// ─── VTT Parser ───────────────────────────────────────────────────────────────
+
+function parseVttTime(s: string): number {
+    const clean = s.trim().split(" ")[0];
+    const parts = clean.split(":");
+    if (parts.length === 3) {
+        return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+    } else if (parts.length === 2) {
+        return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+    }
+    return 0;
 }
 
-export function VideoPlayer({ linkId, anilistId, episodeNum, category }: VideoPlayerProps) {
-    const [embedUrl, setEmbedUrl] = useState<string | null>(null);
-    const [m3u8Url, setM3u8Url] = useState<string | null>(null);
-    const [tracks, setTracks] = useState<Track[]>([]);
-    const [skipTiming, setSkipTiming] = useState<SkipTiming | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
+function parseVtt(text: string): VttCue[] {
+    const cues: VttCue[] = [];
+    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const blocks = normalized.split(/\n{2,}/);
+    for (const block of blocks) {
+        const lines = block.trim().split("\n");
+        const timeLineIdx = lines.findIndex(l => l.includes(" --> "));
+        if (timeLineIdx === -1) continue;
+        const timeLine = lines[timeLineIdx];
+        const arrowIdx = timeLine.indexOf(" --> ");
+        const start = parseVttTime(timeLine.slice(0, arrowIdx));
+        const end = parseVttTime(timeLine.slice(arrowIdx + 5));
+        const rawText = lines.slice(timeLineIdx + 1).join("\n").trim();
+        const cleanText = rawText.replace(/<[^>]+>/g, "").trim();
+        if (cleanText && end > start) {
+            cues.push({ start, end, text: cleanText });
+        }
+    }
+    return cues;
+}
+
+// ─── Main export ─────────────────────────────────────────────────────────────
+
+export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
+    const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [canEmbed, setCanEmbed] = useState<boolean>(true);
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const hlsRef = useRef<HLS | null>(null);
 
     useEffect(() => {
-        let mounted = true;
-
-        async function fetchSource() {
-            if (!linkId && !(anilistId && episodeNum)) {
-                return;
-            }
-            
-            setIsLoading(true);
-            setError(null);
-            
-            try {
-                const response = await fetchVideoSource(linkId, {
-                    anilistId,
-                    episodeNum,
-                    category,
-                });
-                if (mounted) {
-                    if (response.success && response.embedUrl) {
-                        setCanEmbed(response.canEmbed !== false);
-                        setTracks(response.tracks || []);
-                        setSkipTiming(response.skip || null);
-                        
-                        // Prioritize m3u8 if available
-                        if (response.m3u8Url) {
-                            setM3u8Url(response.m3u8Url);
-                            setEmbedUrl(null);
-                        } else if (response.embedUrl) {
-                            try {
-                                const urlObj = new URL(response.embedUrl);
-                                urlObj.searchParams.set('autoPlay', '1');
-                                urlObj.searchParams.set('autostart', 'true');
-                                setEmbedUrl(urlObj.toString());
-                            } catch (e) {
-                                const separator = response.embedUrl.includes('?') ? '&' : '?';
-                                setEmbedUrl(`${response.embedUrl}${separator}autoPlay=1&autostart=true`);
-                            }
-                        }
-                    } else {
-                        setError(response.error || "Could not find a playable stream for this server.");
-                    }
-                }
-            } catch (err) {
-                if (mounted) {
-                    console.error("Failed to fetch source:", err);
-                    setError("Failed to connect to the streaming server. Please try a different server.");
-                }
-            } finally {
-                if (mounted) {
-                    setIsLoading(false);
-                }
-            }
+        console.log("[VideoPlayer] source:", source);
+        console.log("[VideoPlayer] tracks:", tracks);
+        if (source.proxyUrl || source.m3u8) {
+            setPlayerUrl({ m3u8: source.proxyUrl || source.m3u8 });
+        } else if (source.url) {
+            setPlayerUrl({ embed: source.url });
+        } else {
+            setError("No streaming source available");
         }
-
-        fetchSource();
-
-        return () => {
-            mounted = false;
-        };
-    }, [linkId, anilistId, episodeNum, category]);
-
-    // Setup HLS player when m3u8 URL is available
-    useEffect(() => {
-        if (!m3u8Url || !videoRef.current) return;
-
-        const video = videoRef.current;
-        
-        // Cleanup previous HLS instance
-        if (hlsRef.current) {
-            hlsRef.current.destroy();
-            hlsRef.current = null;
-        }
-
-        if (HLS.isSupported()) {
-            const hls = new HLS({
-                debug: false,
-                enableWorker: true,
-                lowLatencyMode: true,
-            });
-            hlsRef.current = hls;
-
-            hls.loadSource(m3u8Url);
-            hls.attachMedia(video);
-
-            hls.on(HLS.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => {
-                    // Autoplay failed, user will click play
-                });
-            });
-
-            hls.on(HLS.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    console.error("HLS fatal error:", data);
-                    setError("Failed to load video stream");
-                }
-            });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Fallback for Safari
-            video.src = m3u8Url;
-            video.play().catch(() => {
-                // Autoplay failed
-            });
-        }
-
-        return () => {
-            if (hlsRef.current) {
-                hlsRef.current.destroy();
-                hlsRef.current = null;
-            }
-        };
-    }, [m3u8Url]);
-
-    // Handle skip timing
-    useEffect(() => {
-        if (!videoRef.current || !skipTiming) return;
-
-        const video = videoRef.current;
-
-        const handleTimeUpdate = () => {
-            const currentTime = video.currentTime;
-
-            // Skip intro
-            if (skipTiming.intro && currentTime >= skipTiming.intro[0] && currentTime < skipTiming.intro[1]) {
-                if (video.currentTime < skipTiming.intro[1]) {
-                    video.currentTime = skipTiming.intro[1];
-                }
-            }
-
-            // Skip outro
-            if (skipTiming.outro && currentTime >= skipTiming.outro[0] && currentTime < skipTiming.outro[1]) {
-                if (video.currentTime < skipTiming.outro[1]) {
-                    video.currentTime = skipTiming.outro[1];
-                }
-            }
-        };
-
-        video.addEventListener('timeupdate', handleTimeUpdate);
-        return () => video.removeEventListener('timeupdate', handleTimeUpdate);
-    }, [skipTiming]);
+        setIsLoading(false);
+    }, [source, tracks]);
 
     if (isLoading) {
         return (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
-                <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-                <p>Loading video player...</p>
+            <div className="w-full aspect-video flex items-center justify-center bg-black text-white">
+                <Loader2 className="w-10 h-10 animate-spin text-primary mr-3" />
+                Loading...
             </div>
         );
     }
 
-    if (error || (!embedUrl && !m3u8Url)) {
+    if (error) {
         return (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-                <p className="text-lg font-medium text-destructive mb-2">Error Loading Media</p>
-                <p className="text-sm text-muted-foreground">{error || "Unknown error occurred"}</p>
+            <div className="w-full aspect-video flex flex-col items-center justify-center bg-black/90 text-white p-6">
+                <AlertCircle className="w-12 h-12 text-destructive mb-3" />
+                <p className="text-sm text-muted-foreground">{error}</p>
             </div>
         );
     }
 
-    // Get caption tracks only (excluding thumbnails)
-    const captionTracks = tracks.filter(t => t.kind === 'captions');
+    if (playerUrl?.m3u8) {
+        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} />;
+    }
 
-    // HLS/M3U8 Player
-    if (m3u8Url) {
+    if (playerUrl?.embed) {
         return (
-            <div className="relative w-full h-full bg-black">
+            <div className="w-full aspect-video">
+                <iframe
+                    src={playerUrl.embed}
+                    className="w-full h-full border-0"
+                    allowFullScreen
+                    allow="autoplay; encrypted-media; fullscreen"
+                    referrerPolicy="origin"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full aspect-video flex items-center justify-center bg-black text-white">
+            <AlertCircle className="w-10 h-10 text-yellow-500 mr-2" />
+            No playable stream found.
+        </div>
+    );
+}
+
+// ─── HLS Player ──────────────────────────────────────────────────────────────
+
+function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<HLS | null>(null);
+
+    // Quality
+    const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
+    const [currentLevel, setCurrentLevel] = useState<number>(-1);
+    const [showQualityMenu, setShowQualityMenu] = useState(false);
+    const qualityBtnRef = useRef<HTMLDivElement>(null);
+
+    // Subtitle — default to the track marked as default, or the first available
+    const defaultTrack = tracks.find(t => t.default) ?? tracks[0] ?? null;
+    const [activeTrack, setActiveTrack] = useState<Track | null>(defaultTrack);
+    const [showSubMenu, setShowSubMenu] = useState(false);
+    const subBtnRef = useRef<HTMLDivElement>(null);
+    const [cues, setCues] = useState<VttCue[]>([]);
+    const [currentCue, setCurrentCue] = useState<string | null>(null);
+    const [loadingSub, setLoadingSub] = useState(false);
+
+    console.log("[HlsPlayer] tracks received:", tracks);
+
+    // ── HLS setup ──
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        hlsRef.current?.destroy();
+        setQualityLevels([]);
+        setCurrentLevel(-1);
+
+        if (HLS.isSupported()) {
+            const hls = new HLS({ debug: false, startLevel: -1 });
+            hlsRef.current = hls;
+            hls.loadSource(m3u8Url);
+            hls.attachMedia(video);
+
+            hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
+                const levels = data.levels
+                    .map((l, i) => ({ height: l.height || 0, bitrate: l.bitrate || 0, index: i }))
+                    .sort((a, b) => b.height - a.height);
+                setQualityLevels(levels);
+                video.play().catch(() => {});
+            });
+
+            hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => setCurrentLevel(data.level));
+            hls.on(HLS.Events.ERROR, (_, data) => {
+                if (data.fatal) console.error("HLS fatal:", data.type, data.details);
+            });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = m3u8Url;
+            video.play().catch(() => {});
+        }
+
+        return () => { hlsRef.current?.destroy(); hlsRef.current = null; };
+    }, [m3u8Url]);
+
+    // ── Fetch VTT ──
+    useEffect(() => {
+        if (!activeTrack) { setCues([]); setCurrentCue(null); return; }
+        const url = activeTrack.proxyUrl || activeTrack.file;
+        if (!url) { console.warn("[Subtitle] No URL on track:", activeTrack); return; }
+        console.log("[Subtitle] Fetching VTT from:", url);
+        setLoadingSub(true);
+        fetch(url)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+            .then(text => {
+                const parsed = parseVtt(text);
+                console.log("[Subtitle] Parsed", parsed.length, "cues");
+                setCues(parsed);
+            })
+            .catch(e => console.error("[Subtitle] Error:", e))
+            .finally(() => setLoadingSub(false));
+    }, [activeTrack]);
+
+    // ── Sync cues ──
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || cues.length === 0) { setCurrentCue(null); return; }
+        const fn = () => {
+            const t = video.currentTime;
+            const cue = cues.find(c => t >= c.start && t <= c.end) ?? null;
+            setCurrentCue(cue ? cue.text : null);
+        };
+        video.addEventListener("timeupdate", fn);
+        return () => video.removeEventListener("timeupdate", fn);
+    }, [cues]);
+
+    // ── Close menus on outside click ──
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (!qualityBtnRef.current?.contains(e.target as Node)) setShowQualityMenu(false);
+            if (!subBtnRef.current?.contains(e.target as Node)) setShowSubMenu(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const handleQuality = (idx: number) => {
+        if (hlsRef.current) hlsRef.current.currentLevel = idx;
+        setCurrentLevel(idx);
+        setShowQualityMenu(false);
+    };
+
+    const currentQualityLabel = (): string => {
+        if (currentLevel === -1) return "Auto";
+        const q = qualityLevels.find(l => l.index === currentLevel);
+        return q ? (q.height > 0 ? `${q.height}p` : `${Math.round(q.bitrate / 1000)}k`) : "Auto";
+    };
+
+    return (
+        <div className="w-full">
+            {/* Video */}
+            <div className="relative w-full aspect-video bg-black">
                 <video
                     ref={videoRef}
-                    className="absolute top-0 left-0 w-full h-full"
+                    className="w-full h-full"
                     controls
                     autoPlay
                     playsInline
-                    crossOrigin="anonymous"
-                >
-                    {captionTracks.map((track, index) => (
-                        <track
-                            key={index}
-                            kind="captions"
-                            src={track.url || track.src}
-                            srcLang={(track.lang || track.srclang || '').split(' ')[0].toLowerCase()}
-                            label={track.label || track.lang || 'Track'}
-                            default={index === 0}
-                        />
-                    ))}
-                </video>
+                />
+                {/* Subtitle overlay */}
+                {currentCue && (
+                    <div
+                        className="absolute left-0 right-0 flex justify-center pointer-events-none px-4"
+                        style={{ bottom: "52px" }}
+                    >
+                        <span style={{
+                            color: "#fff",
+                            fontSize: "clamp(13px, 2vw, 18px)",
+                            fontWeight: 600,
+                            background: "rgba(0,0,0,0.8)",
+                            padding: "3px 10px",
+                            borderRadius: "4px",
+                            whiteSpace: "pre-line",
+                            lineHeight: 1.5,
+                            display: "inline-block",
+                            maxWidth: "90%",
+                            textAlign: "center",
+                        }}>
+                            {currentCue}
+                        </span>
+                    </div>
+                )}
             </div>
-        );
-    }
 
-    // Iframe fallback
-    if (!canEmbed) {
-        // Remove autoplay params for the external link so the browser doesn't force-mute it
-        let externalUrl = embedUrl;
+            {/* Controls toolbar — always visible */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border-t border-white/10">
 
-        try {
-            const urlObj = new URL(externalUrl || '');
-            urlObj.searchParams.delete('autoPlay');
-            urlObj.searchParams.delete('autostart');
-            externalUrl = urlObj.toString();
-        } catch (e) {
-            // fallback if URL parsing fails
-            externalUrl = (externalUrl || '').replace(/[?&]autoPlay=1/, '').replace(/[?&]autostart=true/, '');
-        }
+                {/* ── Subtitle button ── */}
+                {tracks.length > 0 ? (
+                    <div className="relative" ref={subBtnRef}>
+                        <button
+                            onClick={() => { setShowSubMenu(p => !p); setShowQualityMenu(false); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors cursor-pointer ${
+                                activeTrack
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                            }`}
+                        >
+                            <Subtitles className="w-3.5 h-3.5" />
+                            <span>{loadingSub ? "Loading…" : (activeTrack?.label ?? "Subtitle")}</span>
+                            <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {showSubMenu && (
+                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-hidden min-w-[150px] shadow-2xl z-50">
+                                <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10">
+                                    Subtitles
+                                </div>
+                                <button
+                                    onClick={() => { setActiveTrack(null); setShowSubMenu(false); }}
+                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                >
+                                    {!activeTrack ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
+                                    Off
+                                </button>
+                                {tracks.map((track, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => { setActiveTrack(track); setShowSubMenu(false); }}
+                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                    >
+                                        {activeTrack === track
+                                            ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                                            : <span className="w-3.5" />
+                                        }
+                                        {track.label ?? `Track ${i + 1}`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-xs text-white/30 px-2">No subtitle</span>
+                )}
 
-        return (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-yellow-500 mb-4" />
-                <p className="text-xl font-bold mb-2">External Player Required</p>
-                <p className="text-sm text-muted-foreground max-w-md mb-6">
-                    This streaming server does not allow direct embedding. Please open the video in a new tab or select a different server from the list.
-                </p>
-                <a 
-                    href={externalUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="px-6 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-                >
-                    Watch in New Tab
-                </a>
+                {/* ── Quality button ── */}
+                {qualityLevels.length > 1 && (
+                    <div className="relative" ref={qualityBtnRef}>
+                        <button
+                            onClick={() => { setShowQualityMenu(p => !p); setShowSubMenu(false); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors cursor-pointer"
+                        >
+                            <Settings className="w-3.5 h-3.5" />
+                            <span>{currentQualityLabel()}</span>
+                            <ChevronDown className="w-3 h-3" />
+                        </button>
+                        {showQualityMenu && (
+                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-hidden min-w-[120px] shadow-2xl z-50">
+                                <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10">
+                                    Quality
+                                </div>
+                                <button
+                                    onClick={() => handleQuality(-1)}
+                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                >
+                                    {currentLevel === -1 ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
+                                    Auto
+                                </button>
+                                {qualityLevels.map(level => (
+                                    <button
+                                        key={level.index}
+                                        onClick={() => handleQuality(level.index)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                    >
+                                        {currentLevel === level.index ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
+                                        {level.height > 0 ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Status indicator */}
+                <div className="ml-auto text-xs text-white/30 flex items-center gap-2">
+                    {activeTrack && !loadingSub && <span className="text-green-400">● {activeTrack.label}</span>}
+                    {loadingSub && <span className="text-yellow-400">● Loading subtitle…</span>}
+                </div>
             </div>
-        );
-    }
-
-    // Standard iframe embed
-    return (
-        <iframe 
-            src={embedUrl || ''}
-            className="absolute top-0 left-0 w-full h-full border-0"
-            allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen"
-            scrolling="no"
-            referrerPolicy="origin"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
-        />
+        </div>
     );
 }

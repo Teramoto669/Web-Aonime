@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Mic2, Subtitles, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -45,8 +45,7 @@ export function EpisodeListClient({
       const query = searchQuery.toLowerCase().trim();
       result = result.filter((ep) => {
         const epNumStr = ep.number.toString();
-        const title = ep.title?.toLowerCase() || "";
-        return epNumStr.includes(query) || title.includes(query);
+        return epNumStr.includes(query);
       });
     } else {
       // Only apply range filter if no search query
@@ -93,7 +92,7 @@ export function EpisodeListClient({
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by episode number or title..."
+              placeholder="Search by episode number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8"
@@ -138,35 +137,26 @@ export function EpisodeListClient({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 p-4">
             {filteredEpisodes.map((ep) => (
               <Button
-                key={ep.token ?? ep.number}
+                key={ep.id ?? ep.number}
                 asChild
                 variant={currentEpisode === ep.number ? "default" : "outline"}
                 className={cn("justify-start h-auto py-2 flex flex-col items-start")}
-                title={ep.title || `Episode ${ep.number}`}
+                title={`Episode ${ep.number}`}
               >
-                <Link href={`/watch/${animeId}?num=${ep.number}&range=${selectedRange}`}>
+                <Link href={`/watch/${animeId}?ep=${ep.number}&range=${selectedRange}`}>
                   <div className="flex items-center gap-1 w-full">
                     <span className="font-semibold">EP {ep.number}</span>
                     {!hideIcons && (
                       <div className="flex gap-1 ml-auto">
-                        {ep.has_sub && (
-                          <span title="Subtitled">
-                            <Subtitles className="w-3 h-3 text-blue-400" />
-                          </span>
+                        {ep.hasSub && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 leading-none">SUB</span>
                         )}
-                        {ep.has_dub && (
-                          <span title="Dubbed">
-                            <Mic2 className="w-3 h-3 text-green-400" />
-                          </span>
+                        {ep.hasDub && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-green-500/20 text-green-400 leading-none">DUB</span>
                         )}
                       </div>
                     )}
                   </div>
-                  {ep.title && ep.title !== `Episode ${ep.number}` && (
-                    <span className="text-xs text-muted-foreground line-clamp-1 w-full">
-                      {ep.title}
-                    </span>
-                  )}
                 </Link>
               </Button>
             ))}
