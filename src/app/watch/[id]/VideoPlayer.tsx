@@ -254,8 +254,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                         <span style={{
                             color: "#fff",
                             fontSize: "clamp(13px, 2vw, 18px)",
-                            fontWeight: 600,
-                            background: "rgba(0,0,0,0.8)",
+                            fontWeight: 700,
+                            background: "none",
                             padding: "3px 10px",
                             borderRadius: "4px",
                             whiteSpace: "pre-line",
@@ -263,6 +263,16 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                             display: "inline-block",
                             maxWidth: "90%",
                             textAlign: "center",
+                            textShadow: [
+                                "-2px -2px 0 #000",
+                                " 2px -2px 0 #000",
+                                "-2px  2px 0 #000",
+                                " 2px  2px 0 #000",
+                                "-2px  0   0 #000",
+                                " 2px  0   0 #000",
+                                " 0   -2px 0 #000",
+                                " 0    2px 0 #000",
+                            ].join(","),
                         }}>
                             {currentCue}
                         </span>
