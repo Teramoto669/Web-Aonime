@@ -36,7 +36,7 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
   // Initialize selected filters from URL
   useEffect(() => {
     const currentFilters: Record<string, string[]> = {};
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year'];
+    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'language', 'rating'];
     
     arrayKeys.forEach(key => {
       const values = searchParams.getAll(`${key}[]`); // The new API expects genre[], year[], etc. Wait, no, searchParams in Next.js might be genre or genre[].
@@ -71,7 +71,8 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
     const params = new URLSearchParams(searchParams.toString());
     
     // Clear old filter array params
-    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'type[]', 'genre[]', 'status[]', 'season[]', 'year[]'];
+    const arrayKeys = ['type', 'genre', 'status', 'season', 'year', 'language', 'rating',
+                        'type[]', 'genre[]', 'status[]', 'season[]', 'year[]', 'language[]', 'rating[]'];
     arrayKeys.forEach(key => params.delete(key));
 
     // Apply new filters
@@ -205,6 +206,8 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
             {renderFilterCategory("Status", "status", "statuses")}
             {renderFilterCategory("Season", "season", "seasons")}
             {renderFilterCategory("Year", "year", "years")}
+            {renderFilterCategory("Language", "language", "languages")}
+            {renderFilterCategory("Rating", "rating", "ratings")}
           </Accordion>
         </ScrollArea>
 

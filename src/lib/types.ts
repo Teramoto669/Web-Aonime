@@ -148,6 +148,8 @@ export type FilterOptions = {
   types?: string[];
   seasons?: string[];
   statuses?: string[];
+  languages?: string[];
+  ratings?: string[];
   sorts?: string[];
 };
 

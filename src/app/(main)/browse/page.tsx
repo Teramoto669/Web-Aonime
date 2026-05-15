@@ -1,21 +1,44 @@
-import { browseAnime, getFilters } from "@/lib/api";
+import { browseAnime } from "@/lib/api";
 import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { Pagination } from "@/components/Pagination";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SortClient } from "./SortClient";
 import { FilterMenu } from "@/components/FilterMenu";
+import type { FilterOptions } from "@/lib/types";
+
+// Static filter options from /api/filter — no API call needed
+const STATIC_FILTERS: FilterOptions = {
+    genres: [
+        "action", "adventure", "cars", "comedy", "dementia", "demons",
+        "drama", "ecchi", "fantasy", "game", "harem", "historical",
+        "horror", "isekai", "josei", "kids", "magic", "martial-arts",
+        "mecha", "military", "music", "mystery", "parody", "police",
+        "psychological", "romance", "samurai", "school", "sci-fi",
+        "seinen", "shoujo", "shoujo-ai", "shounen", "shounen-ai",
+        "slice-of-life", "space", "sports", "super-power", "supernatural",
+        "thriller", "unknown", "vampire",
+    ],
+    years: [
+        "2026","2025","2024","2023","2022","2021","2020","2019","2018",
+        "2017","2016","2015","2014","2013","2012","2011","2010","2009",
+        "2008","2007","2006","2005","2004","2003","2002","2001","2000","1999",
+    ],
+    types: ["tv", "movie", "ova", "ona", "special", "music"],
+    seasons: ["spring", "summer", "fall", "winter"],
+    statuses: ["currently-airing", "finished-airing", "not-yet-aired"],
+    languages: ["sub", "dub"],
+    ratings: ["G", "PG", "PG-13", "R", "R+", "Rx"],
+};
 
 const SORT_OPTIONS = [
-    { value: 'updated_date',  label: 'Recently Updated' },
-    { value: 'added_date',    label: 'Recently Added' },
-    { value: 'trending',      label: 'Trending' },
-    { value: 'most_viewed',   label: 'Most Viewed' },
-    { value: 'most_followed', label: 'Most Followed' },
-    { value: 'title_az',      label: 'Alphabetical (A-Z)' },
-    { value: 'avg_score',     label: 'Average Score' },
-    { value: 'mal_score',     label: 'MAL Score' },
-    { value: 'release_date',  label: 'Release Date' },
+    { value: "default",          label: "Default" },
+    { value: "recently-added",   label: "Recently Added" },
+    { value: "recently-updated", label: "Recently Updated" },
+    { value: "score",            label: "Score" },
+    { value: "name-a-z",         label: "Name A-Z" },
+    { value: "released-date",    label: "Released Date" },
+    { value: "most-watched",     label: "Most Watched" },
 ];
 
 async function BrowsePageContent({ page, sort, filters }: { page: number; sort: string; filters: Record<string, string[]> }) {
@@ -63,31 +86,29 @@ function LoadingSkeleton() {
 export default async function BrowsePage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await props.searchParams;
   const page = typeof params.page === 'string' ? Number(params.page) : 1;
-  const sort = typeof params.sort === 'string' ? params.sort : 'updated_date';
+  const sort = typeof params.sort === 'string' ? params.sort : 'default';
 
-  const filterKeys = ['type', 'genre', 'status', 'season', 'year', 'rating', 'country', 'language'];
+  // Filter keys matching the new API
+  const filterKeys = ['type', 'genre', 'status', 'season', 'year', 'language', 'rating'];
   const filters: Record<string, string[]> = {};
-  
+
   for (const key of filterKeys) {
-    const val = params[key];
+    const val = params[key] ?? params[`${key}[]`];
     if (val) {
       filters[key] = Array.isArray(val) ? val : [val];
     }
   }
 
-  // Generate a key for suspense so it reloads correctly
   const filterKeyString = Object.entries(filters)
     .map(([k, v]) => `${k}=${v.join(',')}`)
     .join('&');
-
-  const filtersData = await getFilters().catch(() => null);
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Browse Anime</h1>
-          {filtersData && <FilterMenu filtersData={filtersData} />}
+          <FilterMenu filtersData={STATIC_FILTERS} />
         </div>
         <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Sort by:</span>
