@@ -269,17 +269,21 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
     // ── Inject subtitle styling ──
     useEffect(() => {
-        if (!document.getElementById('video-subtitle-styles')) {
-            const style = document.createElement('style');
-            style.id = 'video-subtitle-styles';
-            style.textContent = `
+        const styleId = 'video-subtitle-styles';
+        let style = document.getElementById(styleId) as HTMLStyleElement;
+        if (!style) {
+            style = document.createElement('style');
+            style.id = styleId;
+            document.head.appendChild(style);
+        }
+        style.textContent = `
                 video::cue {
                     color: #ffffff !important;
                     font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
                     font-size: var(--subtitle-font-size) !important;
                     font-weight: 700 !important;
                     background: none !important;
-                    padding: 4px 12px !important;
+                    padding: 4px 8px !important;
                     border-radius: 6px !important;
                     line-height: 1.4 !important;
                     white-space: pre-line !important;
@@ -293,6 +297,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                          1.5px  1.5px 0 #000,
                          0px 3px 6px rgba(0,0,0,0.8) !important;
                 }
+                /* Prevent subtitles from jumping and move them higher */
+                video::-webkit-media-text-track-container {
+                    transform: translateY(-28px) !important;
+                }
                 /* Ensure native fullscreen button is visible */
                 video::-webkit-media-controls-fullscreen-button {
                     display: flex !important;
@@ -304,9 +312,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     --subtitle-font-size: clamp(16px, 2.5vw, 28px);
                 }
             `;
-            document.head.appendChild(style);
-        }
-    }, []);
+    }, [isFullscreen]);
 
     return (
         <div className="w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-2xl" id="player-wrapper">
