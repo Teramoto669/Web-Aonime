@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Loader2, AlertCircle, Settings, Subtitles, Check, ChevronDown, Maximize2, Minimize2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check } from "lucide-react";
 import HLS from "hls.js";
 import type { Source, Track } from "@/lib/types";
 
@@ -17,46 +17,6 @@ type QualityLevel = {
     bitrate: number;
     index: number;
 };
-
-type VttCue = {
-    start: number;
-    end: number;
-    text: string;
-};
-
-// ─── VTT Parser ───────────────────────────────────────────────────────────────
-
-function parseVttTime(s: string): number {
-    const clean = s.trim().split(" ")[0];
-    const parts = clean.split(":");
-    if (parts.length === 3) {
-        return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
-    } else if (parts.length === 2) {
-        return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-    }
-    return 0;
-}
-
-function parseVtt(text: string): VttCue[] {
-    const cues: VttCue[] = [];
-    const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    const blocks = normalized.split(/\n{2,}/);
-    for (const block of blocks) {
-        const lines = block.trim().split("\n");
-        const timeLineIdx = lines.findIndex(l => l.includes(" --> "));
-        if (timeLineIdx === -1) continue;
-        const timeLine = lines[timeLineIdx];
-        const arrowIdx = timeLine.indexOf(" --> ");
-        const start = parseVttTime(timeLine.slice(0, arrowIdx));
-        const end = parseVttTime(timeLine.slice(arrowIdx + 5));
-        const rawText = lines.slice(timeLineIdx + 1).join("\n").trim();
-        const cleanText = rawText.replace(/<[^>]+>/g, "").trim();
-        if (cleanText && end > start) {
-            cues.push({ start, end, text: cleanText });
-        }
-    }
-    return cues;
-}
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
@@ -144,28 +104,21 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
 
 function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
     const hlsRef = useRef<HLS | null>(null);
 
-    // Quality
     const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
     const [currentLevel, setCurrentLevel] = useState<number>(-1);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(-1);
+    const [activeTrack, setActiveTrack] = useState<Track | null>(null);
+    const [loadingSub, setLoadingSub] = useState(false);
     const [showQualityMenu, setShowQualityMenu] = useState(false);
+    const [showSubMenu, setShowSubMenu] = useState(false);
+
+    const subBtnRef = useRef<HTMLDivElement>(null);
     const qualityBtnRef = useRef<HTMLDivElement>(null);
 
-    // Subtitle — default to the track marked as default, or the first available
-    const defaultTrack = tracks.find(t => t.default) ?? tracks[0] ?? null;
-    const [activeTrack, setActiveTrack] = useState<Track | null>(defaultTrack);
-    const [showSubMenu, setShowSubMenu] = useState(false);
-    const subBtnRef = useRef<HTMLDivElement>(null);
-    const [cues, setCues] = useState<VttCue[]>([]);
-    const [currentCue, setCurrentCue] = useState<string | null>(null);
-    const [loadingSub, setLoadingSub] = useState(false);
-
-    // Fullscreen state
-    const [isFullscreen, setIsFullscreen] = useState(false);
-
-    console.log("[HlsPlayer] tracks received:", tracks);
+    console.log("[HlsPlayer] manifest URL:", m3u8Url, "tracks:", tracks);
 
     // ── HLS setup ──
     useEffect(() => {
@@ -186,7 +139,6 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 startFragPrefetch: false,
                 abrBandWidthFactor: 0.8,
                 abrBandWidthUpFactor: 0.6,
-                // Allow cross-origin segment fetches (direct CDN)
                 xhrSetup: (xhr, url) => {
                     xhr.withCredentials = false;
                 },
@@ -201,7 +153,6 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     .sort((a, b) => b.height - a.height);
                 setQualityLevels(levels);
 
-                // Restore saved quality preference
                 const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
                 if (savedHeight > 0) {
                     const matched = data.levels.findIndex(l => l.height === savedHeight);
@@ -224,179 +175,163 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         }
 
         return () => { hlsRef.current?.destroy(); hlsRef.current = null; };
-    }, [m3u8Url]);
+    }, [m3u8Url, tracks]);
 
-    // ── Fetch VTT ──
-    useEffect(() => {
-        if (!activeTrack) { setCues([]); setCurrentCue(null); return; }
-        const url = activeTrack.proxyUrl || activeTrack.file;
-        if (!url) { console.warn("[Subtitle] No URL on track:", activeTrack); return; }
-        console.log("[Subtitle] Fetching VTT from:", url);
+    // ── Handle subtitle selection ──
+    const handleSubtitleChange = (index: number) => {
+        const video = videoRef.current;
+        if (!video || !video.textTracks) return;
+
         setLoadingSub(true);
-        fetch(url)
-            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-            .then(text => {
-                const parsed = parseVtt(text);
-                console.log("[Subtitle] Parsed", parsed.length, "cues");
-                setCues(parsed);
-            })
-            .catch(e => console.error("[Subtitle] Error:", e))
-            .finally(() => setLoadingSub(false));
-    }, [activeTrack]);
+        // Hide all tracks
+        for (let i = 0; i < video.textTracks.length; i++) {
+            video.textTracks[i].mode = 'hidden';
+        }
 
-    // ── Sync cues ──
+        // Show selected track if index >= 0
+        if (index >= 0 && index < video.textTracks.length) {
+            video.textTracks[index].mode = 'showing';
+            setSelectedSubtitleIndex(index);
+            setActiveTrack(tracks[index]);
+            console.log("[HlsPlayer] Subtitle switched to:", video.textTracks[index].label);
+        } else {
+            setSelectedSubtitleIndex(-1);
+            setActiveTrack(null);
+            console.log("[HlsPlayer] Subtitles disabled");
+        }
+        setLoadingSub(false);
+    };
+
+    // ── Auto-enable first subtitle track on load ──
     useEffect(() => {
         const video = videoRef.current;
-        if (!video || cues.length === 0) { setCurrentCue(null); return; }
-        const fn = () => {
-            const t = video.currentTime;
-            const cue = cues.find(c => t >= c.start && t <= c.end) ?? null;
-            setCurrentCue(cue ? cue.text : null);
+        if (!video || !tracks.length) return;
+
+        const enableSubtitle = () => {
+            if (video.textTracks && video.textTracks.length > 0) {
+                handleSubtitleChange(0);
+            }
         };
-        video.addEventListener("timeupdate", fn);
-        return () => video.removeEventListener("timeupdate", fn);
-    }, [cues]);
 
-    // ── Close menus on outside click ──
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (!qualityBtnRef.current?.contains(e.target as Node)) setShowQualityMenu(false);
-            if (!subBtnRef.current?.contains(e.target as Node)) setShowSubMenu(false);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
+        enableSubtitle();
+        const timer = setTimeout(enableSubtitle, 500);
+        return () => clearTimeout(timer);
+    }, [tracks]);
 
-    // ── Fullscreen detection (simple — we always fullscreen the container) ──
-    useEffect(() => {
-        const onFsChange = () => {
-            const fsEl = document.fullscreenElement
-                ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
-                ?? null;
-            const isFs = !!fsEl;
-            setIsFullscreen(isFs);
-
-            if (isFs) {
-                try {
-                    if (window.screen && screen.orientation && screen.orientation.lock) {
-                        screen.orientation.lock("landscape").catch((err) => console.warn("Orientation lock failed:", err));
-                    }
-                } catch (e) {}
+    // ── Handle quality change ──
+    const handleQuality = (levelIndex: number) => {
+        if (hlsRef.current) {
+            hlsRef.current.currentLevel = levelIndex;
+            if (levelIndex === -1) {
+                localStorage.removeItem('preferred-quality-height');
             } else {
-                try {
-                    if (window.screen && screen.orientation && screen.orientation.unlock) {
-                        screen.orientation.unlock();
-                    }
-                } catch (e) {}
+                localStorage.setItem('preferred-quality-height',
+                    String(hlsRef.current.levels[levelIndex]?.height || -1));
             }
-        };
-        document.addEventListener("fullscreenchange", onFsChange);
-        document.addEventListener("webkitfullscreenchange", onFsChange);
-        return () => {
-            document.removeEventListener("fullscreenchange", onFsChange);
-            document.removeEventListener("webkitfullscreenchange", onFsChange);
-        };
-    }, []);
-
-    // ── Custom fullscreen toggle (targets container, not video) ──
-    const handleFullscreen = useCallback(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const fsEl = document.fullscreenElement
-            ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement
-            ?? null;
-        if (!fsEl) {
-            container.requestFullscreen?.() ??
-                (container as unknown as { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen?.();
-        } else {
-            document.exitFullscreen?.() ??
-                (document as unknown as { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.();
-        }
-    }, []);
-
-    const handleQuality = (idx: number) => {
-        if (hlsRef.current) hlsRef.current.currentLevel = idx;
-        setCurrentLevel(idx);
-        setShowQualityMenu(false);
-        // Persist preference by height (-1 = Auto)
-        if (idx === -1) {
-            localStorage.removeItem("preferred-quality-height");
-        } else {
-            const q = qualityLevels.find(l => l.index === idx);
-            if (q && q.height > 0) {
-                localStorage.setItem("preferred-quality-height", String(q.height));
-            }
+            setCurrentLevel(levelIndex);
+            setShowQualityMenu(false);
+            console.log("[HlsPlayer] Quality changed to level", levelIndex);
         }
     };
 
-    const currentQualityLabel = (): string => {
-        if (currentLevel === -1) return "Auto";
-        const q = qualityLevels.find(l => l.index === currentLevel);
-        return q ? (q.height > 0 ? `${q.height}p` : `${Math.round(q.bitrate / 1000)}k`) : "Auto";
+    const currentQualityLabel = () => {
+        if (currentLevel === -1) return 'Auto';
+        const level = qualityLevels.find(l => l.index === currentLevel);
+        if (!level) return 'Auto';
+        return level.height > 0 ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`;
     };
 
-    // Subtitle overlay style — always absolute inside container
-    // (container is always the fullscreen element, so subtitle is always visible)
-    const subtitleStyle: React.CSSProperties = {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: isFullscreen ? "8%" : "52px",
-        display: "flex",
-        justifyContent: "center",
-        pointerEvents: "none",
-        padding: "0 16px",
-        zIndex: 10,
-    };
+    // ── Click away listener ──
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (subBtnRef.current && !subBtnRef.current.contains(event.target as Node)) {
+                setShowSubMenu(false);
+            }
+            if (qualityBtnRef.current && !qualityBtnRef.current.contains(event.target as Node)) {
+                setShowQualityMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // ── Track fullscreen changes ──
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            const fs = !!document.fullscreenElement;
+            setIsFullscreen(fs);
+            // Update CSS variable for responsive font sizing
+            document.documentElement.style.setProperty('--is-fullscreen', fs ? '1' : '0');
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+    // ── Inject subtitle styling ──
+    useEffect(() => {
+        if (!document.getElementById('video-subtitle-styles')) {
+            const style = document.createElement('style');
+            style.id = 'video-subtitle-styles';
+            style.textContent = `
+                video::cue {
+                    color: #ffffff !important;
+                    font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
+                    font-size: var(--subtitle-font-size) !important;
+                    font-weight: 700 !important;
+                    background: none !important;
+                    padding: 4px 12px !important;
+                    border-radius: 6px !important;
+                    line-height: 1.4 !important;
+                    white-space: pre-line !important;
+                    display: inline-block !important;
+                    max-width: 90% !important;
+                    text-align: center !important;
+                    text-shadow:
+                        -1.5px -1.5px 0 #000,
+                         1.5px -1.5px 0 #000,
+                        -1.5px  1.5px 0 #000,
+                         1.5px  1.5px 0 #000,
+                         0px 3px 6px rgba(0,0,0,0.8) !important;
+                }
+                /* Ensure native fullscreen button is visible */
+                video::-webkit-media-controls-fullscreen-button {
+                    display: flex !important;
+                }
+                :root {
+                    --subtitle-font-size: clamp(13px, 2vw, 18px);
+                }
+                :root[style*="--is-fullscreen: 1"] {
+                    --subtitle-font-size: clamp(16px, 2.5vw, 28px);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
 
     return (
-        <div className="w-full">
-            {/* Video container — always the fullscreen target */}
-            <div
-                ref={containerRef}
-                className="relative w-full aspect-video bg-black"
-                onDoubleClick={handleFullscreen}
-            >
+        <div className="w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-2xl" id="player-wrapper">
+            {/* Video Player Container */}
+            <div className="w-full aspect-video bg-black relative group">
                 <video
                     ref={videoRef}
-                    className="w-full h-full"
+                    className="w-full h-full block"
                     controls
                     autoPlay
+                    crossOrigin="anonymous"
                     playsInline
-                    // Hide native fullscreen button so user always uses ours
-                    // (prevents browser fullscreening video without our subtitle overlay)
-                    style={{ ['--hide-fs' as string]: '1' }}
-                />
-                {/* Subtitle overlay — absolute in normal mode, fixed in fullscreen */}
-                {currentCue && (
-                    <div style={subtitleStyle}>
-                        <span style={{
-                            color: "#fff",
-                            fontSize: isFullscreen ? "clamp(16px, 2.5vw, 28px)" : "clamp(13px, 2vw, 18px)",
-                            fontWeight: 700,
-                            background: "none",
-                            padding: "3px 10px",
-                            borderRadius: "4px",
-                            whiteSpace: "pre-line",
-                            lineHeight: 1.5,
-                            display: "inline-block",
-                            maxWidth: "90%",
-                            textAlign: "center",
-                            textShadow: [
-                                "-2px -2px 0 #000",
-                                " 2px -2px 0 #000",
-                                "-2px  2px 0 #000",
-                                " 2px  2px 0 #000",
-                                "-2px  0   0 #000",
-                                " 2px  0   0 #000",
-                                " 0   -2px 0 #000",
-                                " 0    2px 0 #000",
-                            ].join(","),
-                        }}>
-                            {currentCue}
-                        </span>
-                    </div>
-                )}
+                >
+                    {/* Native fallback tracks for iOS Safari and browsers without HLS.js */}
+                    {tracks.map((track, i) => (
+                        <track
+                            key={i}
+                            kind="subtitles"
+                            src={track.proxyUrl || track.file}
+                            srcLang={track.label?.substring(0, 2).toLowerCase() || 'en'}
+                            label={track.label || `Track ${i + 1}`}
+                            default={selectedSubtitleIndex === i}
+                        />
+                    ))}
+                </video>
             </div>
 
             {/* Controls toolbar — always visible */}
@@ -422,7 +357,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                                     Subtitles
                                 </div>
                                 <button
-                                    onClick={() => { setActiveTrack(null); setShowSubMenu(false); }}
+                                    onClick={() => { handleSubtitleChange(-1); setShowSubMenu(false); }}
                                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
                                 >
                                     {!activeTrack ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
@@ -431,7 +366,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                                 {tracks.map((track, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => { setActiveTrack(track); setShowSubMenu(false); }}
+                                        onClick={() => { handleSubtitleChange(i); setShowSubMenu(false); }}
                                         className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
                                     >
                                         {activeTrack === track
@@ -491,17 +426,6 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     {activeTrack && !loadingSub && <span className="text-green-400">● {activeTrack.label}</span>}
                     {loadingSub && <span className="text-yellow-400">● Loading subtitle…</span>}
                 </div>
-
-                {/* ── Fullscreen button ── */}
-                <button
-                    onClick={handleFullscreen}
-                    title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                    className="flex items-center justify-center w-8 h-8 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                    {isFullscreen
-                        ? <Minimize2 className="w-4 h-4" />
-                        : <Maximize2 className="w-4 h-4" />}
-                </button>
             </div>
         </div>
     );
