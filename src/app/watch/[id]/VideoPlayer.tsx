@@ -341,7 +341,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     --subtitle-font-size: clamp(12px, 4vw, 20px);
                 }
                 :root[style*="--is-fullscreen: 1"] {
-                    --subtitle-font-size: clamp(20px, 6vw, 38px);
+                    --subtitle-font-size: clamp(16px, 5vw, 26px);
                 }
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 5px;
