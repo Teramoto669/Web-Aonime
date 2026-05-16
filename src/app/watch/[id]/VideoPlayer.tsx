@@ -283,9 +283,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     font-size: var(--subtitle-font-size) !important;
                     font-weight: 700 !important;
                     background: none !important;
-                    padding: 4px 8px !important;
+                    padding: 2px 4px !important;
                     border-radius: 6px !important;
-                    line-height: 1.4 !important;
+                    line-height: 1.2 !important;
                     white-space: pre-line !important;
                     display: inline-block !important;
                     max-width: 90% !important;
@@ -306,10 +306,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     display: flex !important;
                 }
                 :root {
-                    --subtitle-font-size: clamp(13px, 2vw, 18px);
+                    --subtitle-font-size: clamp(13px, 3.5vw, 18px);
                 }
                 :root[style*="--is-fullscreen: 1"] {
-                    --subtitle-font-size: clamp(16px, 2.5vw, 28px);
+                    --subtitle-font-size: clamp(16px, 5vw, 28px);
                 }
             `;
     }, [isFullscreen]);
