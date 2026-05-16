@@ -311,6 +311,19 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 :root[style*="--is-fullscreen: 1"] {
                     --subtitle-font-size: clamp(16px, 5vw, 28px);
                 }
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
             `;
     }, [isFullscreen]);
 
@@ -358,8 +371,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                             <ChevronDown className="w-3 h-3" />
                         </button>
                         {showSubMenu && (
-                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-hidden min-w-[150px] shadow-2xl z-50">
-                                <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10">
+                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-y-auto max-h-[350px] min-w-[180px] shadow-2xl z-50 custom-scrollbar">
+                                <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10 z-10">
                                     Subtitles
                                 </div>
                                 <button
@@ -401,8 +414,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                             <ChevronDown className="w-3 h-3" />
                         </button>
                         {showQualityMenu && (
-                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-hidden min-w-[120px] shadow-2xl z-50">
-                                <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10">
+                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-y-auto max-h-[350px] min-w-[120px] shadow-2xl z-50 custom-scrollbar">
+                                <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10 z-10">
                                     Quality
                                 </div>
                                 <button
