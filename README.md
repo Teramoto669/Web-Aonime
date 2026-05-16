@@ -1,31 +1,49 @@
-## Rust M3U8 proxy configuration
+# Web-Aonime
 
-The video player can be configured to use an external Rust-based m3u8 proxy (recommended) which accepts `url`, `headers` and `origin` query parameters.
-
-Set the proxy base URL in your environment using the `NEXT_PUBLIC_RUST_PROXY` variable. Example values:
-
-- `http://127.0.0.1:8080` (default used when not set)
-- `http://your-proxy.example.com`
-
-You can set it locally in a `.env.local` file at the project root:
-
-```
-NEXT_PUBLIC_RUST_PROXY=http://127.0.0.1:8080
-```
-
-Or export it in your shell before running the dev server. On PowerShell:
-
-```powershell
-$env:NEXT_PUBLIC_RUST_PROXY='http://127.0.0.1:8080'; npm run dev
-```
-
-If `NEXT_PUBLIC_RUST_PROXY` is not set, the player falls back to `http://127.0.0.1:8080`.
+A modern web client to browse, search, and watch anime. Built with Next.js App Router, Tailwind CSS, and shadcn/ui.
 
 ## Features
 
-- [Uses aniwatch-api](https://github.com/ghoshRitesh12/aniwatch-api)
-- [Uses megaplay.buzz/api](https://megaplay.buzz/api)
-- Browse anime
-- Search anime
-- View anime details
-- Watch anime episodes
+- **Browse & Search Anime**: Find your favorite anime with ease.
+- **View Anime Details**: Check episodes, descriptions, and show information.
+- **Watch Anime**: Seamless video playback using a custom `hls.js` video player.
+- **Robust APIs**: Integrates with `anikoto-scrap`.
+
+## Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), React 18
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Video Player**: HLS.js, custom UI
+- **Proxy/Backend**: Cloudflare Workers
+
+## Getting Started
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+   *Note: Next.js dev server is configured to run on port 9002 with Turbopack.*
+
+3. **Open [http://localhost:9002](http://localhost:9002) in your browser.**
+
+## Proxy Configuration
+
+To play certain protected M3U8 HLS streams, Web-Aonime uses a proxy to spoof headers (Origin, Referer) so requests aren't blocked by CORS.
+
+### Cloudflare Worker Proxy
+
+A lightweight proxy designed to run on Cloudflare Workers. It proxies all HLS requests (manifests, segments, subtitles) securely. Free tier includes 100K requests/day and unlimited bandwidth.
+
+To deploy your own proxy:
+1. Navigate to the worker directory: `cd cloudflare-worker`
+2. Deploy via wrangler: `npx wrangler deploy`
+3. Once deployed, add the worker URL to your project's `.env` or `.env.local` file:
+
+   ```env
+   NEXT_PUBLIC_CF_PROXY_URL=https://your-worker-url.workers.dev
+   ```
