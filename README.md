@@ -35,7 +35,7 @@ A modern web client to browse, search, and watch anime. Built with Next.js App R
 
 To play certain protected M3U8 HLS streams, Web-Aonime uses a proxy to spoof headers (Origin, Referer) so requests aren't blocked by CORS.
 
-### Cloudflare Worker Proxy
+### Cloudflare Worker Proxy (OPTIONAL)
 
 A lightweight proxy designed to run on Cloudflare Workers. It proxies all HLS requests (manifests, segments, subtitles) securely. Free tier includes 100K requests/day and unlimited bandwidth.
 
