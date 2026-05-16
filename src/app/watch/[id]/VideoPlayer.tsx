@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check } from "lucide-react";
+import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check, Palette, Type, RotateCcw } from "lucide-react";
 import HLS from "hls.js";
 import type { Source, Track } from "@/lib/types";
 
@@ -114,6 +114,15 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     const [loadingSub, setLoadingSub] = useState(false);
     const [showQualityMenu, setShowQualityMenu] = useState(false);
     const [showSubMenu, setShowSubMenu] = useState(false);
+    const [showSubConfig, setShowSubConfig] = useState(false);
+
+    const [subConfig, setSubConfig] = useState({
+        size: 1, // multiplier
+        color: '#ffffff',
+        background: 'rgba(0, 0, 0, 0)',
+        showOutline: true,
+        showShadow: true,
+    });
 
     const subBtnRef = useRef<HTMLDivElement>(null);
     const qualityBtnRef = useRef<HTMLDivElement>(null);
@@ -246,6 +255,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         const handleClickOutside = (event: MouseEvent) => {
             if (subBtnRef.current && !subBtnRef.current.contains(event.target as Node)) {
                 setShowSubMenu(false);
+                setShowSubConfig(false);
             }
             if (qualityBtnRef.current && !qualityBtnRef.current.contains(event.target as Node)) {
                 setShowQualityMenu(false);
@@ -254,6 +264,30 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // ── Load/Save Subtitle Config ──
+    useEffect(() => {
+        const saved = localStorage.getItem("subtitle-config");
+        if (saved) {
+            try {
+                setSubConfig(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse subtitle config", e);
+            }
+        }
+    }, []);
+
+    const updateSubConfig = (newConfig: Partial<typeof subConfig>) => {
+        const updated = { ...subConfig, ...newConfig };
+        setSubConfig(updated);
+        localStorage.setItem("subtitle-config", JSON.stringify(updated));
+    };
+
+    const resetSubConfig = () => {
+        const def = { size: 1, color: '#ffffff', background: 'rgba(0, 0, 0, 0)', showOutline: true, showShadow: true };
+        setSubConfig(def);
+        localStorage.removeItem("subtitle-config");
+    };
 
     // ── Track fullscreen changes ──
     useEffect(() => {
@@ -278,24 +312,22 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         }
         style.textContent = `
                 video::cue {
-                    color: #ffffff !important;
                     font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
-                    font-size: var(--subtitle-font-size) !important;
+                    font-size: calc(var(--subtitle-font-size) * ${subConfig.size}) !important;
                     font-weight: 700 !important;
-                    background: none !important;
-                    padding: 2px 4px !important;
-                    border-radius: 6px !important;
-                    line-height: 1.2 !important;
+                    background: ${subConfig.background} !important;
+                    color: ${subConfig.color} !important;
+                    padding: 2px 8px !important;
+                    border-radius: 4px !important;
+                    line-height: 1.3 !important;
                     white-space: pre-line !important;
                     display: inline-block !important;
                     max-width: 90% !important;
                     text-align: center !important;
-                    text-shadow:
-                        -1.5px -1.5px 0 #000,
-                         1.5px -1.5px 0 #000,
-                        -1.5px  1.5px 0 #000,
-                         1.5px  1.5px 0 #000,
-                         0px 3px 6px rgba(0,0,0,0.8) !important;
+                    text-shadow: ${[
+                        subConfig.showOutline ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` : '',
+                        subConfig.showShadow ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` : ''
+                    ].filter(Boolean).join(', ') || 'none'} !important;
                 }
                 /* Prevent subtitles from jumping and move them higher */
                 video::-webkit-media-text-track-container {
@@ -306,10 +338,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     display: flex !important;
                 }
                 :root {
-                    --subtitle-font-size: clamp(13px, 3.5vw, 18px);
+                    --subtitle-font-size: clamp(12px, 4vw, 20px);
                 }
                 :root[style*="--is-fullscreen: 1"] {
-                    --subtitle-font-size: clamp(16px, 5vw, 28px);
+                    --subtitle-font-size: clamp(20px, 6vw, 38px);
                 }
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 5px;
@@ -325,7 +357,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     background: rgba(255, 255, 255, 0.3);
                 }
             `;
-    }, [isFullscreen]);
+    }, [isFullscreen, subConfig]);
 
     return (
         <div className="w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-2xl" id="player-wrapper">
@@ -360,7 +392,11 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 {tracks.length > 0 ? (
                     <div className="relative" ref={subBtnRef}>
                         <button
-                            onClick={() => { setShowSubMenu(p => !p); setShowQualityMenu(false); }}
+                            onClick={() => { 
+                                if (showSubMenu) setShowSubConfig(false);
+                                setShowSubMenu(p => !p); 
+                                setShowQualityMenu(false); 
+                            }}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors cursor-pointer ${activeTrack
                                 ? "bg-primary text-primary-foreground border-primary"
                                 : "bg-white/10 text-white border-white/20 hover:bg-white/20"
@@ -371,30 +407,151 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                             <ChevronDown className="w-3 h-3" />
                         </button>
                         {showSubMenu && (
-                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-y-auto max-h-[350px] min-w-[180px] shadow-2xl z-50 custom-scrollbar">
-                                <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10 z-10">
-                                    Subtitles
-                                </div>
-                                <button
-                                    onClick={() => { handleSubtitleChange(-1); setShowSubMenu(false); }}
-                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                >
-                                    {!activeTrack ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
-                                    Off
-                                </button>
-                                {tracks.map((track, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => { handleSubtitleChange(i); setShowSubMenu(false); }}
-                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                    >
-                                        {activeTrack === track
-                                            ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                                            : <span className="w-3.5" />
-                                        }
-                                        {track.label ?? `Track ${i + 1}`}
-                                    </button>
-                                ))}
+                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-y-auto max-h-[400px] min-w-[220px] shadow-2xl z-50 custom-scrollbar">
+                                {showSubConfig ? (
+                                    <div className="p-3 space-y-4">
+                                        <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setShowSubConfig(false); }}
+                                                className="text-[10px] font-semibold text-white/40 hover:text-white uppercase tracking-wider flex items-center gap-1"
+                                            >
+                                                <ChevronDown className="w-3 h-3 rotate-90" />
+                                                Back
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); resetSubConfig(); }}
+                                                className="text-[10px] font-semibold text-red-400 hover:text-red-300 uppercase tracking-wider flex items-center gap-1"
+                                            >
+                                                <RotateCcw className="w-3 h-3" />
+                                                Reset
+                                            </button>
+                                        </div>
+
+                                        {/* Size */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
+                                                <div className="flex items-center gap-2">
+                                                    <Type className="w-3 h-3" /> Size
+                                                </div>
+                                                <span className="text-primary font-bold">{Math.round(subConfig.size * 100)}%</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="range"
+                                                    min="0.5"
+                                                    max="2.5"
+                                                    step="0.05"
+                                                    value={subConfig.size}
+                                                    onChange={(e) => updateSubConfig({ size: parseFloat(e.target.value) })}
+                                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1">
+                                                {[0.75, 1, 1.25, 1.5].map(s => (
+                                                    <button
+                                                        key={s}
+                                                        onClick={() => updateSubConfig({ size: s })}
+                                                        className={`py-1 text-[9px] rounded border transition-all cursor-pointer ${subConfig.size === s ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                                                    >
+                                                        {s * 100}%
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Color */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                <Palette className="w-3 h-3" /> Text Color
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {['#ffffff', '#ffff00', '#00ffff', '#00ff00'].map(c => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => updateSubConfig({ color: c })}
+                                                        className={`w-6 h-6 rounded-full border-2 transition-all cursor-pointer ${subConfig.color === c ? 'border-primary scale-110' : 'border-transparent hover:scale-105'}`}
+                                                        style={{ backgroundColor: c }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Edge Options */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                <div className="w-3 h-3 border-2 border-white/40 rounded-full" /> Edge Style
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <button
+                                                    onClick={() => updateSubConfig({ showOutline: !subConfig.showOutline })}
+                                                    className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showOutline ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                >
+                                                    Outline
+                                                </button>
+                                                <button
+                                                    onClick={() => updateSubConfig({ showShadow: !subConfig.showShadow })}
+                                                    className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showShadow ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                >
+                                                    Shadow
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Background */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                <div className="w-3 h-3 border border-white/40 rounded-sm" /> Background
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                    { l: 'None', v: 'rgba(0,0,0,0)' },
+                                                    { l: 'Ghost', v: 'rgba(0,0,0,0.5)' }
+                                                ].map(b => (
+                                                    <button
+                                                        key={b.v}
+                                                        onClick={() => updateSubConfig({ background: b.v })}
+                                                        className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subConfig.background === b.v ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                    >
+                                                        {b.l}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 flex items-center justify-between border-b border-white/10 z-10">
+                                            <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Subtitles</span>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setShowSubConfig(true); }}
+                                                className="p-1 hover:bg-white/10 rounded transition-colors text-white/60 hover:text-white group"
+                                                title="Subtitle Settings"
+                                            >
+                                                <Settings className="w-3 h-3 transition-transform group-hover:rotate-45" />
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => { handleSubtitleChange(-1); setShowSubMenu(false); }}
+                                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                        >
+                                            {!activeTrack ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
+                                            Off
+                                        </button>
+                                        {tracks.map((track, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => { handleSubtitleChange(i); setShowSubMenu(false); }}
+                                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
+                                            >
+                                                {activeTrack === track
+                                                    ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                                                    : <span className="w-3.5" />
+                                                }
+                                                {track.label ?? `Track ${i + 1}`}
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
