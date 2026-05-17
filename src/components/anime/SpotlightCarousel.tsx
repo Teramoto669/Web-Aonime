@@ -38,7 +38,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
         <CarouselContent>
           {animes.map((anime) => (
             <CarouselItem key={getAnimeSlug(anime)}>
-              <div className="w-full min-h-[40vh] md:h-[60vh] lg:h-[80vh] relative">
+              <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
                 <div className="absolute inset-0">
                   <Image
                     src={anime.image || '/placeholder.jpg'}
