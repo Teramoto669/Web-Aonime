@@ -83,8 +83,11 @@ export type FilterParams = {
 export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> => {
   const qs = new URLSearchParams();
 
-  if (params.keyword)  qs.set('keyword', params.keyword);
-  if (params.sort)     qs.set('sort', params.sort);
+  // Always set keyword, type, and sort to avoid backend 500 errors
+  qs.set('keyword', params.keyword ?? '');
+  qs.set('type', '');
+  qs.set('sort', params.sort ?? 'default');
+
   if (params.page)     qs.set('page', String(params.page));
   if (params.refresh)  qs.set('refresh', '1');
 
