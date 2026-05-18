@@ -18,14 +18,15 @@ export async function GET(req: NextRequest) {
   };
 
   const refererParam = searchParams.get('referer');
+  const isKey = searchParams.get('isKey') === 'true';
 
   // Determine what this URL is
   const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
   const isSubtitle  = /\.vtt/i.test(target) || /subtitles\//i.test(target);
 
   // Video segments: redirect directly to CDN — zero Vercel bandwidth
-  // (anything that isn't a manifest or subtitle)
-  if (!isManifest && !isSubtitle) {
+  // (anything that isn't a manifest, subtitle, or key)
+  if (!isManifest && !isSubtitle && !isKey) {
     return new Response(null, {
       status: 302,
       headers: {
@@ -71,6 +72,24 @@ export async function GET(req: NextRequest) {
     const text = await upstreamRes.text();
     const lines = text.split('\n');
     const rewritten = lines.map((line) => {
+      // Rewrite URI attributes in tags (e.g. #EXT-X-KEY:URI="...", #EXT-X-MAP:URI="...")
+      if (line.includes('URI=')) {
+        line = line.replace(/URI=["']([^"']+)["']/g, (match, uri) => {
+          let keyUrl = uri;
+          try {
+            if (!keyUrl.startsWith('http')) {
+              keyUrl = new URL(keyUrl, target).toString();
+            }
+            let proxied = `/api/proxy?url=${encodeURIComponent(keyUrl)}`;
+            if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;
+            proxied += `&isKey=true`;
+            return `URI="${proxied}"`;
+          } catch {
+            return match;
+          }
+        });
+      }
+
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return line;
       try {

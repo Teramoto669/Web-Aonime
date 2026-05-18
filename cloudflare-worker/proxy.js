@@ -63,6 +63,23 @@ export default {
       const workerBase = new URL(request.url).origin;
       const text = await upstreamRes.text();
       const rewritten = text.split('\n').map(line => {
+        // Rewrite URI attributes in tags (e.g. #EXT-X-KEY:URI="...", #EXT-X-MAP:URI="...")
+        if (line.includes('URI=')) {
+          line = line.replace(/URI=["']([^"']+)["']/g, (match, uri) => {
+            let keyUrl = uri;
+            try {
+              if (!keyUrl.startsWith('http')) {
+                keyUrl = new URL(keyUrl, target).toString();
+              }
+              let url = `${workerBase}/?url=${encodeURIComponent(keyUrl)}`;
+              if (referer) url += `&referer=${encodeURIComponent(referer)}`;
+              return `URI="${url}"`;
+            } catch {
+              return match;
+            }
+          });
+        }
+
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return line;
         try {
