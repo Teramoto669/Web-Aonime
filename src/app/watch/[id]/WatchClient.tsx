@@ -20,9 +20,11 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     const allSources = watchData.sources || [];
     const servers = watchData.servers || [];
 
-    // Detect sub/dub from the source URL (e.g. /stream/.../dub or /stream/.../sub)
-    // Fallback: match by server name in servers array
+    // Detect sub/dub from the source object itself, source URL, or fallback to server list
     const getSourceType = (source: Source): "sub" | "dub" => {
+        if (source.type) {
+            return source.type === "dub" ? "dub" : "sub";
+        }
         if (source.url) {
             if (/\/dub(\/|$|\?)/i.test(source.url)) return "dub";
             if (/\/sub(\/|$|\?)/i.test(source.url)) return "sub";
@@ -31,10 +33,16 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         return (matched?.type === "dub") ? "dub" : "sub";
     };
 
-    const subSources = allSources.filter(s => getSourceType(s) === "sub");
-    const dubSources = allSources.filter(s => getSourceType(s) === "dub");
+    // Group servers by type to populate sub and dub server selections correctly
+    const subServers = servers.length > 0
+        ? servers.filter(s => s.type === "sub")
+        : allSources.filter(s => getSourceType(s) === "sub").map(s => ({ name: s.server || "", type: "sub" }));
 
-    const hasDub = dubSources.length > 0;
+    const dubServers = servers.length > 0
+        ? servers.filter(s => s.type === "dub")
+        : allSources.filter(s => getSourceType(s) === "dub").map(s => ({ name: s.server || "", type: "dub" }));
+
+    const hasDub = dubServers.length > 0;
 
     // Selected server index per category
     const [subServerIdx, setSubServerIdx] = useState(0);
@@ -53,9 +61,16 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         setActiveCategory("dub");
     };
 
-    const currentSource = activeCategory === "sub"
-        ? (subSources[subServerIdx] ?? null)
-        : (dubSources[dubServerIdx] ?? null);
+    const selectedServer = activeCategory === "sub"
+        ? (subServers[subServerIdx] ?? null)
+        : (dubServers[dubServerIdx] ?? null);
+
+    const currentSource = selectedServer
+        ? allSources.find(s => 
+            s.server === selectedServer.name && 
+            (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
+          ) ?? null
+        : null;
 
     const slug = detailsData.slug || animeId;
     const title = detailsData.title || animeId;
@@ -85,45 +100,57 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <p className="text-lg text-muted-foreground mt-1">Episode {episodeNum}</p>
                         </div>
 
-                        {/* Server selectors — SUB and DUB side by side */}
+                        {/* Server selectors — Premium Segmented Toggle & Single Server Select */}
                         <div className="flex items-center gap-3 flex-wrap">
-                            {/* SUB dropdown */}
-                            {subSources.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground">SUB</span>
-                                    <Select
-                                        value={String(subServerIdx)}
-                                        onValueChange={(v) => handleSubChange(parseInt(v))}
+                            {/* Category Toggle (SUB / DUB) */}
+                            {hasDub && (
+                                <div className="flex rounded-md bg-muted p-1 select-none border">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCategory("sub")}
+                                        className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${
+                                            activeCategory === "sub"
+                                                ? "bg-background text-foreground shadow-sm"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        }`}
                                     >
-                                        <SelectTrigger className={`w-[150px] ${activeCategory === "sub" ? "border-primary" : ""}`}>
-                                            <SelectValue placeholder="Select Server" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {subSources.map((source, idx) => (
-                                                <SelectItem key={`sub-${idx}`} value={String(idx)}>
-                                                    {source.server || `Server ${idx + 1}`}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        Sub
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCategory("dub")}
+                                        className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${
+                                            activeCategory === "dub"
+                                                ? "bg-background text-foreground shadow-sm"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                    >
+                                        Dub
+                                    </button>
                                 </div>
                             )}
 
-                            {/* DUB dropdown — only if dub exists */}
-                            {hasDub && (
+                            {/* Server Select Dropdown */}
+                            {((activeCategory === "sub" ? subServers : dubServers).length > 0) && (
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground">DUB</span>
+                                    <span className="text-xs font-bold text-muted-foreground uppercase">Server</span>
                                     <Select
-                                        value={String(dubServerIdx)}
-                                        onValueChange={(v) => handleDubChange(parseInt(v))}
+                                        value={activeCategory === "sub" ? String(subServerIdx) : String(dubServerIdx)}
+                                        onValueChange={(v) => {
+                                            if (activeCategory === "sub") {
+                                                handleSubChange(parseInt(v));
+                                            } else {
+                                                handleDubChange(parseInt(v));
+                                            }
+                                        }}
                                     >
-                                        <SelectTrigger className={`w-[150px] ${activeCategory === "dub" ? "border-primary" : ""}`}>
+                                        <SelectTrigger className="w-[150px] border-primary">
                                             <SelectValue placeholder="Select Server" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {dubSources.map((source, idx) => (
-                                                <SelectItem key={`dub-${idx}`} value={String(idx)}>
-                                                    {source.server || `Server ${idx + 1}`}
+                                            {(activeCategory === "sub" ? subServers : dubServers).map((server, idx) => (
+                                                <SelectItem key={`${activeCategory}-${idx}`} value={String(idx)}>
+                                                    {server.name || `Server ${idx + 1}`}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

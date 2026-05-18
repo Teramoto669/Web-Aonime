@@ -113,6 +113,7 @@ export type Track = {
 
 export type Source = {
   server?: string;
+  type?: string;
   url?: string;
   m3u8?: string;
   referer?: string;
