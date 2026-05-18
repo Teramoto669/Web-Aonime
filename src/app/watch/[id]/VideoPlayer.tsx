@@ -107,7 +107,7 @@ function timeToSeconds(timeStr: string): number {
     let hrs = 0;
     let mins = 0;
     let secs = 0;
-    
+
     if (parts.length === 3) {
         hrs = parseFloat(parts[0]);
         mins = parseFloat(parts[1]);
@@ -127,9 +127,9 @@ function secondsToTime(seconds: number): string {
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
     const ms = Math.round((seconds % 1) * 1000);
-    
+
     const pad = (num: number, size: number) => num.toString().padStart(size, '0');
-    
+
     return `${pad(hrs, 2)}:${pad(mins, 2)}:${pad(secs, 2)}.${pad(ms, 3)}`;
 }
 
@@ -363,7 +363,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     useEffect(() => {
         const video = videoRef.current;
         if (!video || !video.textTracks || selectedSubtitleIndex < 0) return;
-        
+
         const timer = setTimeout(() => {
             if (video.textTracks && video.textTracks[selectedSubtitleIndex]) {
                 for (let i = 0; i < video.textTracks.length; i++) {
@@ -474,9 +474,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     max-width: 90% !important;
                     text-align: center !important;
                     text-shadow: ${[
-                        subConfig.showOutline ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` : '',
-                        subConfig.showShadow ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` : ''
-                    ].filter(Boolean).join(', ') || 'none'} !important;
+                subConfig.showOutline ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` : '',
+                subConfig.showShadow ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` : ''
+            ].filter(Boolean).join(', ') || 'none'} !important;
                 }
                 /* Prevent subtitles from jumping and move them higher */
                 video::-webkit-media-text-track-container {
@@ -541,10 +541,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 {tracks.length > 0 ? (
                     <div className="relative" ref={subBtnRef}>
                         <button
-                            onClick={() => { 
+                            onClick={() => {
                                 if (showSubMenu) setShowSubConfig(false);
-                                setShowSubMenu(p => !p); 
-                                setShowQualityMenu(false); 
+                                setShowSubMenu(p => !p);
+                                setShowQualityMenu(false);
                             }}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors cursor-pointer ${activeTrack
                                 ? "bg-primary text-primary-foreground border-primary"
@@ -577,158 +577,158 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                                         </div>
                                         <div className="p-3 space-y-4 overflow-y-auto">
 
-                                        {/* Size */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
-                                                <div className="flex items-center gap-2">
-                                                    <Type className="w-3 h-3" /> Size
+                                            {/* Size */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
+                                                    <div className="flex items-center gap-2">
+                                                        <Type className="w-3 h-3" /> Size
+                                                    </div>
+                                                    <span className="text-primary font-bold">{Math.round(subConfig.size * 100)}%</span>
                                                 </div>
-                                                <span className="text-primary font-bold">{Math.round(subConfig.size * 100)}%</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="range"
-                                                    min="0.5"
-                                                    max="2.5"
-                                                    step="0.05"
-                                                    value={subConfig.size}
-                                                    onChange={(e) => updateSubConfig({ size: parseFloat(e.target.value) })}
-                                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-4 gap-1">
-                                                {[0.75, 1, 1.25, 1.5].map(s => (
-                                                    <button
-                                                        key={s}
-                                                        onClick={() => updateSubConfig({ size: s })}
-                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.size === s ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
-                                                    >
-                                                        {s * 100}%
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Subtitle Sync (Delay) */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-3.5 h-3.5" /> Subtitle Sync
-                                                </div>
-                                                <span className={`font-bold ${subDelay === 0 ? 'text-white/60' : subDelay < 0 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                                    {subDelay === 0 ? "Synced" : `${subDelay > 0 ? '+' : ''}${subDelay.toFixed(1)}s`}
-                                                </span>
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => setSubDelay(d => Math.max(-5, parseFloat((d - 0.1).toFixed(1))))}
-                                                    className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
-                                                    title="Muncul lebih cepat (-0.1s)"
-                                                >
-                                                    -0.1s
-                                                </button>
-                                                
-                                                <input
-                                                    type="range"
-                                                    min="-5"
-                                                    max="5"
-                                                    step="0.1"
-                                                    value={subDelay}
-                                                    onChange={(e) => setSubDelay(parseFloat(parseFloat(e.target.value).toFixed(1)))}
-                                                    className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                                                />
-                                                
-                                                <button
-                                                    onClick={() => setSubDelay(d => Math.min(5, parseFloat((d + 0.1).toFixed(1))))}
-                                                    className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
-                                                    title="Muncul lebih lambat (+0.1s)"
-                                                >
-                                                    +0.1s
-                                                </button>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-5 gap-1">
-                                                {[-1.5, -0.5, 0, 0.5, 1.5].map(s => (
-                                                    <button
-                                                        key={s}
-                                                        onClick={() => setSubDelay(s)}
-                                                        className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subDelay === s ? 'bg-primary border-primary text-white font-bold' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
-                                                    >
-                                                        {s === 0 ? 'Reset' : `${s > 0 ? '+' : ''}${s}s`}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            
-                                            {subDelay !== 0 && (
-                                                <p className="text-[9px] text-white/40 text-center italic">
-                                                    {subDelay < 0 
-                                                        ? "Subtitle dipercepat agar muncul lebih awal." 
-                                                        : "Subtitle diperlambat agar muncul lebih lambat."}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Color */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                <Palette className="w-3 h-3" /> Text Color
-                                            </div>
-                                            <div className="flex gap-3">
-                                                {['#ffffff', '#ffff00', '#00ffff', '#00ff00'].map(c => (
-                                                    <button
-                                                        key={c}
-                                                        onClick={() => updateSubConfig({ color: c })}
-                                                        className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${subConfig.color === c ? 'border-primary scale-110' : 'border-transparent hover:scale-105'}`}
-                                                        style={{ backgroundColor: c }}
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="range"
+                                                        min="0.5"
+                                                        max="2.5"
+                                                        step="0.05"
+                                                        value={subConfig.size}
+                                                        onChange={(e) => updateSubConfig({ size: parseFloat(e.target.value) })}
+                                                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
                                                     />
-                                                ))}
+                                                </div>
+                                                <div className="grid grid-cols-4 gap-1">
+                                                    {[0.75, 1, 1.25, 1.5].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => updateSubConfig({ size: s })}
+                                                            className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.size === s ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                                                        >
+                                                            {s * 100}%
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Edge Options */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                <div className="w-3 h-3 border-2 border-white/40 rounded-full" /> Edge Style
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    onClick={() => updateSubConfig({ showOutline: !subConfig.showOutline })}
-                                                    className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showOutline ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
-                                                >
-                                                    Outline
-                                                </button>
-                                                <button
-                                                    onClick={() => updateSubConfig({ showShadow: !subConfig.showShadow })}
-                                                    className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showShadow ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
-                                                >
-                                                    Shadow
-                                                </button>
-                                            </div>
-                                        </div>
+                                            {/* Subtitle Sync (Delay) */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-3.5 h-3.5" /> Subtitle Sync
+                                                    </div>
+                                                    <span className={`font-bold ${subDelay === 0 ? 'text-white/60' : subDelay < 0 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                        {subDelay === 0 ? "Synced" : `${subDelay > 0 ? '+' : ''}${subDelay.toFixed(1)}s`}
+                                                    </span>
+                                                </div>
 
-                                        {/* Background */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                <div className="w-3 h-3 border border-white/40 rounded-sm" /> Background
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {[
-                                                    { l: 'None', v: 'rgba(0,0,0,0)' },
-                                                    { l: 'Ghost', v: 'rgba(0,0,0,0.5)' }
-                                                ].map(b => (
+                                                <div className="flex items-center gap-2">
                                                     <button
-                                                        key={b.v}
-                                                        onClick={() => updateSubConfig({ background: b.v })}
-                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.background === b.v ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                        onClick={() => setSubDelay(d => Math.max(-5, parseFloat((d - 0.1).toFixed(1))))}
+                                                        className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
+                                                        title="Muncul lebih cepat (-0.1s)"
                                                     >
-                                                        {b.l}
+                                                        -0.1s
                                                     </button>
-                                                ))}
+
+                                                    <input
+                                                        type="range"
+                                                        min="-5"
+                                                        max="5"
+                                                        step="0.1"
+                                                        value={subDelay}
+                                                        onChange={(e) => setSubDelay(parseFloat(parseFloat(e.target.value).toFixed(1)))}
+                                                        className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                    />
+
+                                                    <button
+                                                        onClick={() => setSubDelay(d => Math.min(5, parseFloat((d + 0.1).toFixed(1))))}
+                                                        className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
+                                                        title="Muncul lebih lambat (+0.1s)"
+                                                    >
+                                                        +0.1s
+                                                    </button>
+                                                </div>
+
+                                                <div className="grid grid-cols-5 gap-1">
+                                                    {[-1.0, -0.5, 0, 0.5, 1.0].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => setSubDelay(s)}
+                                                            className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subDelay === s ? 'bg-primary border-primary text-white font-bold' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                                                        >
+                                                            {s === 0 ? 'Reset' : `${s > 0 ? '+' : ''}${s}s`}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {subDelay !== 0 && (
+                                                    <p className="text-[9px] text-white/40 text-center italic">
+                                                        {subDelay < 0
+                                                            ? "Subtitle dipercepat agar muncul lebih awal."
+                                                            : "Subtitle diperlambat agar muncul lebih lambat."}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Color */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                    <Palette className="w-3 h-3" /> Text Color
+                                                </div>
+                                                <div className="flex gap-3">
+                                                    {['#ffffff', '#ffff00', '#00ffff', '#00ff00'].map(c => (
+                                                        <button
+                                                            key={c}
+                                                            onClick={() => updateSubConfig({ color: c })}
+                                                            className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${subConfig.color === c ? 'border-primary scale-110' : 'border-transparent hover:scale-105'}`}
+                                                            style={{ backgroundColor: c }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Edge Options */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                    <div className="w-3 h-3 border-2 border-white/40 rounded-full" /> Edge Style
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={() => updateSubConfig({ showOutline: !subConfig.showOutline })}
+                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showOutline ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                    >
+                                                        Outline
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateSubConfig({ showShadow: !subConfig.showShadow })}
+                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showShadow ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                    >
+                                                        Shadow
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Background */}
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
+                                                    <div className="w-3 h-3 border border-white/40 rounded-sm" /> Background
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {[
+                                                        { l: 'None', v: 'rgba(0,0,0,0)' },
+                                                        { l: 'Ghost', v: 'rgba(0,0,0,0.5)' }
+                                                    ].map(b => (
+                                                        <button
+                                                            key={b.v}
+                                                            onClick={() => updateSubConfig({ background: b.v })}
+                                                            className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.background === b.v ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                                                        >
+                                                            {b.l}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 ) : (
                                     <>
                                         <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 flex items-center justify-between border-b border-white/10 z-10">
