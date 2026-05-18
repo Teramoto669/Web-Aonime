@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check, Palette, Type, RotateCcw } from "lucide-react";
+import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check, Palette, Type, RotateCcw, Clock } from "lucide-react";
 import HLS from "hls.js";
 import type { Source, Track } from "@/lib/types";
 
@@ -100,6 +100,59 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
     );
 }
 
+// ─── WebVTT Shift Utility Functions ──────────────────────────────────────────
+
+function timeToSeconds(timeStr: string): number {
+    const parts = timeStr.trim().split(':');
+    let hrs = 0;
+    let mins = 0;
+    let secs = 0;
+    
+    if (parts.length === 3) {
+        hrs = parseFloat(parts[0]);
+        mins = parseFloat(parts[1]);
+        secs = parseFloat(parts[2]);
+    } else if (parts.length === 2) {
+        mins = parseFloat(parts[0]);
+        secs = parseFloat(parts[1]);
+    } else {
+        secs = parseFloat(parts[0]);
+    }
+    return hrs * 3600 + mins * 60 + secs;
+}
+
+function secondsToTime(seconds: number): string {
+    if (seconds < 0) seconds = 0;
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.round((seconds % 1) * 1000);
+    
+    const pad = (num: number, size: number) => num.toString().padStart(size, '0');
+    
+    return `${pad(hrs, 2)}:${pad(mins, 2)}:${pad(secs, 2)}.${pad(ms, 3)}`;
+}
+
+function shiftWebVTT(vttText: string, delay: number): string {
+    if (delay === 0) return vttText;
+    const lines = vttText.split(/\r?\n/);
+    const shiftedLines = lines.map(line => {
+        const match = line.match(/^([^\s]+)\s*-->\s*([^\s]+)(.*)$/);
+        if (match) {
+            const startStr = match[1];
+            const endStr = match[2];
+            const settings = match[3] || "";
+            if (startStr.includes(':') && endStr.includes(':')) {
+                const startSec = Math.max(0, timeToSeconds(startStr) + delay);
+                const endSec = Math.max(0, timeToSeconds(endStr) + delay);
+                return `${secondsToTime(startSec)} --> ${secondsToTime(endSec)}${settings}`;
+            }
+        }
+        return line;
+    });
+    return shiftedLines.join('\n');
+}
+
 // ─── HLS Player ──────────────────────────────────────────────────────────────
 
 function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
@@ -123,6 +176,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         showOutline: true,
         showShadow: true,
     });
+
+    const [subDelay, setSubDelay] = useState<number>(0);
+    const [originalSubContents, setOriginalSubContents] = useState<Record<number, string>>({});
+    const [processedTrackUrls, setProcessedTrackUrls] = useState<Record<number, string>>({});
 
     const subBtnRef = useRef<HTMLDivElement>(null);
     const qualityBtnRef = useRef<HTMLDivElement>(null);
@@ -227,6 +284,97 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         return () => clearTimeout(timer);
     }, [tracks]);
 
+    // ── Handle tracks changing (episode change) ──
+    useEffect(() => {
+        setOriginalSubContents({});
+        setProcessedTrackUrls(prev => {
+            Object.values(prev).forEach(url => {
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+            });
+            return {};
+        });
+        setSubDelay(0);
+    }, [tracks]);
+
+    // ── Cleanup Blob URLs on unmount ──
+    useEffect(() => {
+        return () => {
+            setProcessedTrackUrls(prev => {
+                Object.values(prev).forEach(url => {
+                    if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+                });
+                return {};
+            });
+        };
+    }, []);
+
+    // ── Fetch original subtitle text on-demand ──
+    useEffect(() => {
+        if (selectedSubtitleIndex < 0 || !tracks[selectedSubtitleIndex]) {
+            return;
+        }
+
+        const index = selectedSubtitleIndex;
+        const track = tracks[index];
+        const url = track.proxyUrl || track.file;
+        if (!url) return;
+
+        if (!originalSubContents[index]) {
+            setLoadingSub(true);
+            fetch(url)
+                .then(res => {
+                    if (!res.ok) throw new Error("Failed to fetch subtitle");
+                    return res.text();
+                })
+                .then(text => {
+                    setOriginalSubContents(prev => ({ ...prev, [index]: text }));
+                })
+                .catch(err => {
+                    console.error("Failed to load subtitle:", err);
+                })
+                .finally(() => {
+                    setLoadingSub(false);
+                });
+        }
+    }, [selectedSubtitleIndex, tracks, originalSubContents]);
+
+    // ── Apply timing shift to WebVTT content ──
+    useEffect(() => {
+        if (selectedSubtitleIndex < 0) return;
+        const text = originalSubContents[selectedSubtitleIndex];
+        if (!text) return;
+
+        const prevUrl = processedTrackUrls[selectedSubtitleIndex];
+        if (prevUrl && prevUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(prevUrl);
+        }
+
+        try {
+            const shiftedText = shiftWebVTT(text, subDelay);
+            const blob = new Blob([shiftedText], { type: 'text/vtt' });
+            const newUrl = URL.createObjectURL(blob);
+            setProcessedTrackUrls(prev => ({ ...prev, [selectedSubtitleIndex]: newUrl }));
+        } catch (err) {
+            console.error("Error processing subtitle shift:", err);
+        }
+    }, [selectedSubtitleIndex, subDelay, originalSubContents]);
+
+    // ── Reinforce track showing mode when processed url changes ──
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !video.textTracks || selectedSubtitleIndex < 0) return;
+        
+        const timer = setTimeout(() => {
+            if (video.textTracks && video.textTracks[selectedSubtitleIndex]) {
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = 'hidden';
+                }
+                video.textTracks[selectedSubtitleIndex].mode = 'showing';
+            }
+        }, 50);
+        return () => clearTimeout(timer);
+    }, [processedTrackUrls, selectedSubtitleIndex]);
+
     // ── Handle quality change ──
     const handleQuality = (levelIndex: number) => {
         if (hlsRef.current) {
@@ -286,6 +434,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     const resetSubConfig = () => {
         const def = { size: 1, color: '#ffffff', background: 'rgba(0, 0, 0, 0)', showOutline: true, showShadow: true };
         setSubConfig(def);
+        setSubDelay(0);
         localStorage.removeItem("subtitle-config");
     };
 
@@ -376,7 +525,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                         <track
                             key={i}
                             kind="subtitles"
-                            src={track.proxyUrl || track.file}
+                            src={processedTrackUrls[i] || track.proxyUrl || track.file}
                             srcLang={track.label?.substring(0, 2).toLowerCase() || 'en'}
                             label={track.label || `Track ${i + 1}`}
                             default={selectedSubtitleIndex === i}
@@ -458,6 +607,66 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                                                     </button>
                                                 ))}
                                             </div>
+                                        </div>
+
+                                        {/* Subtitle Sync (Delay) */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-3.5 h-3.5" /> Subtitle Sync
+                                                </div>
+                                                <span className={`font-bold ${subDelay === 0 ? 'text-white/60' : subDelay < 0 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                    {subDelay === 0 ? "Synced" : `${subDelay > 0 ? '+' : ''}${subDelay.toFixed(1)}s`}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setSubDelay(d => Math.max(-5, parseFloat((d - 0.1).toFixed(1))))}
+                                                    className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
+                                                    title="Muncul lebih cepat (-0.1s)"
+                                                >
+                                                    -0.1s
+                                                </button>
+                                                
+                                                <input
+                                                    type="range"
+                                                    min="-5"
+                                                    max="5"
+                                                    step="0.1"
+                                                    value={subDelay}
+                                                    onChange={(e) => setSubDelay(parseFloat(parseFloat(e.target.value).toFixed(1)))}
+                                                    className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                />
+                                                
+                                                <button
+                                                    onClick={() => setSubDelay(d => Math.min(5, parseFloat((d + 0.1).toFixed(1))))}
+                                                    className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
+                                                    title="Muncul lebih lambat (+0.1s)"
+                                                >
+                                                    +0.1s
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-5 gap-1">
+                                                {[-1.5, -0.5, 0, 0.5, 1.5].map(s => (
+                                                    <button
+                                                        key={s}
+                                                        onClick={() => setSubDelay(s)}
+                                                        className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subDelay === s ? 'bg-primary border-primary text-white font-bold' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                                                    >
+                                                        {s === 0 ? 'Reset' : `${s > 0 ? '+' : ''}${s}s`}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            
+                                            {subDelay !== 0 && (
+                                                <p className="text-[9px] text-white/40 text-center italic">
+                                                    {subDelay < 0 
+                                                        ? "Subtitle dipercepat agar muncul lebih awal." 
+                                                        : "Subtitle diperlambat agar muncul lebih lambat."}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Color */}
