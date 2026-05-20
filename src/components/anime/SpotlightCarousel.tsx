@@ -44,7 +44,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                     src={anime.image || '/placeholder.jpg'}
                     alt={anime.title}
                     fill
-                    className="object-cover brightness-50"
+                    className="object-cover brightness-50 blur-sm"
                     priority
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -71,7 +71,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                     </div>
                     <div className="flex items-center gap-4 pt-4">
                       <Button asChild size="lg">
-                        <Link href={`/anime/${getAnimeSlug(anime)}`}>
+                        <Link href={`/watch/${getAnimeSlug(anime)}`}>
                           <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
                         </Link>
                       </Button>
