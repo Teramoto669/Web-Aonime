@@ -33,32 +33,43 @@ export function EpisodeListClient({
   hideIcons,
   initialRange,
 }: EpisodeListClientProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRange, setSelectedRange] = useState<string>(initialRange || "1-50");
+const [searchQuery, setSearchQuery] = useState("");
+const defaultRange = totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`;
+const [selectedRange, setSelectedRange] = useState<string>(initialRange || defaultRange);
 
   // Filter episodes based on search query and range
   const filteredEpisodes = useMemo(() => {
     let result = episodes;
 
-    // Apply search filter first (search across all episodes)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter((ep) => {
-        const epNumStr = ep.number.toString();
-        return epNumStr.includes(query);
-      });
-    } else {
-      // Only apply range filter if no search query
-      if (selectedRange) {
-        const [start, end] = selectedRange.split("-").map(Number);
-        result = result.filter((ep) => {
-          const epNum = parseInt(ep.number);
-          return epNum >= start && epNum <= end;
-        });
-      }
-    }
+    // Apply both search query and range filter
+        return episodes.filter((ep) => {
+            const epNumber = parseInt(ep.number);
+        
+            // 1. Range Filter Check (Must pass if selectedRange exists)
+            const isInRange = selectedRange 
+                ? (() => {
+                    try {
+                        const [start, end] = selectedRange.split("-").map(Number);
+                        return epNumber >= start && epNumber <= end;
+                    } catch (e) {
+                        // Fallback if range format is invalid
+                        return true; 
+                    }
+                })() 
+                : true;
 
-    return result;
+            if (!isInRange) return false;
+
+            // 2. Search Query Check (Must pass if searchQuery exists)
+            if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase().trim();
+                const epNumStr = ep.number.toString();
+                return epNumStr.includes(query);
+            }
+        
+            // If no filters, only the range check matters (which passed above)
+            return true;
+        });
   }, [episodes, searchQuery, selectedRange]);
 
   const handleClearFilters = () => {
@@ -108,17 +119,15 @@ export function EpisodeListClient({
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="All Episodes" />
               </SelectTrigger>
-              <SelectContent className="max-h-48">
-                {Array.from({ length: Math.ceil(totalEpisodes / 50) }, (_, i) => {
-                  const rangeStart = i * 50 + 1;
-                  const rangeEnd = Math.min((i + 1) * 50, totalEpisodes);
-                  return (
-                    <SelectItem key={`range-${i}`} value={`${rangeStart}-${rangeEnd}`}>
-                      EP {rangeStart}-{rangeEnd}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
+			<SelectContent className="max-h-48">
+				{/* Display the default selected range option */}
+				<SelectItem 
+                    value={totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`}
+                >
+                    EP {totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`}
+                </SelectItem>
+				{/* Removed 'All Episodes' option as per request */}
+			</SelectContent>
             </Select>
           </div>
         </div>
@@ -170,3 +179,4 @@ export function EpisodeListClient({
     </div>
   );
 }
+

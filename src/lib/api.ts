@@ -53,8 +53,21 @@ export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
-export const getAnimeEpisodes = (slug: string): Promise<AnimeEpisodes> =>
-  fetcher<AnimeEpisodes>(`/anime/${encodeURIComponent(slug)}/episodes`);
+export const getAnimeEpisodes = (
+  slug: string,
+  start?: number,
+  end?: number
+): Promise<AnimeEpisodes> => {
+  let path = `/anime/${encodeURIComponent(slug)}/episodes`;
+  const params = new URLSearchParams();
+  if (start !== undefined) params.set('start', String(start));
+  if (end !== undefined) params.set('end', String(end));
+
+  if (params.toString()) {
+    path += `?${params.toString()}`;
+  }
+  return fetcher<AnimeEpisodes>(path);
+};
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
