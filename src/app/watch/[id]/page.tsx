@@ -5,6 +5,12 @@ import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
 import { WatchClient } from "./WatchClient";
+import { redirect } from "next/navigation";
+
+function isRedirectError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    return 'digest' in error && typeof (error as any).digest === 'string' && (error as any).digest.startsWith('NEXT_REDIRECT;');
+}
 
 function LoadingSkeleton() {
     return (
@@ -37,7 +43,7 @@ export default async function WatchPage({
     const resolvedSearchParams = await searchParams;
 
     const animeId = resolvedParams.id;
-    let currentEp = typeof resolvedSearchParams.ep === 'string' ? resolvedSearchParams.ep : '1';
+    let currentEp = typeof resolvedSearchParams.ep === 'string' ? resolvedSearchParams.ep : '';
     let currentRange = typeof resolvedSearchParams.range === 'string' ? resolvedSearchParams.range : '';
 
     try {
@@ -46,16 +52,51 @@ export default async function WatchPage({
         // Use the slug from details response
         const slug = detailsData.slug || animeId;
         
-        const [episodesData, watchData] = await Promise.all([
-            getAnimeEpisodes(slug),
-            getWatchData(slug, currentEp)
-        ]);
+        const episodesData = await getAnimeEpisodes(slug);
+
+        let shouldRedirect = false;
+
+        if (!currentEp && episodesData.episodes.length > 0) {
+            const totalEpisodes = episodesData.episodes.length;
+            let latestEpObj = episodesData.episodes[totalEpisodes - 1];
+
+            // Check if episodes are sorted descending
+            const firstEpNum = parseFloat(episodesData.episodes[0]?.number);
+            const lastEpNum = parseFloat(episodesData.episodes[totalEpisodes - 1]?.number);
+            if (!isNaN(firstEpNum) && !isNaN(lastEpNum) && firstEpNum > lastEpNum) {
+                latestEpObj = episodesData.episodes[0];
+            }
+
+            currentEp = latestEpObj.number;
+            shouldRedirect = true;
+        } else if (!currentEp) {
+            currentEp = '1';
+        }
 
         // Validate episode number
         const episodeExists = episodesData.episodes.some(e => e.number === currentEp);
         if (!episodeExists && episodesData.episodes.length > 0) {
             currentEp = episodesData.episodes[0].number;
+            shouldRedirect = true;
         }
+
+        if (!currentRange && episodesData.episodes.length > 0) {
+            const epNum = parseInt(currentEp);
+            if (!isNaN(epNum)) {
+                const totalEpisodes = episodesData.episodes.length;
+                const chunkIndex = Math.floor((epNum - 1) / 50);
+                const start = chunkIndex * 50 + 1;
+                const end = Math.min((chunkIndex + 1) * 50, totalEpisodes);
+                currentRange = `${start}-${end}`;
+                shouldRedirect = true;
+            }
+        }
+
+        if (shouldRedirect) {
+            redirect(`/watch/${animeId}?ep=${currentEp}&range=${currentRange}`);
+        }
+
+        const watchData = await getWatchData(slug, currentEp);
 
         if (!watchData || !watchData.sources || watchData.sources.length === 0) {
             return (
@@ -85,6 +126,9 @@ export default async function WatchPage({
             </Suspense>
         );
     } catch (error) {
+        if (isRedirectError(error)) {
+            throw error;
+        }
         console.error(error);
         return (
             <div className="container mx-auto px-4 py-8">

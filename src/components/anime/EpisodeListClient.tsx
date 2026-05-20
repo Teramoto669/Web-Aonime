@@ -33,9 +33,26 @@ export function EpisodeListClient({
   hideIcons,
   initialRange,
 }: EpisodeListClientProps) {
-const [searchQuery, setSearchQuery] = useState("");
-const defaultRange = totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`;
-const [selectedRange, setSelectedRange] = useState<string>(initialRange || defaultRange);
+  const [searchQuery, setSearchQuery] = useState("");
+  const defaultRange = useMemo(() => {
+    if (currentEpisode) {
+      const epNum = parseInt(currentEpisode);
+      if (!isNaN(epNum)) {
+        if (totalEpisodes <= 50) {
+          return `1-${totalEpisodes}`;
+        }
+        const chunkIndex = Math.floor((epNum - 1) / 50);
+        const start = chunkIndex * 50 + 1;
+        const end = Math.min((chunkIndex + 1) * 50, totalEpisodes);
+        if (start <= totalEpisodes && start >= 1) {
+          return `${start}-${end}`;
+        }
+      }
+    }
+    return totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`;
+  }, [currentEpisode, totalEpisodes]);
+
+  const [selectedRange, setSelectedRange] = useState<string>(initialRange || defaultRange);
 
   // Filter episodes based on search query and range
   const filteredEpisodes = useMemo(() => {
@@ -119,15 +136,19 @@ const [selectedRange, setSelectedRange] = useState<string>(initialRange || defau
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="All Episodes" />
               </SelectTrigger>
-			<SelectContent className="max-h-48">
-				{/* Display the default selected range option */}
-				<SelectItem 
-                    value={totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`}
-                >
-                    EP {totalEpisodes > 50 ? "1-50" : `1-${totalEpisodes}`}
-                </SelectItem>
-				{/* Removed 'All Episodes' option as per request */}
-			</SelectContent>
+              <SelectContent className="max-h-48">
+                {/* Generate range options (1-50, 51-100, etc.) */}
+                {Array.from({ length: Math.ceil(totalEpisodes / 50) }).map((_, i) => {
+                  const start = i * 50 + 1;
+                  const end = Math.min((i + 1) * 50, totalEpisodes);
+                  const rangeValue = `${start}-${end}`;
+                  return (
+                    <SelectItem key={rangeValue} value={rangeValue}>
+                      EP {start}-{end}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
             </Select>
           </div>
         </div>
