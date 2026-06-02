@@ -10,8 +10,7 @@ import type {
   FiltersResponse,
 } from './types';
 
-const BASE_URL = 'https://anikoto-scrap.vercel.app/api';
-
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 // ─── Generic fetcher ─────────────────────────────────────────────────────────
 
 interface ApiResponse<T> {
