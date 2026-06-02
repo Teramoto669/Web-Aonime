@@ -10,6 +10,7 @@ import type { Source, Track } from "@/lib/types";
 type VideoPlayerProps = {
     source: Source;
     tracks: Track[];
+    cfProxyUrl?: string;
 };
 
 type QualityLevel = {
@@ -20,13 +21,13 @@ type QualityLevel = {
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
+export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
     const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     // CF Worker base URL (no trailing slash, always https://)
-    const rawCfProxy = process.env.CF_PROXY_URL ?? '';
+    const rawCfProxy = cfProxyUrl ?? '';
     const CF_PROXY = rawCfProxy
         ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
         : '';
@@ -41,8 +42,11 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
                 ? source.proxyUrl.slice(source.proxyUrl.indexOf('?'))   // "?url=...&referer=..."
                 : `?url=${encodeURIComponent(source.proxyUrl)}`;
 
-            const base = CF_PROXY || EXT_PROXY;
-            setPlayerUrl({ m3u8: `${base}/${queryString}` });
+            if (CF_PROXY) {
+                setPlayerUrl({ m3u8: `${CF_PROXY}/${queryString}` });
+            } else {
+                setPlayerUrl({ m3u8: source.proxyUrl });
+            }
         } else if (source.m3u8) {
             const base = CF_PROXY || '';
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;

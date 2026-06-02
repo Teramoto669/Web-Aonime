@@ -122,6 +122,7 @@ export default async function WatchPage({
                     detailsData={detailsData}
                     episodesData={episodesData}
                     watchData={watchData}
+                    cfProxyUrl={process.env.CF_PROXY_URL}
                 />
             </Suspense>
         );

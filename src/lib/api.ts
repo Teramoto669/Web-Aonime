@@ -100,16 +100,16 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
   qs.set('type', '');
   qs.set('sort', params.sort ?? 'default');
 
-  if (params.page)     qs.set('page', String(params.page));
-  if (params.refresh)  qs.set('refresh', '1');
+  if (params.page) qs.set('page', String(params.page));
+  if (params.refresh) qs.set('refresh', '1');
 
-  params.genre?.forEach(g     => qs.append('genre[]', g));
+  params.genre?.forEach(g => qs.append('genre[]', g));
   params.term_type?.forEach(t => qs.append('term_type[]', t));
-  params.season?.forEach(s    => qs.append('season[]', s));
-  params.year?.forEach(y      => qs.append('year[]', y));
-  params.status?.forEach(st   => qs.append('status[]', st));
-  params.language?.forEach(l  => qs.append('language[]', l));
-  params.rating?.forEach(r    => qs.append('rating[]', r));
+  params.season?.forEach(s => qs.append('season[]', s));
+  params.year?.forEach(y => qs.append('year[]', y));
+  params.status?.forEach(st => qs.append('status[]', st));
+  params.language?.forEach(l => qs.append('language[]', l));
+  params.rating?.forEach(r => qs.append('rating[]', r));
 
   return fetcher<BrowseResponse>(`/filter?${qs.toString()}`);
 };
@@ -189,16 +189,16 @@ export type BrowseParams = {
 
 export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
   return filterAnime({
-    page:      params.page,
-    sort:      params.sort,
-    keyword:   params.keyword,
-    genre:     params.genre,
+    page: params.page,
+    sort: params.sort,
+    keyword: params.keyword,
+    genre: params.genre,
     term_type: params.term_type,
-    status:    params.status,
-    season:    params.season,
-    year:      params.year,
-    language:  params.language,
-    rating:    params.rating,
+    status: params.status,
+    season: params.season,
+    year: params.year,
+    language: params.language,
+    rating: params.rating,
   });
 };
 

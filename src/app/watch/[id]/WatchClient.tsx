@@ -14,9 +14,10 @@ interface WatchClientProps {
     detailsData: AnimeDetail;
     episodesData: AnimeEpisodes;
     watchData: WatchData;
+    cfProxyUrl?: string;
 }
 
-export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData }: WatchClientProps) {
+export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData, cfProxyUrl }: WatchClientProps) {
     const allSources = watchData.sources || [];
     const servers = watchData.servers || [];
 
@@ -85,6 +86,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <VideoPlayer
                                 source={currentSource}
                                 tracks={currentSource.tracks || []}
+                                cfProxyUrl={cfProxyUrl}
                             />
                         ) : (
                             <div className="aspect-video flex items-center justify-center text-muted-foreground">
