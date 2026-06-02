@@ -26,7 +26,7 @@ export function VideoPlayer({ source, tracks }: VideoPlayerProps) {
     const [error, setError] = useState<string | null>(null);
 
     // CF Worker base URL (no trailing slash, always https://)
-    const rawCfProxy = process.env.NEXT_PUBLIC_CF_PROXY_URL ?? '';
+    const rawCfProxy = process.env.CF_PROXY_URL ?? '';
     const CF_PROXY = rawCfProxy
         ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
         : '';
