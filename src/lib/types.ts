@@ -91,6 +91,8 @@ export type Episode = {
   href?: string;
   id?: string;
   dataIds?: string;
+  dataMal?: string;
+  dataTimestamp?: string;
   hasDub?: boolean;
   hasSub?: boolean;
 };
@@ -113,7 +115,7 @@ export type Track = {
 
 export type Source = {
   server?: string;
-  type?: string;
+  type?: "sub" | "dub" | "hsub" | string;
   url?: string;
   m3u8?: string;
   referer?: string;
@@ -121,13 +123,16 @@ export type Source = {
   tracks?: Track[];
 };
 
+export type Server = {
+  id?: string;
+  name?: string;
+  type?: "sub" | "dub" | "hsub" | string;
+  svId?: string;
+};
+
 export type WatchData = {
   episode?: Episode;
-  servers?: Array<{
-    id?: string;
-    name?: string;
-    type?: string;
-  }>;
+  servers?: Server[];
   sources?: Source[];
 };
 
