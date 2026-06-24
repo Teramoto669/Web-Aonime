@@ -37,18 +37,27 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         return "sub";
     };
 
-    // Group servers by type
-    const subServers = servers.length > 0
-        ? servers.filter(s => s.type === "sub")
-        : allSources.filter(s => getSourceType(s) === "sub").map(s => ({ name: s.server || "", type: "sub" as const }));
+    // Build a merged server list: start from the explicit `servers` array,
+    // then append any server from `sources` whose name+type combo is missing.
+    const buildServerList = (type: "sub" | "dub" | "hsub") => {
+        const fromServers = servers.filter(s => s.type === type);
+        const knownNames = new Set(fromServers.map(s => s.name));
+        const fromSources = allSources
+            .filter(s => getSourceType(s) === type && s.server && !knownNames.has(s.server))
+            .map(s => ({ name: s.server!, type }));
+        // Deduplicate fromSources by name
+        const seen = new Set<string>();
+        const uniqueFromSources = fromSources.filter(s => {
+            if (seen.has(s.name)) return false;
+            seen.add(s.name);
+            return true;
+        });
+        return [...fromServers, ...uniqueFromSources];
+    };
 
-    const hsubServers = servers.length > 0
-        ? servers.filter(s => s.type === "hsub")
-        : allSources.filter(s => getSourceType(s) === "hsub").map(s => ({ name: s.server || "", type: "hsub" as const }));
-
-    const dubServers = servers.length > 0
-        ? servers.filter(s => s.type === "dub")
-        : allSources.filter(s => getSourceType(s) === "dub").map(s => ({ name: s.server || "", type: "dub" as const }));
+    const subServers = buildServerList("sub");
+    const hsubServers = buildServerList("hsub");
+    const dubServers = buildServerList("dub");
 
     const hasDub = dubServers.length > 0;
     const hasHsub = hsubServers.length > 0;

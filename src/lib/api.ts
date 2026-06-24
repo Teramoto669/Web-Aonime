@@ -167,8 +167,56 @@ export const getSchedule = (refresh?: boolean): Promise<any> => {
 
 // ─── Watch (Streaming Sources) ────────────────────────────────────────────────
 
-export const getWatchData = (slug: string, ep: string | number): Promise<WatchData> => {
-  return fetcher<WatchData>(`/watch/${encodeURIComponent(slug)}?ep=${ep}`);
+export const getWatchData = async (slug: string, ep: string | number): Promise<WatchData> => {
+  const url = `${BASE_URL}/watch/${encodeURIComponent(slug)}?ep=${ep}`;
+  const res = await fetch(url, { next: { revalidate: 3600 } });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} from ${url}: ${text}`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+
+  // Cache hit → standard JSON response
+  if (contentType.includes('application/json')) {
+    const json = await res.json();
+    if (json.ok === false) {
+      throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
+    }
+    return json.data as WatchData;
+  }
+
+  // Cache miss → NDJSON streaming response
+  // Each line is a JSON object: { type: "episode"|"servers"|"source"|"done"|"error", ... }
+  const text = await res.text();
+  const lines = text.split('\n').filter(line => line.trim());
+
+  const result: WatchData = { sources: [] };
+
+  for (const line of lines) {
+    try {
+      const chunk = JSON.parse(line);
+      if (chunk.type === 'episode') {
+        result.episode = chunk.episode;
+      } else if (chunk.type === 'servers') {
+        result.servers = chunk.servers;
+      } else if (chunk.type === 'source') {
+        result.sources!.push(chunk.source);
+      } else if (chunk.type === 'error') {
+        throw new Error(`API stream error from ${url}: ${chunk.message ?? 'Unknown error'}`);
+      }
+      // 'done' type is just a signal, no data to extract
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        console.warn(`[getWatchData] Skipping malformed NDJSON line: ${line.substring(0, 100)}`);
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  return result;
 };
 
 // ─── Legacy Browse/Filters (for backwards compatibility) ──────────────────────
