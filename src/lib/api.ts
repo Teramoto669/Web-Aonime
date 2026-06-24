@@ -195,8 +195,14 @@ export const getWatchData = async (slug: string, ep: string | number): Promise<W
   const result: WatchData = { sources: [] };
 
   for (const line of lines) {
+    let cleanedLine = line.trim();
+    if (cleanedLine.startsWith('data:')) {
+      cleanedLine = cleanedLine.substring(5).trim();
+    }
+    if (!cleanedLine) continue;
+
     try {
-      const chunk = JSON.parse(line);
+      const chunk = JSON.parse(cleanedLine);
       if (chunk.type === 'episode') {
         result.episode = chunk.episode;
       } else if (chunk.type === 'servers') {
