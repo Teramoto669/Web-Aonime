@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
+import { RelatedSection } from "@/components/anime/RelatedSection";
 import { VideoPlayer } from "./VideoPlayer";
 import Link from 'next/link';
 import Image from "next/image";
@@ -240,6 +241,12 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                     />
                 </div>
             </div>
+
+            {detailsData.related && detailsData.related.length > 0 && (
+                <div className="mt-8">
+                    <RelatedSection related={detailsData.related} />
+                </div>
+            )}
         </div>
     );
 }

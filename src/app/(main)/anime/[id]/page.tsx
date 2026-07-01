@@ -2,11 +2,12 @@ import { getAnimeDetails, getAnimeEpisodes } from "@/lib/api";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Star, Tv, Calendar } from "lucide-react";
+import { PlayCircle, Star, Tv, Calendar, ShieldAlert } from "lucide-react";
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
+import { RelatedSection } from "@/components/anime/RelatedSection";
 import { Skeleton } from "@/components/ui/skeleton";
 
 async function AnimeDetailsPageContent({ id }: { id: string }) {
@@ -25,7 +26,8 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
         );
 
         const statItems = [
-            detailsData.rating && { icon: Star, label: "Rating", value: detailsData.rating },
+            detailsData.malScore != null && { icon: Star, label: "Star Rating", value: detailsData.malScore.toFixed(2) },
+            detailsData.rating && { icon: ShieldAlert, label: "Age Rating", value: detailsData.rating },
             detailsData.type && { icon: Tv, label: "Type", value: detailsData.type },
             detailsData.aired && { icon: Calendar, label: "Aired", value: detailsData.aired },
         ].filter(Boolean) as { icon: React.ElementType; label: string; value: string }[];
@@ -90,6 +92,10 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         episodes={episodesData.episodes}
                         totalEpisodes={episodesData.episodes.length}
                     />
+                )}
+
+                {detailsData.related && detailsData.related.length > 0 && (
+                    <RelatedSection related={detailsData.related} />
                 )}
             </div>
         );
