@@ -59,6 +59,16 @@ export type HomeData = {
 
 // ─── Anime Detail ─────────────────────────────────────────────────────────────
 
+export type RelatedAnime = {
+  id?: string;
+  title: string;
+  titleJp?: string;
+  image?: string;
+  href?: string;
+  slug?: string;
+  relation?: string;
+};
+
 export type AnimeDetail = {
   id?: string;
   slug?: string;
@@ -82,6 +92,7 @@ export type AnimeDetail = {
   studios?: string[];
   producers?: string[];
   watchUrl?: string;
+  related?: RelatedAnime[];
 };
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────
