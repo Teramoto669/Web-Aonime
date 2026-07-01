@@ -47,12 +47,53 @@ export default async function WatchPage({
     let currentRange = typeof resolvedSearchParams.range === 'string' ? resolvedSearchParams.range : '';
 
     try {
-        const detailsData = await getAnimeDetails(animeId);
-        
-        // Use the slug from details response
+        // ── Happy path: ep + range already set — fire all 3 fetches at once ───
+        // This is the common case when clicking an episode link (has ?ep=N&range=X-Y).
+        if (currentEp && currentRange) {
+            const [detailsData, episodesData, watchData] = await Promise.all([
+                getAnimeDetails(animeId),
+                getAnimeEpisodes(animeId),
+                getWatchData(animeId, currentEp),
+            ]);
+
+            if (!watchData || !watchData.sources || watchData.sources.length === 0) {
+                return (
+                    <div className="container mx-auto px-4 py-8">
+                        <Alert variant="destructive">
+                            <Terminal className="h-4 w-4" />
+                            <AlertTitle>No streaming sources available!</AlertTitle>
+                            <AlertDescription>
+                                This episode doesn't seem to have any streaming sources yet.
+                                <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                );
+            }
+
+            return (
+                <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentEp}`}>
+                    <WatchClient
+                        animeId={animeId}
+                        episodeNum={currentEp}
+                        episodeRange={currentRange}
+                        detailsData={detailsData}
+                        episodesData={episodesData}
+                        watchData={watchData}
+                        cfProxyUrl={process.env.CF_PROXY_URL}
+                    />
+                </Suspense>
+            );
+        }
+
+        // ── Fallback: ep or range missing — resolve them then redirect ─────────
+        const [detailsData, episodesData] = await Promise.all([
+            getAnimeDetails(animeId),
+            getAnimeEpisodes(animeId),
+        ]);
+
+        // Prefer the canonical slug from the details response
         const slug = detailsData.slug || animeId;
-        
-        const episodesData = await getAnimeEpisodes(slug);
 
         let shouldRedirect = false;
 
@@ -92,10 +133,12 @@ export default async function WatchPage({
             }
         }
 
+        // Redirect once with all params resolved — avoids a second waterfall
         if (shouldRedirect) {
             redirect(`/watch/${animeId}?ep=${currentEp}&range=${currentRange}`);
         }
 
+        // ── Fallback render: ep was valid, just missing range ──────────────────
         const watchData = await getWatchData(slug, currentEp);
 
         if (!watchData || !watchData.sources || watchData.sources.length === 0) {
