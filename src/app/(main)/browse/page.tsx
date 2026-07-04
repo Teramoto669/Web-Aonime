@@ -88,8 +88,8 @@ async function BrowsePageContent({ page, sort, filters }: { page: number; sort: 
         {animes.length >= 24 && (
           <Pagination
             currentPage={page}
-            totalPages={page + 1}
-            hasNextPage={true}
+            totalPages={data.maxPage ?? (data.hasNextPage ? page + 1 : page)}
+            hasNextPage={data.hasNextPage ?? false}
           />
         )}
         {animes.length === 0 && (

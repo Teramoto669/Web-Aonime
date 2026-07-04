@@ -37,8 +37,8 @@ async function SearchResults({ query, page, sort, filters }: { query: string; pa
                 {data.results.length >= 24 && (
                     <Pagination
                         currentPage={page}
-                        totalPages={page + 1}
-                        hasNextPage={true}
+                        totalPages={data.maxPage ?? (data.hasNextPage ? page + 1 : page)}
+                        hasNextPage={data.hasNextPage ?? false}
                     />
                 )}
 			</div>
