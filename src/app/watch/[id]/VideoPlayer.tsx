@@ -31,9 +31,10 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
     const CF_PROXY = rawCfProxy
         ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
         : '';
-    const EXT_PROXY = 'https://anikoto-scrap.vercel.app';
+    const EXT_PROXY = 'https://anikoto-private-hosted.vercel.app';
 
     useEffect(() => {
+        console.log("[VideoPlayer] source:", JSON.stringify(source, null, 2), "CF_PROXY:", CF_PROXY);
         if (source.proxyUrl) {
             // source.proxyUrl is like "/api/proxy?url=...&referer=..."
             // CF Worker reads ?url= and ?referer= at any path, so we just
@@ -43,15 +44,21 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
                 : `?url=${encodeURIComponent(source.proxyUrl)}`;
 
             if (CF_PROXY) {
-                setPlayerUrl({ m3u8: `${CF_PROXY}/${queryString}` });
+                const finalUrl = `${CF_PROXY}/${queryString}`;
+                console.log("[VideoPlayer] final m3u8 URL (proxyUrl+CF):", finalUrl);
+                setPlayerUrl({ m3u8: finalUrl });
             } else {
+                console.log("[VideoPlayer] final m3u8 URL (proxyUrl local):", source.proxyUrl);
                 setPlayerUrl({ m3u8: source.proxyUrl });
             }
         } else if (source.m3u8) {
             const base = CF_PROXY || '';
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            setPlayerUrl({ m3u8: base ? `${base}/${qs}` : `/api/proxy${qs}` });
+            const finalUrl = base ? `${base}/${qs}` : `/api/proxy${qs}`;
+            console.log("[VideoPlayer] final m3u8 URL (m3u8):", finalUrl);
+            setPlayerUrl({ m3u8: finalUrl });
         } else if (source.url) {
+            console.log("[VideoPlayer] embed URL:", source.url);
             setPlayerUrl({ embed: source.url });
         } else {
             setError("No streaming source available");
@@ -163,6 +170,10 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<HLS | null>(null);
 
+    // Create a stable string representation of tracks to avoid infinite loops
+    // caused by tracks array reference changing on every render.
+    const tracksKey = JSON.stringify(tracks || []);
+
     const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
     const [currentLevel, setCurrentLevel] = useState<number>(-1);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -195,13 +206,20 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         const video = videoRef.current;
         if (!video) return;
 
+        const handleNativeError = () => {
+            if (video.error) {
+                console.error("[HTML5 Video Native Error] Code:", video.error.code, "Message:", video.error.message);
+            }
+        };
+        video.addEventListener('error', handleNativeError);
+
         hlsRef.current?.destroy();
         setQualityLevels([]);
         setCurrentLevel(-1);
 
         if (HLS.isSupported()) {
             const hls = new HLS({
-                debug: false,
+                debug: true,
                 startLevel: -1,
                 maxBufferLength: 20,
                 maxMaxBufferLength: 40,
@@ -209,6 +227,12 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 startFragPrefetch: false,
                 abrBandWidthFactor: 0.8,
                 abrBandWidthUpFactor: 0.6,
+                // Disable web worker — avoids codec negotiation issues with HE-AAC v2
+                // (mp4a.40.29) in MPEG-TS streams which Chrome MSE can't always buffer.
+                enableWorker: false,
+                // Don't let the manifest's declared codec string override what MSE reports.
+                // This prevents bufferAppendingError when the stream declares HE-AAC v2.
+                stretchShortVideoTrack: true,
                 xhrSetup: (xhr, url) => {
                     xhr.withCredentials = false;
                 },
@@ -218,6 +242,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             hls.attachMedia(video);
 
             hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
+                console.log("[HLS] MANIFEST_PARSED — levels:", data.levels.map(l => `${l.height}p`));
                 const levels = data.levels
                     .map((l, i) => ({ height: l.height || 0, bitrate: l.bitrate || 0, index: i }))
                     .sort((a, b) => b.height - a.height);
@@ -232,20 +257,62 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     }
                 }
 
-                video.play().catch(() => { });
+                video.play().catch((e) => { console.warn("[HLS] video.play() rejected:", e); });
+            });
+
+            hls.on(HLS.Events.FRAG_LOADED, (_, data) => {
+                console.log("[HLS] FRAG_LOADED:", data.frag.url.substring(0, 120));
+            });
+
+            hls.on(HLS.Events.LEVEL_LOADED, (_, data) => {
+                console.log("[HLS] LEVEL_LOADED — fragments:", data.details.fragments.length);
             });
 
             hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => setCurrentLevel(data.level));
+            let mediaErrorRecoveryAttempts = 0;
             hls.on(HLS.Events.ERROR, (_, data) => {
-                if (data.fatal) console.error("HLS fatal:", data.type, data.details);
+                console.error("[HLS] ERROR:", data.type, data.details, "fatal:", data.fatal, "url:", (data as any).url?.substring(0, 120));
+                if (data.fatal) {
+                    switch (data.type) {
+                        case HLS.ErrorTypes.MEDIA_ERROR:
+                            mediaErrorRecoveryAttempts++;
+                            console.warn(`[HLS] Fatal media error encountered (attempt ${mediaErrorRecoveryAttempts}/3)...`);
+                            if (mediaErrorRecoveryAttempts <= 3) {
+                                hls.recoverMediaError();
+                            } else {
+                                console.error("[HLS] Fatal media error recovery failed 3 times. Reloading source...");
+                                hls.loadSource(m3u8Url);
+                                mediaErrorRecoveryAttempts = 0;
+                            }
+                            break;
+                        case HLS.ErrorTypes.NETWORK_ERROR:
+                            console.warn("[HLS] Fatal network error encountered, retrying...");
+                            hls.startLoad();
+                            break;
+                        default:
+                            console.error("[HLS] Unrecoverable fatal error, destroying player.");
+                            hls.destroy();
+                            break;
+                    }
+                } else {
+                    // Reset recovery counter on successful playback progress or non-fatal events
+                    const detailsStr = data.details as any;
+                    if (detailsStr === 'bufferSeekOverhole' || detailsStr === 'bufferNudgeOnStall') {
+                        mediaErrorRecoveryAttempts = 0;
+                    }
+                }
             });
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
             video.src = m3u8Url;
             video.play().catch(() => { });
         }
 
-        return () => { hlsRef.current?.destroy(); hlsRef.current = null; };
-    }, [m3u8Url, tracks]);
+        return () => {
+            video.removeEventListener('error', handleNativeError);
+            hlsRef.current?.destroy();
+            hlsRef.current = null;
+        };
+    }, [m3u8Url]);
 
     // ── Handle subtitle selection ──
     const handleSubtitleChange = (index: number) => {
@@ -286,7 +353,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         enableSubtitle();
         const timer = setTimeout(enableSubtitle, 500);
         return () => clearTimeout(timer);
-    }, [tracks]);
+    }, [tracksKey]);
 
     // ── Handle tracks changing (episode change) ──
     useEffect(() => {
@@ -298,7 +365,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             return {};
         });
         setSubDelay(0);
-    }, [tracks]);
+    }, [tracksKey]);
 
     // ── Cleanup Blob URLs on unmount ──
     useEffect(() => {
@@ -340,7 +407,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     setLoadingSub(false);
                 });
         }
-    }, [selectedSubtitleIndex, tracks, originalSubContents]);
+    }, [selectedSubtitleIndex, tracksKey, originalSubContents]);
 
     // ── Apply timing shift to WebVTT content ──
     useEffect(() => {

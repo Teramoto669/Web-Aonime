@@ -1,0 +1,46 @@
+diff --git a/node_modules/hls.js/dist/hls.js b/node_modules/hls.js/dist/hls.js
+index fb1b860..8763403 100644
+--- a/node_modules/hls.js/dist/hls.js
++++ b/node_modules/hls.js/dist/hls.js
+@@ -11085,6 +11085,9 @@
+     }
+     // MPEG-4 Audio Object Type (profile_ObjectType+1)
+     var adtsObjectType = (byte2 >> 6 & 0x3) + 1;
++    if (adtsObjectType === 1) {
++      adtsObjectType = 2; // Treat AAC Main (mp4a.40.1) as AAC LC (mp4a.40.2)
++    }
+     var channelCount = data[offset + 3] >> 6 & 0x3 | (byte2 & 1) << 2;
+     var codec = 'mp4a.40.' + adtsObjectType;
+     /* refer to http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio#Audio_Specific_Config
+diff --git a/node_modules/hls.js/dist/hls.mjs b/node_modules/hls.js/dist/hls.mjs
+index a81e8f9..6aa6230 100644
+--- a/node_modules/hls.js/dist/hls.mjs
++++ b/node_modules/hls.js/dist/hls.mjs
+@@ -10744,7 +10744,10 @@ function getAudioConfig(observer, data, offset, manifestCodec) {
+     return;
+   }
+   // MPEG-4 Audio Object Type (profile_ObjectType+1)
+-  const adtsObjectType = (byte2 >> 6 & 0x3) + 1;
++  let adtsObjectType = (byte2 >> 6 & 0x3) + 1;
++  if (adtsObjectType === 1) {
++    adtsObjectType = 2; // Treat AAC Main (mp4a.40.1) as AAC LC (mp4a.40.2)
++  }
+   const channelCount = data[offset + 3] >> 6 & 0x3 | (byte2 & 1) << 2;
+   const codec = 'mp4a.40.' + adtsObjectType;
+   /* refer to http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio#Audio_Specific_Config
+diff --git a/node_modules/hls.js/src/demux/audio/adts.ts b/node_modules/hls.js/src/demux/audio/adts.ts
+index 7376818..de402bf 100644
+--- a/node_modules/hls.js/src/demux/audio/adts.ts
++++ b/node_modules/hls.js/src/demux/audio/adts.ts
+@@ -50,7 +50,10 @@ export function getAudioConfig(
+     return;
+   }
+   // MPEG-4 Audio Object Type (profile_ObjectType+1)
+-  const adtsObjectType = ((byte2 >> 6) & 0x3) + 1;
++  let adtsObjectType = ((byte2 >> 6) & 0x3) + 1;
++  if (adtsObjectType === 1) {
++    adtsObjectType = 2; // Treat AAC Main (mp4a.40.1) as AAC LC (mp4a.40.2)
++  }
+   const channelCount = ((data[offset + 3] >> 6) & 0x3) | ((byte2 & 1) << 2);
+   const codec = 'mp4a.40.' + adtsObjectType;
+   /* refer to http://wiki.multimedia.cx/index.php?title=MPEG-4_Audio#Audio_Specific_Config
