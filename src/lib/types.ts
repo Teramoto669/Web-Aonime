@@ -153,7 +153,9 @@ export type BrowseResponse = {
   results?: AnimeListItem[];
   currentPage?: number;
   hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
   maxPage?: number;
+  minPage?: number;
   params?: Record<string, string>;
   options?: FilterOptions;
 };

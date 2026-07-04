@@ -15,11 +15,13 @@ type PaginationProps = {
   totalPages: number;
   currentPage: number;
   hasNextPage: boolean;
+  hasPreviousPage?: boolean;
+  minPage?: number;
 }
 
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationProps) {
+export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPage, minPage = 1 }: PaginationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,7 +34,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
   };
 
   const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
+    if (page < minPage || page > totalPages) return;
     router.push(createPageURL(page));
   }
 
@@ -40,23 +42,22 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
     const pages = [];
     const pageLimit = isMobile ? 3 : 5;
     const halfLimit = Math.floor(pageLimit / 2);
-    let startPage = Math.max(1, currentPage - halfLimit);
+    let startPage = Math.max(minPage, currentPage - halfLimit);
     let endPage = Math.min(totalPages, startPage + pageLimit - 1);
     
-    if (totalPages > pageLimit) {
+    if (totalPages - minPage + 1 > pageLimit) {
         if (endPage === totalPages) {
-            startPage = Math.max(1, totalPages - pageLimit + 1);
+            startPage = Math.max(minPage, totalPages - pageLimit + 1);
         }
     }
 
-
-    if (startPage > 1) {
+    if (startPage > minPage) {
       pages.push(
-        <PaginationItem key="1">
-          <PaginationLink onClick={() => handlePageChange(1)}>1</PaginationLink>
+        <PaginationItem key={minPage}>
+          <PaginationLink onClick={() => handlePageChange(minPage)}>{minPage}</PaginationLink>
         </PaginationItem>
       );
-      if (startPage > 2) {
+      if (startPage > minPage + 1) {
         pages.push(<PaginationEllipsis key="start-ellipsis" />);
       }
     }
@@ -82,9 +83,10 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
       );
     }
 
-
     return pages;
   }
+
+  const disablePrev = hasPreviousPage !== undefined ? !hasPreviousPage : currentPage <= minPage;
 
   return (
     <ShadcnPagination>
@@ -92,8 +94,8 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
         <PaginationItem>
           <PaginationPrevious
             onClick={() => handlePageChange(currentPage - 1)}
-            aria-disabled={currentPage <= 1}
-            className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+            aria-disabled={disablePrev}
+            className={disablePrev ? "pointer-events-none opacity-50" : undefined}
           />
         </PaginationItem>
         

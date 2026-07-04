@@ -34,13 +34,15 @@ async function SearchResults({ query, page, sort, filters }: { query: string; pa
 		return (
 			<div className="space-y-8">
 				<AnimeGrid animes={data.results} />
-                {data.results.length >= 24 && (
+                {(data.maxPage && data.maxPage > 1) || (!data.maxPage && (data.results.length >= 24 || page > 1)) ? (
                     <Pagination
                         currentPage={page}
                         totalPages={data.maxPage ?? (data.hasNextPage ? page + 1 : page)}
                         hasNextPage={data.hasNextPage ?? false}
+                        hasPreviousPage={data.hasPreviousPage}
+                        minPage={data.minPage}
                     />
-                )}
+                ) : null}
 			</div>
 		);
 	} catch (error) {
