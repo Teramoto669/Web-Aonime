@@ -44,7 +44,7 @@
     "embla-carousel-autoplay": "^8.1.5",
     "embla-carousel-react": "^8.6.0",
     "firebase": "^11.9.1",
-    "hls.js": "^1.6.13",
+    "hls.js": "1.6.13",
     "lucide-react": "^0.475.0",
     "next": "15.3.8",
     "patch-package": "^8.0.0",
