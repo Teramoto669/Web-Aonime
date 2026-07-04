@@ -50,7 +50,7 @@ const STATIC_FILTERS: FilterOptions = {
         { id: "16",  name: "Super Power",  slug: "super-power" },
         { id: "9",   name: "Supernatural", slug: "supernatural" },
         { id: "54",  name: "Thriller",     slug: "thriller" },
-        { id: "32",  name: "Unknown",      slug: "unknown" },
+        { id: "32",  name: "unknown",      slug: "unknown" },
         { id: "58",  name: "Vampire",      slug: "vampire" },
     ],
     years: [
