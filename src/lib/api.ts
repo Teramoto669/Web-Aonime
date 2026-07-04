@@ -239,6 +239,7 @@ export type BrowseParams = {
   year?: string[];
   rating?: string[];
   language?: string[];
+  refresh?: boolean;
 };
 
 export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
@@ -253,6 +254,7 @@ export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> 
     year: params.year,
     language: params.language,
     rating: params.rating,
+    refresh: params.refresh,
   });
 };
 

@@ -17,10 +17,13 @@ type PaginationProps = {
   hasNextPage: boolean;
 }
 
+import { useIsMobile } from "@/hooks/use-mobile";
+
 export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const createPageURL = (pageNumber: number) => {
     const params = new URLSearchParams(searchParams);
@@ -35,8 +38,9 @@ export function Pagination({ totalPages, currentPage, hasNextPage }: PaginationP
 
   const renderPageNumbers = () => {
     const pages = [];
-    const pageLimit = 5;
-    let startPage = Math.max(1, currentPage - 2);
+    const pageLimit = isMobile ? 3 : 5;
+    const halfLimit = Math.floor(pageLimit / 2);
+    let startPage = Math.max(1, currentPage - halfLimit);
     let endPage = Math.min(totalPages, startPage + pageLimit - 1);
     
     if (totalPages > pageLimit) {
