@@ -191,3 +191,27 @@ export type FiltersResponse = {
   season?: string[];
   year?: string[];
 };
+
+// ─── Schedule ────────────────────────────────────────────────────────────────
+
+export type ScheduleAnimeItem = {
+  id: string;
+  slug: string;
+  title: string;
+  titleJp?: string;
+  image: string;
+  href: string;
+  type: string; // episode label e.g. "Episode 13"
+  date: string; // airing time in the requested timezone e.g. "21:00"
+};
+
+export type ScheduleDay = {
+  day: string; // e.g. "Sun Jul 05"
+  animes: ScheduleAnimeItem[];
+};
+
+export type ScheduleResponse = {
+  ok: boolean;
+  data: ScheduleDay[];
+};
+

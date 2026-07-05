@@ -8,6 +8,7 @@ import type {
   WatchData,
   BrowseResponse,
   FiltersResponse,
+  ScheduleDay,
 } from './types';
 
 const BASE_URL = process.env.API_BASE_URL;
@@ -159,10 +160,11 @@ export const getByType = (type: string, page = 1): Promise<BrowseResponse> =>
 
 // ─── Schedule ──────────────────────────────────────────────────────────────────
 
-export const getSchedule = (refresh?: boolean): Promise<any> => {
+export const getSchedule = (tz?: number | string, refresh?: boolean): Promise<ScheduleDay[]> => {
   const params = new URLSearchParams();
+  if (tz !== undefined) params.set('tz', String(tz));
   if (refresh) params.set('refresh', '1');
-  return fetcher<any>(`/schedule?${params.toString()}`);
+  return fetcher<ScheduleDay[]>(`/schedule?${params.toString()}`);
 };
 
 // ─── Watch (Streaming Sources) ────────────────────────────────────────────────
