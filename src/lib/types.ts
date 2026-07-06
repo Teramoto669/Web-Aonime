@@ -95,6 +95,28 @@ export type AnimeDetail = {
   related?: RelatedAnime[];
 };
 
+export type AnimeTooltipData = {
+  id: string;
+  slug: string;
+  title: string;
+  titleJp?: string;
+  rating?: string;
+  quality?: string;
+  episodes?: {
+    sub?: number;
+    dub?: number;
+    total?: number;
+  };
+  synopsis?: string;
+  otherNames?: string;
+  score?: number | string;
+  year?: string;
+  duration?: string;
+  status?: string;
+  genres?: string[];
+  href?: string;
+};
+
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
 export type Episode = {

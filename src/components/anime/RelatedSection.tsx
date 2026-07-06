@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { RelatedAnime } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { PlayIcon } from 'lucide-react';
+import { AnimeTooltip } from './AnimeTooltip';
 
 interface RelatedSectionProps {
     related: RelatedAnime[];
@@ -54,13 +55,19 @@ function RelatedCard({ item }: { item: RelatedAnime }) {
 
     if (isExternal) {
         return (
-            <a href={href} target="_blank" rel="noopener noreferrer">
-                {content}
-            </a>
+            <AnimeTooltip id={item.id} fallbackTitle={item.title}>
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                    {content}
+                </a>
+            </AnimeTooltip>
         );
     }
 
-    return <Link href={href}>{content}</Link>;
+    return (
+        <AnimeTooltip id={item.id} fallbackTitle={item.title}>
+            <Link href={href}>{content}</Link>
+        </AnimeTooltip>
+    );
 }
 
 export function RelatedSection({ related }: RelatedSectionProps) {

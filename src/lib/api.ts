@@ -9,6 +9,7 @@ import type {
   BrowseResponse,
   FiltersResponse,
   ScheduleDay,
+  AnimeTooltipData,
 } from './types';
 
 const BASE_URL = process.env.API_BASE_URL;
@@ -50,6 +51,13 @@ export const getHomeData = (): Promise<HomeData> =>
 
 export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
   fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}`);
+
+export const getAnimeTooltip = (id: string, refresh?: boolean): Promise<AnimeTooltipData> => {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  const path = `/anime/tooltip/${encodeURIComponent(id)}${params.toString() ? `?${params.toString()}` : ''}`;
+  return fetcher<AnimeTooltipData>(path);
+};
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
