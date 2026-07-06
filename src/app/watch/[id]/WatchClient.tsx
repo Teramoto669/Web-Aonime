@@ -118,6 +118,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                     <div className="w-full bg-black rounded-lg shadow-lg">
                         {currentSource ? (
                             <VideoPlayer
+                                key={`${currentSource.server}-${currentSource.type}-${currentSource.url || currentSource.m3u8 || ""}`}
                                 source={currentSource}
                                 tracks={currentSource.tracks || []}
                                 cfProxyUrl={cfProxyUrl}
