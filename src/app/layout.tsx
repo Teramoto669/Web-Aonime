@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { AuthProvider } from '@/lib/auth-context';
+import VerificationBanner from '@/components/auth/VerificationBanner';
 
 export const metadata: Metadata = {
   title: 'Aonime Stream',
@@ -24,13 +26,16 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
       </head>
       <body className={cn('font-body antialiased')}>
-        <div className="relative flex min-h-screen flex-col bg-background">
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
-        <Toaster />
-        <SpeedInsights />
+        <AuthProvider>
+          <div className="relative flex min-h-screen flex-col bg-background">
+            <Header />
+            <VerificationBanner />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+          <Toaster />
+          <SpeedInsights />
+        </AuthProvider>
       </body>
     </html>
   );

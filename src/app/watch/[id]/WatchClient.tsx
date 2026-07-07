@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AnimeDetail, AnimeEpisodes, WatchData, Source } from "@/lib/types";
+import LibraryButton from "@/components/anime/LibraryButton";
 
 interface WatchClientProps {
     animeId: string;
@@ -211,24 +212,36 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         </div>
                     </div>
 
-                    {/* Anime info link */}
-                    <Link href={`/anime/${slug}`} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/20 transition-colors">
-                        <div className="relative h-24 w-16 flex-shrink-0">
-                            <Image
-                                src={detailsData.image || '/placeholder.jpg'}
-                                alt={title}
-                                fill
-                                className="rounded-sm object-cover"
+                    {/* Anime info link & library action */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg bg-card/10">
+                        <Link href={`/anime/${slug}`} className="flex items-center gap-4 hover:opacity-90 transition-opacity flex-1">
+                            <div className="relative h-24 w-16 flex-shrink-0">
+                                <Image
+                                    src={detailsData.image || '/placeholder.jpg'}
+                                    alt={title}
+                                    fill
+                                    className="rounded-sm object-cover"
+                                />
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Now Watching</p>
+                                <h2 className="text-xl font-bold line-clamp-1">{title}</h2>
+                                <p className="text-sm text-muted-foreground line-clamp-1">
+                                    {detailsData.genres?.join(', ') || detailsData.type || 'Anime'}
+                                </p>
+                            </div>
+                        </Link>
+                        <div className="flex-shrink-0">
+                            <LibraryButton
+                                animeId={detailsData.id || animeId}
+                                title={title}
+                                image={detailsData.image || ""}
+                                type={detailsData.type || "TV"}
+                                slug={slug}
+                                className="w-full sm:w-auto h-10 text-xs px-4"
                             />
                         </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Now Watching</p>
-                            <h2 className="text-xl font-bold">{title}</h2>
-                            <p className="text-sm text-muted-foreground line-clamp-1">
-                                {detailsData.genres?.join(', ') || detailsData.type || 'Anime'}
-                            </p>
-                        </div>
-                    </Link>
+                    </div>
                 </div>
 
                 <div className="lg:col-span-1">

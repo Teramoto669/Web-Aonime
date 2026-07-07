@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, Star, Tv, Calendar, ShieldAlert } from "lucide-react";
 import Link from 'next/link';
+import LibraryButton from "@/components/anime/LibraryButton";
 import { Suspense } from 'react';
 import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
@@ -74,14 +75,22 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                             </div>
                         )}
 
-                        <div className="pt-6">
+                        <div className="pt-6 flex flex-wrap gap-4 items-center">
                             {firstEpisode && (
-                                <Button asChild size="lg">
+                                <Button asChild size="lg" className="font-bold">
                                     <Link href={`/watch/${id}?ep=${firstEpisode.number}`}>
                                         <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
                                     </Link>
                                 </Button>
                             )}
+                            <LibraryButton
+                                animeId={detailsData.id || id}
+                                title={detailsData.title || id}
+                                image={detailsData.image || ""}
+                                type={detailsData.type || "TV"}
+                                slug={slug}
+                                className="h-11 px-5 text-sm"
+                            />
                         </div>
                     </div>
                 </div>
