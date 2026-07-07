@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useAuth, PRESET_AVATARS, PRESET_THEMES } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -60,7 +60,7 @@ const statusLabels: Record<string, string> = {
   dropped: "Dropped",
 };
 
-export default function LibraryPage() {
+function LibraryPageContent() {
   const {
     user,
     loading: authLoading,
@@ -895,5 +895,18 @@ export default function LibraryPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function LibraryPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground font-medium">Loading your profile...</p>
+      </div>
+    }>
+      <LibraryPageContent />
+    </Suspense>
   );
 }
