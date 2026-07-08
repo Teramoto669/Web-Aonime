@@ -45,6 +45,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
         ].filter(Boolean) as { icon: React.ElementType; label: string; value: string }[];
 
         const isNotYetAired = detailsData.status?.toLowerCase().includes("not yet aired");
+        const hasEpisodes = episodesData.episodes && episodesData.episodes.length > 0;
 
         return (
             <div className="space-y-12">
@@ -89,7 +90,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         )}
 
                         <div className="pt-6 flex flex-wrap gap-4 items-center">
-                            {!isNotYetAired && (
+                            {!isNotYetAired && hasEpisodes && (
                                 <Button asChild size="lg" className="font-bold">
                                     <Link href={`/watch/${slug}`}>
                                         <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
