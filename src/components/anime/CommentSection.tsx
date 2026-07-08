@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { 
   MessageSquare, 
@@ -27,12 +28,15 @@ import {
   AlertCircle, 
   Send,
   Sparkles,
-  CornerDownRight
+  CornerDownRight,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 
 interface CommentSectionProps {
   animeId: string;
   episodeNum?: string;
+  animeTitle?: string;
 }
 
 interface CommentType {
@@ -48,6 +52,8 @@ interface CommentType {
   createdAt: Timestamp | null;
   parentId?: string | null;
   parentUserName?: string | null;
+  likesCount?: number;
+  dislikesCount?: number;
 }
 
 const getThemeTextClass = (theme?: string) => {
@@ -60,7 +66,7 @@ const getThemeTextClass = (theme?: string) => {
   }
 };
 
-export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
+export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSectionProps) {
   const { user, openAuthModal, updateLastCommentedAt } = useAuth();
   const { toast } = useToast();
   
@@ -76,6 +82,9 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  // Reaction states
+  const [reactions, setReactions] = useState<Record<string, "like" | "dislike">>({});
 
   // Target ID: different scopes for details page vs. specific episode
   const targetId = episodeNum ? `${animeId}_ep_${episodeNum}` : animeId;
@@ -118,6 +127,32 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
 
     return () => clearInterval(interval);
   }, [user?.lastCommentedAt]);
+
+  // Listen to user's comment reactions
+  useEffect(() => {
+    if (!user) {
+      setReactions({});
+      return;
+    }
+
+    const q = query(
+      collection(db, "comment_reactions"),
+      where("userId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const activeReactions: Record<string, "like" | "dislike"> = {};
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.commentId && data.type) {
+          activeReactions[data.commentId] = data.type;
+        }
+      });
+      setReactions(activeReactions);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Real-time comments listener
   useEffect(() => {
@@ -191,6 +226,8 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
         createdAt: serverTimestamp(),
         parentId: null,
         parentUserName: null,
+        likesCount: 0,
+        dislikesCount: 0,
       });
 
       batch.update(userRef, {
@@ -220,7 +257,7 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
     }
   };
 
-  const handleReplySubmit = async (parentId: string, parentUserName: string) => {
+  const handleReplySubmit = async (parentId: string, parentUserName: string, parentUserId?: string) => {
     if (!user) return;
 
     const trimmedText = replyText.trim();
@@ -253,11 +290,34 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
         createdAt: serverTimestamp(),
         parentId,
         parentUserName,
+        likesCount: 0,
+        dislikesCount: 0,
       });
 
       batch.update(userRef, {
         lastCommentedAt: serverTimestamp(),
       });
+
+      // Write notification for the parent comment owner if it is not the current user
+      if (parentUserId && parentUserId !== user.uid) {
+        const notifRef = doc(collection(db, "notifications"));
+        const displayAnimeName = animeTitle || animeId;
+        const msg = `${user.displayName || "Someone"} replied to your comment on ${displayAnimeName}${episodeNum ? ` Ep ${episodeNum}` : ""}: "${trimmedText.substring(0, 50)}${trimmedText.length > 50 ? "..." : ""}"`;
+
+        batch.set(notifRef, {
+          userId: parentUserId,
+          type: "reply",
+          title: "New Reply",
+          message: msg,
+          link: episodeNum 
+            ? `/watch/${animeId}?ep=${episodeNum}` 
+            : `/anime/${animeId}`,
+          isRead: false,
+          createdAt: serverTimestamp(),
+          senderId: user.uid,
+          senderName: user.displayName || "Anonymous User",
+        });
+      }
 
       await batch.commit();
 
@@ -280,6 +340,69 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
       });
     } finally {
       setIsSubmittingReply(false);
+    }
+  };
+
+  const handleReaction = async (commentId: string, reactionType: "like" | "dislike") => {
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
+
+    const currentReaction = reactions[commentId];
+    const reactionRef = doc(db, "comment_reactions", `${commentId}_${user.uid}`);
+    const commentRef = doc(db, "comments", commentId);
+
+    try {
+      const batch = writeBatch(db);
+
+      let likesDelta = 0;
+      let dislikesDelta = 0;
+
+      if (!currentReaction) {
+        batch.set(reactionRef, {
+          userId: user.uid,
+          commentId,
+          type: reactionType,
+          createdAt: serverTimestamp(),
+        });
+        if (reactionType === "like") likesDelta = 1;
+        else dislikesDelta = 1;
+      } else if (currentReaction === reactionType) {
+        batch.delete(reactionRef);
+        if (reactionType === "like") likesDelta = -1;
+        else dislikesDelta = -1;
+      } else {
+        batch.update(reactionRef, {
+          type: reactionType,
+          updatedAt: serverTimestamp(),
+        });
+        if (reactionType === "like") {
+          likesDelta = 1;
+          dislikesDelta = -1;
+        } else {
+          likesDelta = -1;
+          dislikesDelta = 1;
+        }
+      }
+
+      const commentDoc = comments.find((c) => c.id === commentId);
+      const currentLikes = commentDoc?.likesCount || 0;
+      const currentDislikes = commentDoc?.dislikesCount || 0;
+
+      batch.update(commentRef, {
+        likesCount: Math.max(0, currentLikes + likesDelta),
+        dislikesCount: Math.max(0, currentDislikes + dislikesDelta),
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Error updating reaction:", error);
+      toast({
+        variant: "destructive",
+        title: "Reaction failed",
+        description: "An error occurred while updating your reaction.",
+      });
     }
   };
 
@@ -539,7 +662,7 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
                       </p>
 
                       {/* Comment Action Bar */}
-                      <div className="flex items-center gap-3 pt-1.5 border-t border-border/10">
+                      <div className="flex items-center gap-4 pt-1.5 border-t border-border/10">
                         <button
                           onClick={() => {
                             if (!user) {
@@ -553,6 +676,34 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                           Reply
+                        </button>
+
+                        <button
+                          onClick={() => handleReaction(comment.id, "like")}
+                          className={cn(
+                            "text-xs font-semibold flex items-center gap-1.5 transition-colors hover:text-green-500",
+                            reactions[comment.id] === "like"
+                              ? "text-green-500 font-bold"
+                              : "text-muted-foreground"
+                          )}
+                          title="Like"
+                        >
+                          <ThumbsUp className={cn("w-3.5 h-3.5", reactions[comment.id] === "like" && "fill-current")} />
+                          <span>{comment.likesCount || 0}</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleReaction(comment.id, "dislike")}
+                          className={cn(
+                            "text-xs font-semibold flex items-center gap-1.5 transition-colors hover:text-rose-500",
+                            reactions[comment.id] === "dislike"
+                              ? "text-rose-500 font-bold"
+                              : "text-muted-foreground"
+                          )}
+                          title="Dislike"
+                        >
+                          <ThumbsDown className={cn("w-3.5 h-3.5", reactions[comment.id] === "dislike" && "fill-current")} />
+                          <span>{comment.dislikesCount || 0}</span>
                         </button>
                       </div>
 
@@ -599,7 +750,7 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
                                   type="button"
                                   size="sm"
                                   disabled={isSubmittingReply || remainingMs > 0 || !replyText.trim()}
-                                  onClick={() => handleReplySubmit(comment.id, comment.userName)}
+                                  onClick={() => handleReplySubmit(comment.id, comment.userName, comment.userId)}
                                   className="text-xs h-8 bg-primary hover:bg-primary/95 text-primary-foreground font-bold flex items-center gap-1.5"
                                 >
                                   {isSubmittingReply ? (
@@ -686,6 +837,37 @@ export function CommentSection({ animeId, episodeNum }: CommentSectionProps) {
                                 <span className="text-primary font-semibold mr-1">@{comment.userName}</span>
                                 {reply.content}
                               </p>
+
+                              {/* Reply Action Bar */}
+                              <div className="flex items-center gap-3 pt-1.5 mt-1 border-t border-border/5">
+                                <button
+                                  onClick={() => handleReaction(reply.id, "like")}
+                                  className={cn(
+                                    "text-[10px] font-semibold flex items-center gap-1 transition-colors hover:text-green-500",
+                                    reactions[reply.id] === "like"
+                                      ? "text-green-500 font-bold"
+                                      : "text-muted-foreground"
+                                  )}
+                                  title="Like"
+                                >
+                                  <ThumbsUp className={cn("w-3 h-3", reactions[reply.id] === "like" && "fill-current")} />
+                                  <span>{reply.likesCount || 0}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleReaction(reply.id, "dislike")}
+                                  className={cn(
+                                    "text-[10px] font-semibold flex items-center gap-1 transition-colors hover:text-rose-500",
+                                    reactions[reply.id] === "dislike"
+                                      ? "text-rose-500 font-bold"
+                                      : "text-muted-foreground"
+                                  )}
+                                  title="Dislike"
+                                >
+                                  <ThumbsDown className={cn("w-3 h-3", reactions[reply.id] === "dislike" && "fill-current")} />
+                                  <span>{reply.dislikesCount || 0}</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );

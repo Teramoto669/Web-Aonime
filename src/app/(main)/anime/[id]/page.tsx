@@ -108,7 +108,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                     <RelatedSection related={detailsData.related} />
                 )}
 
-                <CommentSection animeId={slug} />
+                <CommentSection animeId={slug} animeTitle={detailsData.title || id} />
             </div>
         );
     } catch (error) {

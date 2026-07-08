@@ -32,6 +32,10 @@ service cloud.firestore {
       // Users can delete their own comments
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
+      // Users can only update likesCount and dislikesCount fields on comments (e.g. reacting)
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'dislikesCount']);
+
       // Create rules:
       // - Must be logged in and writing their own userId
       // - Comment creation timestamp must match the request time
@@ -45,6 +49,32 @@ service cloud.firestore {
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('lastCommentedAt', null) == null
           || request.time >= get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('lastCommentedAt', null) + duration.value(5, 'm')
         );
+    }
+
+    // Strict rules for the "comment_reactions" collection
+    match /comment_reactions/{reactionId} {
+      // Users can only read their own reaction documents
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Users can only create or update their own reactions
+      allow create, update: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && (resource == null || resource.data.userId == request.auth.uid);
+
+      // Users can delete their own reactions
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Strict rules for the "notifications" collection
+    match /notifications/{notificationId} {
+      // User can only read their own notifications
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Anyone logged in can create a notification (to allow sending replies or writing library updates)
+      allow create: if request.auth != null;
+      
+      // User can update/delete their own notifications (e.g. mark as read or dismiss)
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }

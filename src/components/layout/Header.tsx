@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, LogOut, Bookmark } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export default function Header() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -63,8 +64,10 @@ export default function Header() {
             {loading ? (
               <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />
             ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <>
+                <NotificationBell />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0">
                     <Avatar className={cn(
                       "h-9 w-9 transition-transform duration-200 hover:scale-105 border-2",
@@ -108,6 +111,7 @@ export default function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </>
             ) : (
               <Button onClick={() => openAuthModal('login')} size="sm" className="font-semibold px-4 h-9">
                 Sign In

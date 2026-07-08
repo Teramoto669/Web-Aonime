@@ -244,7 +244,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         </div>
                     </div>
 
-                    <CommentSection animeId={slug} episodeNum={episodeNum} />
+                    <CommentSection animeId={slug} episodeNum={episodeNum} animeTitle={title} />
                 </div>
 
                 <div className="lg:col-span-1">
