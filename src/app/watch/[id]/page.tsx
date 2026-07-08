@@ -106,16 +106,16 @@ export default async function WatchPage({
 
         if (!currentEp && episodesData.episodes.length > 0) {
             const totalEpisodes = episodesData.episodes.length;
-            let latestEpObj = episodesData.episodes[totalEpisodes - 1];
+            let firstEpObj = episodesData.episodes[0];
 
             // Check if episodes are sorted descending
             const firstEpNum = parseFloat(episodesData.episodes[0]?.number);
             const lastEpNum = parseFloat(episodesData.episodes[totalEpisodes - 1]?.number);
             if (!isNaN(firstEpNum) && !isNaN(lastEpNum) && firstEpNum > lastEpNum) {
-                latestEpObj = episodesData.episodes[0];
+                firstEpObj = episodesData.episodes[totalEpisodes - 1];
             }
 
-            currentEp = latestEpObj.number;
+            currentEp = firstEpObj.number;
         } else if (!currentEp) {
             currentEp = '1';
         }
