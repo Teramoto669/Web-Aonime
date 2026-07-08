@@ -92,11 +92,16 @@ export function FooterSchedule() {
       const safeId = `schedule-tab-${activeTab.replace(/\s+/g, "-")}`;
       const activeEl = document.getElementById(safeId);
       if (activeEl) {
-        activeEl.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-          inline: "center",
-        });
+        const container = activeEl.parentElement;
+        if (container) {
+          const containerLeft = container.getBoundingClientRect().left;
+          const elementLeft = activeEl.getBoundingClientRect().left;
+          const relativeLeft = elementLeft - containerLeft;
+          container.scrollBy({
+            left: relativeLeft - (container.clientWidth / 2) + (activeEl.clientWidth / 2),
+            behavior: "smooth",
+          });
+        }
       }
     }
   }, [activeTab]);
