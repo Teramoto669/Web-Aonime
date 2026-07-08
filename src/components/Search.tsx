@@ -138,10 +138,13 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
             }
           }}
           className={cn(
-            "group relative rounded-full border transition-all duration-300 ease-in-out overflow-hidden h-9",
+            "group relative transition-all duration-300 ease-in-out overflow-hidden h-9 flex items-center",
+            // Desktop styles (always active bar)
+            "md:w-48 lg:w-64 md:border-input md:bg-background/50 md:focus-within:w-64 lg:md:focus-within:w-80 md:focus-within:ring-2 md:focus-within:ring-ring md:focus-within:ring-offset-2 md:focus-within:ring-offset-background md:rounded-full md:border md:cursor-text",
+            // Mobile styles (collapses to icon, expands to full width)
             isSearchExpanded 
-              ? "w-full md:w-64 lg:w-80 border-input bg-background/50 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background" 
-              : "w-9 border-transparent bg-transparent hover:bg-muted/50 cursor-pointer"
+              ? "w-full border border-input bg-background/50 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background rounded-full" 
+              : "w-9 border-transparent bg-transparent hover:bg-muted/50 cursor-pointer rounded-full md:hover:bg-background/50"
           )}
         >
           <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">

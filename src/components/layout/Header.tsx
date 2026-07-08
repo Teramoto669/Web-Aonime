@@ -34,7 +34,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
-        <div className={cn("mr-4 flex items-center transition-all overflow-hidden", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
+        <div className={cn("mr-4 flex items-center transition-all overflow-hidden md:opacity-100 md:max-w-full md:pointer-events-auto", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
           {/* Mobile Navigation Trigger */}
           <Sheet>
             <SheetTrigger asChild>
@@ -116,7 +116,7 @@ export default function Header() {
             "transition-all duration-300",
             isSearchExpanded ? "w-full md:w-auto" : "w-auto"
           )}>
-            <Suspense fallback={<div className="w-9 h-9 bg-muted rounded-full animate-pulse" />}>
+            <Suspense fallback={<div className="w-9 h-9 md:w-48 lg:w-64 bg-muted rounded-full animate-pulse" />}>
               <Search isSearchExpanded={isSearchExpanded} setIsSearchExpanded={setIsSearchExpanded} />
             </Suspense>
           </div>

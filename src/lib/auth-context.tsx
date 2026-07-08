@@ -121,8 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isGoogleUser: firebaseUser.providerData.some((p) => p.providerId === "google.com"),
           lastCommentedAt: userData.lastCommentedAt
             ? (typeof userData.lastCommentedAt.toDate === "function"
-                ? userData.lastCommentedAt.toDate()
-                : new Date(userData.lastCommentedAt))
+              ? userData.lastCommentedAt.toDate()
+              : new Date(userData.lastCommentedAt))
             : null,
         });
       } else {
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const defaultName = email.split("@")[0];
     const defaultAvatar = PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)].url;
-    
+
     // Set Auth Profile
     await updateProfile(cred.user, {
       displayName: defaultName,
@@ -207,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const cred = await signInWithPopup(auth, provider);
-    
+
     // Sync to Firestore if first time
     const userDocRef = doc(db, "users", cred.user.uid);
     const docSnap = await getDoc(userDocRef);
@@ -275,7 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 2. Delete user libraries in Firestore
     const libQuery = query(collection(db, "libraries"), where("userId", "==", uid));
     const querySnapshot = await getDocs(libQuery);
-    
+
     const batch = writeBatch(db);
     querySnapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);
