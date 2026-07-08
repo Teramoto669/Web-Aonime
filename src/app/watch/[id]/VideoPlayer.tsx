@@ -97,7 +97,6 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
                     allowFullScreen
                     allow="autoplay; encrypted-media; fullscreen"
                     referrerPolicy="origin"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
                 />
             </div>
         );
