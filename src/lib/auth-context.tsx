@@ -134,6 +134,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // Dynamically update CSS primary/ring variables when user changes theme color
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    const theme = user?.themeColor || "violet";
+
+    const themes: Record<string, { primary: string; ring: string; accent: string }> = {
+      violet: {
+        primary: "275 100% 45%",
+        ring: "180 100% 50%",
+        accent: "180 100% 50%",
+      },
+      rose: {
+        primary: "350 89% 60%",
+        ring: "350 89% 60%",
+        accent: "350 89% 60%",
+      },
+      amber: {
+        primary: "38 92% 50%",
+        ring: "38 92% 50%",
+        accent: "38 92% 50%",
+      },
+      emerald: {
+        primary: "142 71% 45%",
+        ring: "142 71% 45%",
+        accent: "142 71% 45%",
+      },
+      indigo: {
+        primary: "239 84% 59%",
+        ring: "239 84% 59%",
+        accent: "239 84% 59%",
+      },
+    };
+
+    const currentTheme = themes[theme] || themes.violet;
+    root.style.setProperty("--primary", currentTheme.primary);
+    root.style.setProperty("--ring", currentTheme.ring);
+    root.style.setProperty("--accent", currentTheme.accent);
+  }, [user?.themeColor]);
+
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
   };
