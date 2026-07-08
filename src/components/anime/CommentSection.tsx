@@ -834,12 +834,27 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               </div>
 
                               <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words leading-relaxed font-sans font-medium">
-                                <span className="text-primary font-semibold mr-1">@{comment.userName}</span>
+                                <span className="text-primary font-semibold mr-1">@{reply.parentUserName || comment.userName}</span>
                                 {reply.content}
                               </p>
 
                               {/* Reply Action Bar */}
-                              <div className="flex items-center gap-3 pt-1.5 mt-1 border-t border-border/5">
+                              <div className="flex items-center gap-4 pt-1.5 mt-1 border-t border-border/5">
+                                <button
+                                  onClick={() => {
+                                    if (!user) {
+                                      openAuthModal("login");
+                                      return;
+                                    }
+                                    setReplyToId(replyToId === reply.id ? null : reply.id);
+                                    setReplyText("");
+                                  }}
+                                  className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  Reply
+                                </button>
+
                                 <button
                                   onClick={() => handleReaction(reply.id, "like")}
                                   className={cn(
@@ -868,6 +883,70 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                   <span>{reply.dislikesCount || 0}</span>
                                 </button>
                               </div>
+
+                              {/* Inline Reply Form under Reply */}
+                              {replyToId === reply.id && (
+                                <div className="mt-3 p-3 rounded-lg border border-border/60 bg-muted/10 space-y-3">
+                                  {remainingMs > 0 && (
+                                    <div className="flex items-center gap-2 text-[10px] text-amber-500 font-semibold animate-pulse">
+                                      <AlertCircle className="w-3.5 h-3.5" />
+                                      <span>Cooldown active: wait {formatCooldown(remainingMs)} before replying.</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-start gap-3">
+                                    <Avatar className="h-8 w-8 border border-border">
+                                      <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || "User"} />
+                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">
+                                        {user?.displayName?.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 space-y-2">
+                                      <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono">
+                                        <span>Replying to <span className="font-bold">@{reply.userName}</span></span>
+                                        <span>{replyText.length}/500</span>
+                                      </div>
+                                      <Textarea
+                                        placeholder="Type your reply here..."
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
+                                        disabled={isSubmittingReply || remainingMs > 0}
+                                        className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50"
+                                      />
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setReplyToId(null)}
+                                          disabled={isSubmittingReply}
+                                          className="text-xs h-8 font-semibold"
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          disabled={isSubmittingReply || remainingMs > 0 || !replyText.trim()}
+                                          onClick={() => handleReplySubmit(comment.id, reply.userName, reply.userId)}
+                                          className="text-xs h-8 bg-primary hover:bg-primary/95 text-primary-foreground font-bold flex items-center gap-1.5"
+                                        >
+                                          {isSubmittingReply ? (
+                                            <>
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                              Replying...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Send className="w-3 h-3" />
+                                              Reply
+                                            </>
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
