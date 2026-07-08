@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
@@ -598,17 +605,21 @@ function LibraryPageContent() {
                 </div>
                 {isOwnLibrary ? (
                   <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
-                    <select
+                    <Select
                       value={item.status}
-                      onChange={(e) => handleUpdateStatus(item.id, e.target.value, item.title)}
-                      className="bg-muted/80 text-foreground border border-border/60 hover:border-border rounded px-2 py-1 text-[11px] font-bold focus:outline-none w-[70%]"
+                      onValueChange={(val) => handleUpdateStatus(item.id, val, item.title)}
                     >
-                      {Object.entries(statusLabels).map(([k, lbl]) => (
-                        <option key={k} value={k} className="bg-background text-foreground font-semibold">
-                          {lbl}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-7 w-[72%] text-[11px] font-bold bg-muted/60 border-border/40 hover:border-border/80 focus:ring-0 focus:ring-offset-0 px-2 py-1 gap-1 text-foreground transition-all duration-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background/95 border-border/60 backdrop-blur-md z-[60] shadow-xl">
+                        {Object.entries(statusLabels).map(([k, lbl]) => (
+                          <SelectItem key={k} value={k} className="text-xs font-semibold cursor-pointer">
+                            {lbl}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button
                       variant="ghost"
                       size="icon"

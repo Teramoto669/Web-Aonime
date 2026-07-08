@@ -270,7 +270,7 @@ export function NotificationBell() {
 
         <DropdownMenuSeparator className="m-0 bg-border/40" />
 
-        <div className="max-h-[350px] overflow-y-auto divide-y divide-border/30">
+        <div className="max-h-[350px] overflow-y-auto custom-scrollbar divide-y divide-border/30">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
