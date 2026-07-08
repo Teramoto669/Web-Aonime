@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
 import { WatchClient } from "./WatchClient";
-import { redirect } from "next/navigation";
 
 function isRedirectError(error: unknown): boolean {
     if (typeof error !== 'object' || error === null) return false;
@@ -105,8 +104,6 @@ export default async function WatchPage({
         // Prefer the canonical slug from the details response
         const slug = detailsData.slug || animeId;
 
-        let shouldRedirect = false;
-
         if (!currentEp && episodesData.episodes.length > 0) {
             const totalEpisodes = episodesData.episodes.length;
             let latestEpObj = episodesData.episodes[totalEpisodes - 1];
@@ -119,7 +116,6 @@ export default async function WatchPage({
             }
 
             currentEp = latestEpObj.number;
-            shouldRedirect = true;
         } else if (!currentEp) {
             currentEp = '1';
         }
@@ -128,7 +124,6 @@ export default async function WatchPage({
         const episodeExists = episodesData.episodes.some(e => e.number === currentEp);
         if (!episodeExists && episodesData.episodes.length > 0) {
             currentEp = episodesData.episodes[0].number;
-            shouldRedirect = true;
         }
 
         if (!currentRange && episodesData.episodes.length > 0) {
@@ -139,16 +134,10 @@ export default async function WatchPage({
                 const start = chunkIndex * 50 + 1;
                 const end = Math.min((chunkIndex + 1) * 50, totalEpisodes);
                 currentRange = `${start}-${end}`;
-                shouldRedirect = true;
             }
         }
 
-        // Redirect once with all params resolved — avoids a second waterfall
-        if (shouldRedirect) {
-            redirect(`/watch/${animeId}?ep=${currentEp}&range=${currentRange}`);
-        }
-
-        // ── Fallback render: ep was valid, just missing range ──────────────────
+        // ── Fallback render: fetch remaining details and render directly without redirecting ───
         const [watchData, relatedData, recommendationsData] = await Promise.all([
             getWatchData(slug, currentEp),
             getAnimeRelated(slug).catch((err) => {

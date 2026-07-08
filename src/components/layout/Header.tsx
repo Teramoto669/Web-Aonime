@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { Search } from "@/components/Search";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,11 +31,65 @@ import {
 export default function Header() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const { user, loading, logout, openAuthModal } = useAuth();
+  const pathname = usePathname();
+
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({
+    left: 0,
+    width: 0,
+    opacity: 0,
+  });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+
+  const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "/browse", label: "Browse" },
+    ...(user ? [{ href: "/library", label: "Library" }] : []),
+  ];
+
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  useEffect(() => {
+    const updateIndicator = () => {
+      const activeIndex = navLinks.findIndex((link) => isActive(link.href));
+
+      if (activeIndex !== -1) {
+        const activeEl = linkRefs.current[activeIndex];
+        const containerEl = containerRef.current;
+        if (activeEl && containerEl) {
+          const containerRect = containerEl.getBoundingClientRect();
+          const activeRect = activeEl.getBoundingClientRect();
+          setIndicatorStyle({
+            left: activeRect.left - containerRect.left,
+            width: activeRect.width,
+            opacity: 1,
+          });
+        }
+      } else {
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+      }
+    };
+
+    // Use requestAnimationFrame to let DOM settle, then measure
+    const handle = requestAnimationFrame(updateIndicator);
+    window.addEventListener("resize", updateIndicator);
+    
+    return () => {
+      cancelAnimationFrame(handle);
+      window.removeEventListener("resize", updateIndicator);
+    };
+  }, [pathname, user, navLinks.length]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
-        <div className={cn("mr-4 flex items-center transition-all overflow-hidden md:opacity-100 md:max-w-full md:pointer-events-auto", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
+        <div className={cn("mr-4 flex items-center h-full transition-all overflow-hidden md:opacity-100 md:max-w-full md:pointer-events-auto", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
           {/* Mobile Navigation Trigger */}
           <Sheet>
             <SheetTrigger asChild>
@@ -51,33 +106,30 @@ export default function Header() {
               <SheetHeader className="text-left border-b border-border/40 pb-4 mb-4">
                 <SheetTitle className="text-xl font-black text-primary">Aonime</SheetTitle>
               </SheetHeader>
-              <nav className="flex flex-col gap-1 text-sm font-medium">
-                <SheetClose asChild>
-                  <Link
-                    href="/"
-                    className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
-                  >
-                    Home
-                  </Link>
-                </SheetClose>
-                <SheetClose asChild>
-                  <Link
-                    href="/browse"
-                    className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
-                  >
-                    Browse
-                  </Link>
-                </SheetClose>
-                {user && (
-                  <SheetClose asChild>
-                    <Link
-                      href="/library"
-                      className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
-                    >
-                      Library
-                    </Link>
-                  </SheetClose>
-                )}
+              <nav className="flex flex-col gap-1.5 text-sm font-medium">
+                {navLinks.map((link) => {
+                  const active = isActive(link.href);
+                  return (
+                    <SheetClose key={link.href} asChild>
+                      <Link
+                        href={link.href}
+                        className={cn(
+                          "flex items-center px-3 py-2.5 rounded-md transition-all relative overflow-hidden group font-medium",
+                          active
+                            ? "text-primary bg-primary/10 font-semibold"
+                            : "text-foreground/70 hover:text-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        {active && (
+                          <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
+                        )}
+                        <span className={cn("transition-all duration-200", active && "pl-2")}>
+                          {link.label}
+                        </span>
+                      </Link>
+                    </SheetClose>
+                  );
+                })}
               </nav>
             </SheetContent>
           </Sheet>
@@ -88,27 +140,36 @@ export default function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <Link
-              href="/"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              Home
-            </Link>
-            <Link
-              href="/browse"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              Browse
-            </Link>
-            {user && (
-              <Link
-                href="/library"
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                Library
-              </Link>
-            )}
+          <nav ref={containerRef} className="hidden md:flex relative items-center gap-6 text-sm py-1.5">
+            {/* Sliding highlight indicator */}
+            <span
+              className="absolute bottom-0 h-[2px] bg-primary transition-all duration-300 ease-out pointer-events-none"
+              style={{
+                left: `${indicatorStyle.left}px`,
+                width: `${indicatorStyle.width}px`,
+                opacity: indicatorStyle.opacity,
+              }}
+            />
+            {navLinks.map((link, idx) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  ref={(el) => {
+                    linkRefs.current[idx] = el;
+                  }}
+                  className={cn(
+                    "relative pb-1 pt-1 transition-colors duration-200 z-10 font-medium",
+                    active
+                      ? "text-primary font-semibold"
+                      : "text-foreground/60 hover:text-foreground"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end gap-4 transition-all duration-300">

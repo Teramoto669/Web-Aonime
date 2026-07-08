@@ -140,31 +140,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     const theme = user?.themeColor || "violet";
 
-    const themes: Record<string, { primary: string; ring: string; accent: string }> = {
+    const themes: Record<string, { primary: string; ring: string; accent: string; accentForeground: string }> = {
       violet: {
-        primary: "275 100% 45%",
-        ring: "180 100% 50%",
-        accent: "180 100% 50%",
+        primary: "275 100% 60%",
+        ring: "275 100% 60%",
+        accent: "275 95% 15%",
+        accentForeground: "275 100% 85%",
       },
       rose: {
         primary: "350 89% 60%",
         ring: "350 89% 60%",
-        accent: "350 89% 60%",
+        accent: "350 89% 15%",
+        accentForeground: "350 89% 85%",
       },
       amber: {
         primary: "38 92% 50%",
         ring: "38 92% 50%",
-        accent: "38 92% 50%",
+        accent: "38 92% 15%",
+        accentForeground: "38 92% 85%",
       },
       emerald: {
         primary: "142 71% 45%",
         ring: "142 71% 45%",
-        accent: "142 71% 45%",
+        accent: "142 71% 12%",
+        accentForeground: "142 71% 85%",
       },
       indigo: {
         primary: "239 84% 59%",
         ring: "239 84% 59%",
-        accent: "239 84% 59%",
+        accent: "239 84% 15%",
+        accentForeground: "239 84% 85%",
       },
     };
 
@@ -172,6 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--primary", currentTheme.primary);
     root.style.setProperty("--ring", currentTheme.ring);
     root.style.setProperty("--accent", currentTheme.accent);
+    root.style.setProperty("--accent-foreground", currentTheme.accentForeground);
   }, [user?.themeColor]);
 
   const login = async (email: string, password: string) => {

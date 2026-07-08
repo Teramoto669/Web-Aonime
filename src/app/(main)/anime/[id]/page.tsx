@@ -32,8 +32,6 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
             })
         ]);
 
-        const firstEpisode = episodesData.episodes[0];
-
         // Parse genres — already an array from the new API
         const genresList = (detailsData.genres || []).map(genre => 
             genre.charAt(0).toUpperCase() + genre.slice(1)
@@ -89,13 +87,11 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         )}
 
                         <div className="pt-6 flex flex-wrap gap-4 items-center">
-                            {firstEpisode && (
-                                <Button asChild size="lg" className="font-bold">
-                                    <Link href={`/watch/${id}?ep=${firstEpisode.number}`}>
-                                        <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
-                                    </Link>
-                                </Button>
-                            )}
+                            <Button asChild size="lg" className="font-bold">
+                                <Link href={`/watch/${slug}`}>
+                                    <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
+                                </Link>
+                            </Button>
                             <LibraryButton
                                 animeId={detailsData.id || id}
                                 title={detailsData.title || id}

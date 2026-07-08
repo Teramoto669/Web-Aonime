@@ -8,9 +8,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Star, Clock, Calendar } from "lucide-react";
+import { Star, Clock, Calendar, PlayCircle } from "lucide-react";
 import type { AnimeTooltipData } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 // Session-based in-memory cache to prevent redundant API calls
 const tooltipCache = new Map<string, AnimeTooltipData>();
@@ -296,6 +298,14 @@ function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: 
           ))}
         </div>
       )}
+
+      <div className="pt-2.5 border-t border-border/60">
+        <Button asChild size="sm" className="w-full font-bold h-9">
+          <Link href={`/watch/${data.slug || id}`}>
+            <PlayCircle className="mr-2 h-4 w-4" /> Watch Now
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }
