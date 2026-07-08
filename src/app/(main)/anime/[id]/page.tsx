@@ -44,6 +44,8 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
             detailsData.aired && { icon: Calendar, label: "Aired", value: detailsData.aired },
         ].filter(Boolean) as { icon: React.ElementType; label: string; value: string }[];
 
+        const isNotYetAired = detailsData.status?.toLowerCase().includes("not yet aired");
+
         return (
             <div className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -87,11 +89,13 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                         )}
 
                         <div className="pt-6 flex flex-wrap gap-4 items-center">
-                            <Button asChild size="lg" className="font-bold">
-                                <Link href={`/watch/${slug}`}>
-                                    <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
-                                </Link>
-                            </Button>
+                            {!isNotYetAired && (
+                                <Button asChild size="lg" className="font-bold">
+                                    <Link href={`/watch/${slug}`}>
+                                        <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
+                                    </Link>
+                                </Button>
+                            )}
                             <LibraryButton
                                 animeId={detailsData.id || id}
                                 title={detailsData.title || id}

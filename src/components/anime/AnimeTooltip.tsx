@@ -212,6 +212,8 @@ function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: 
   const dubCount = Number(data.episodes?.dub) || 0;
   const totalEpisodes = Number(data.episodes?.total) || 0;
 
+  const isNotYetAired = data.status?.toLowerCase().includes("not yet aired");
+
   return (
     <div className="space-y-3">
       <div>
@@ -299,13 +301,15 @@ function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: 
         </div>
       )}
 
-      <div className="pt-2.5 border-t border-border/60">
-        <Button asChild size="sm" className="w-full font-bold h-9">
-          <Link href={`/watch/${data.slug || id}`}>
-            <PlayCircle className="mr-2 h-4 w-4" /> Watch Now
-          </Link>
-        </Button>
-      </div>
+      {!isNotYetAired && (
+        <div className="pt-2.5 border-t border-border/60">
+          <Button asChild size="sm" className="w-full font-bold h-9">
+            <Link href={`/watch/${data.slug || id}`}>
+              <PlayCircle className="mr-2 h-4 w-4" /> Watch Now
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
