@@ -10,6 +10,8 @@ import type {
   FiltersResponse,
   ScheduleDay,
   AnimeTooltipData,
+  RelatedAnime,
+  AnimeListItem,
 } from './types';
 
 const BASE_URL = process.env.API_BASE_URL;
@@ -51,6 +53,20 @@ export const getHomeData = (): Promise<HomeData> =>
 
 export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
   fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}`);
+
+export const getAnimeRelated = (slug: string, refresh?: boolean): Promise<RelatedAnime[]> => {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  const path = `/anime/${encodeURIComponent(slug)}/related${params.toString() ? `?${params.toString()}` : ''}`;
+  return fetcher<RelatedAnime[]>(path);
+};
+
+export const getAnimeRecommendations = (slug: string, refresh?: boolean): Promise<AnimeListItem[]> => {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  const path = `/anime/${encodeURIComponent(slug)}/recommendations${params.toString() ? `?${params.toString()}` : ''}`;
+  return fetcher<AnimeListItem[]>(path);
+};
 
 export const getAnimeTooltip = (id: string, refresh?: boolean): Promise<AnimeTooltipData> => {
   const params = new URLSearchParams();

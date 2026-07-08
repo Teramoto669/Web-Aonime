@@ -1,4 +1,4 @@
-import { getAnimeDetails, getAnimeEpisodes, getWatchData } from "@/lib/api";
+import { getAnimeDetails, getAnimeEpisodes, getWatchData, getAnimeRelated, getAnimeRecommendations } from "@/lib/api";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from 'next/link'
@@ -50,10 +50,18 @@ export default async function WatchPage({
         // ── Happy path: ep + range already set — fire all 3 fetches at once ───
         // This is the common case when clicking an episode link (has ?ep=N&range=X-Y).
         if (currentEp && currentRange) {
-            const [detailsData, episodesData, watchData] = await Promise.all([
+            const [detailsData, episodesData, watchData, relatedData, recommendationsData] = await Promise.all([
                 getAnimeDetails(animeId),
                 getAnimeEpisodes(animeId),
                 getWatchData(animeId, currentEp),
+                getAnimeRelated(animeId).catch((err) => {
+                    console.error("Failed to fetch related anime", err);
+                    return [];
+                }),
+                getAnimeRecommendations(animeId).catch((err) => {
+                    console.error("Failed to fetch recommendations", err);
+                    return [];
+                })
             ]);
 
             if (!watchData || !watchData.sources || watchData.sources.length === 0) {
@@ -80,6 +88,8 @@ export default async function WatchPage({
                         detailsData={detailsData}
                         episodesData={episodesData}
                         watchData={watchData}
+                        relatedData={relatedData}
+                        recommendationsData={recommendationsData}
                         cfProxyUrl={process.env.CF_PROXY_URL}
                     />
                 </Suspense>
@@ -139,7 +149,17 @@ export default async function WatchPage({
         }
 
         // ── Fallback render: ep was valid, just missing range ──────────────────
-        const watchData = await getWatchData(slug, currentEp);
+        const [watchData, relatedData, recommendationsData] = await Promise.all([
+            getWatchData(slug, currentEp),
+            getAnimeRelated(slug).catch((err) => {
+                console.error("Failed to fetch related anime", err);
+                return [];
+            }),
+            getAnimeRecommendations(slug).catch((err) => {
+                console.error("Failed to fetch recommendations", err);
+                return [];
+            })
+        ]);
 
         if (!watchData || !watchData.sources || watchData.sources.length === 0) {
             return (
@@ -165,6 +185,8 @@ export default async function WatchPage({
                     detailsData={detailsData}
                     episodesData={episodesData}
                     watchData={watchData}
+                    relatedData={relatedData}
+                    recommendationsData={recommendationsData}
                     cfProxyUrl={process.env.CF_PROXY_URL}
                 />
             </Suspense>

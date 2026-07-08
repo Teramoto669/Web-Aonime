@@ -78,9 +78,9 @@ const SORT_OPTIONS = [
     { value: "number_of_episodes", label: "Episode Count" },
 ];
 
-async function BrowsePageContent({ page, sort, filters }: { page: number; sort: string; filters: Record<string, string[]> }) {
+async function BrowsePageContent({ page, sort, keyword, filters }: { page: number; sort: string; keyword?: string; filters: Record<string, string[]> }) {
   try {
-    const data = await browseAnime({ page, limit: 24, sort, ...filters });
+    const data = await browseAnime({ page, limit: 24, sort, keyword, ...filters });
     const animes = data.results ?? [];
     return (
       <div className="space-y-8">
@@ -126,6 +126,7 @@ export default async function BrowsePage(props: { searchParams: Promise<{ [key: 
   const params = await props.searchParams;
   const page = typeof params.page === 'string' ? Number(params.page) : 1;
   const sort = typeof params.sort === 'string' ? params.sort : 'default';
+  const keyword = typeof params.keyword === 'string' ? params.keyword : undefined;
 
   // Filter keys matching the API URL param names
   // Note: type uses "term_type[]" in the API, genre[] uses numeric id
@@ -147,7 +148,9 @@ export default async function BrowsePage(props: { searchParams: Promise<{ [key: 
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold">Browse Anime</h1>
+          <h1 className="text-3xl font-bold">
+            {keyword ? `Search results for "${keyword}"` : "Browse Anime"}
+          </h1>
           <FilterMenu filtersData={STATIC_FILTERS} />
         </div>
         <div className="flex items-center gap-2">
@@ -155,8 +158,8 @@ export default async function BrowsePage(props: { searchParams: Promise<{ [key: 
             <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
         </div>
       </div>
-      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${filterKeyString}`}>
-        <BrowsePageContent page={page} sort={sort} filters={filters} />
+      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${keyword ?? ''}-${filterKeyString}`}>
+        <BrowsePageContent page={page} sort={sort} keyword={keyword} filters={filters} />
       </Suspense>
     </div>
   );

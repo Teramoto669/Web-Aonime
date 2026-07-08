@@ -1,4 +1,4 @@
-import { getAnimeDetails, getAnimeEpisodes } from "@/lib/api";
+import { getAnimeDetails, getAnimeEpisodes, getAnimeRelated, getAnimeRecommendations } from "@/lib/api";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { PlayCircle, Star, Tv, Calendar, ShieldAlert } from "lucide-react";
 import Link from 'next/link';
 import LibraryButton from "@/components/anime/LibraryButton";
 import { Suspense } from 'react';
-import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
+import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,19 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
         
         // Use the slug from details response for fetching episodes
         const slug = detailsData.slug || id;
-        const episodesData = await getAnimeEpisodes(slug);
+        
+        // Fetch episodes, related and recommendations in parallel
+        const [episodesData, relatedData, recommendationsData] = await Promise.all([
+            getAnimeEpisodes(slug),
+            getAnimeRelated(slug).catch((err) => {
+                console.error("Failed to fetch related anime", err);
+                return [];
+            }),
+            getAnimeRecommendations(slug).catch((err) => {
+                console.error("Failed to fetch recommendations", err);
+                return [];
+            })
+        ]);
 
         const firstEpisode = episodesData.episodes[0];
 
@@ -104,8 +116,12 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                     />
                 )}
 
-                {detailsData.related && detailsData.related.length > 0 && (
-                    <RelatedSection related={detailsData.related} />
+                {relatedData && relatedData.length > 0 && (
+                    <RelatedSection related={relatedData} />
+                )}
+
+                {recommendationsData && recommendationsData.length > 0 && (
+                    <RecommendationsSection recommendations={recommendationsData} />
                 )}
 
                 <CommentSection animeId={slug} animeTitle={detailsData.title || id} />

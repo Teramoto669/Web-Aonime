@@ -6,9 +6,10 @@ import { VideoPlayer } from "./VideoPlayer";
 import Link from 'next/link';
 import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AnimeDetail, AnimeEpisodes, WatchData, Source } from "@/lib/types";
+import type { AnimeDetail, AnimeEpisodes, WatchData, Source, RelatedAnime, AnimeListItem } from "@/lib/types";
 import LibraryButton from "@/components/anime/LibraryButton";
 import { CommentSection } from "@/components/anime/CommentSection";
+import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 
 interface WatchClientProps {
     animeId: string;
@@ -17,10 +18,12 @@ interface WatchClientProps {
     detailsData: AnimeDetail;
     episodesData: AnimeEpisodes;
     watchData: WatchData;
+    relatedData?: RelatedAnime[];
+    recommendationsData?: AnimeListItem[];
     cfProxyUrl?: string;
 }
 
-export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData, cfProxyUrl }: WatchClientProps) {
+export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData, relatedData = [], recommendationsData = [], cfProxyUrl }: WatchClientProps) {
     const allSources = watchData.sources || [];
     const servers = watchData.servers || [];
 
@@ -259,9 +262,15 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                 </div>
             </div>
 
-            {detailsData.related && detailsData.related.length > 0 && (
+            {relatedData && relatedData.length > 0 && (
                 <div className="mt-8">
-                    <RelatedSection related={detailsData.related} />
+                    <RelatedSection related={relatedData} />
+                </div>
+            )}
+
+            {recommendationsData && recommendationsData.length > 0 && (
+                <div className="mt-8">
+                    <RecommendationsSection recommendations={recommendationsData} />
                 </div>
             )}
         </div>

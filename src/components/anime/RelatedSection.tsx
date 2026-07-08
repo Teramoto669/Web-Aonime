@@ -12,20 +12,44 @@ interface RelatedSectionProps {
 function getRelatedSlug(item: RelatedAnime): string | null {
     if (item.slug) return item.slug;
     if (item.href) {
-        // Extract slug from URLs like https://anikoto.net/watch/slug-here
-        const match = item.href.match(/\/watch\/([^/?#]+)/);
+        // Strip query parameters and hash first
+        const pathOnly = item.href.split('?')[0].split('#')[0];
+        
+        // Extract slug from watch URL
+        const match = pathOnly.match(/\/watch\/([^/]+)/);
         if (match?.[1]) return match[1];
+        
         // Fallback: last path segment
-        const parts = item.href.replace(/\/$/, '').split('/').filter(Boolean);
-        if (parts.length > 0) return parts[parts.length - 1];
+        const parts = pathOnly.replace(/\/$/, '').split('/').filter(Boolean);
+        if (parts.length > 0) {
+            const lastSegment = parts[parts.length - 1];
+            if (lastSegment !== 'anime') {
+                return lastSegment;
+            }
+        }
     }
     return null;
 }
 
 function RelatedCard({ item }: { item: RelatedAnime }) {
-    const slug = getRelatedSlug(item);
-    const href = slug ? `/anime/${slug}` : (item.href ?? '#');
-    const isExternal = !slug && item.href?.startsWith('http');
+    let href = '#';
+    let isExternal = false;
+
+    if (item.href && item.href.includes('keyword=')) {
+        try {
+            const url = new URL(item.href, 'http://localhost');
+            const keywordVal = url.searchParams.get('keyword');
+            if (keywordVal) {
+                href = `/browse?keyword=${encodeURIComponent(keywordVal)}`;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    } else {
+        const slug = getRelatedSlug(item);
+        href = slug ? `/anime/${slug}` : (item.href ?? '#');
+        isExternal = !slug && !!item.href?.startsWith('http');
+    }
 
     const content = (
         <div className="group flex-shrink-0 w-[130px] sm:w-[150px]">
