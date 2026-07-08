@@ -14,6 +14,7 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
+  updateDoc,
   serverTimestamp,
   type Timestamp,
 } from "firebase/firestore";
@@ -134,7 +135,10 @@ export function NotificationBell() {
           where("status", "==", "watching")
         );
         const libSnap = await getDocs(libQuery);
-        const watchingAnimes = libSnap.docs.map((doc) => doc.data());
+        const watchingAnimes = libSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as any),
+        }));
         if (watchingAnimes.length === 0) return;
 
         // Fetch latest home page releases
@@ -158,7 +162,9 @@ export function NotificationBell() {
             const total = homeAnime.episodes?.total || 0;
             const latestEpNum = Math.max(sub, dub, total);
 
-            if (latestEpNum > 0) {
+            const lastNotified = matchedLib.lastNotifiedEpisode || 0;
+
+            if (latestEpNum > lastNotified) {
               // Deterministic notification ID prevents duplicates
               const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
               const notifRef = doc(db, "notifications", notifId);
@@ -178,6 +184,12 @@ export function NotificationBell() {
                 },
                 { merge: true }
               );
+
+              // Update the library item so we don't notify again for this episode
+              const libRef = doc(db, "libraries", matchedLib.id);
+              await updateDoc(libRef, {
+                lastNotifiedEpisode: latestEpNum,
+              });
             }
           }
         }
