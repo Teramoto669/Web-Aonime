@@ -27,6 +27,7 @@ export interface UserProfile {
   themeColor: string;
   emailVerified: boolean;
   isGoogleUser: boolean;
+  lastCommentedAt?: Date | null;
 }
 
 interface AuthContextType {
@@ -41,6 +42,7 @@ interface AuthContextType {
   deleteUserAccount: (currentPassword?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (profile: { displayName?: string | null; photoURL?: string | null; themeColor?: string }) => Promise<void>;
+  updateLastCommentedAt: (date: Date | null) => void;
   isAuthModalOpen: boolean;
   authModalTab: 'login' | 'register';
   openAuthModal: (tab?: 'login' | 'register') => void;
@@ -117,6 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           themeColor: userData.themeColor || "violet",
           emailVerified: firebaseUser.emailVerified,
           isGoogleUser: firebaseUser.providerData.some((p) => p.providerId === "google.com"),
+          lastCommentedAt: userData.lastCommentedAt
+            ? (typeof userData.lastCommentedAt.toDate === "function"
+                ? userData.lastCommentedAt.toDate()
+                : new Date(userData.lastCommentedAt))
+            : null,
         });
       } else {
         setUser(null);
@@ -283,6 +290,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const updateLastCommentedAt = (date: Date | null) => {
+    setUser((prev) => (prev ? { ...prev, lastCommentedAt: date } : null));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -297,6 +308,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deleteUserAccount,
         logout,
         updateUserProfile,
+        updateLastCommentedAt,
         isAuthModalOpen,
         authModalTab,
         openAuthModal,

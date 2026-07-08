@@ -8,6 +8,7 @@ import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AnimeDetail, AnimeEpisodes, WatchData, Source } from "@/lib/types";
 import LibraryButton from "@/components/anime/LibraryButton";
+import { CommentSection } from "@/components/anime/CommentSection";
 
 interface WatchClientProps {
     animeId: string;
@@ -242,6 +243,8 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             />
                         </div>
                     </div>
+
+                    <CommentSection animeId={slug} episodeNum={episodeNum} />
                 </div>
 
                 <div className="lg:col-span-1">

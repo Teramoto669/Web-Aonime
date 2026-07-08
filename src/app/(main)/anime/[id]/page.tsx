@@ -10,6 +10,7 @@ import { AnimeCarousel } from "@/components/anime/AnimeCarousel";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CommentSection } from "@/components/anime/CommentSection";
 
 async function AnimeDetailsPageContent({ id }: { id: string }) {
     try {
@@ -106,6 +107,8 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                 {detailsData.related && detailsData.related.length > 0 && (
                     <RelatedSection related={detailsData.related} />
                 )}
+
+                <CommentSection animeId={slug} />
             </div>
         );
     } catch (error) {

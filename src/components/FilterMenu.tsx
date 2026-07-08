@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
+import { useRouter } from "@/hooks/use-router";
 import { Button } from "@/components/ui/button";
 import { FilterIcon } from "lucide-react";
 import {

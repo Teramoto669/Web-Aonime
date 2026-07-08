@@ -93,6 +93,7 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
             side="right"
             align="start"
             sideOffset={10}
+            alignOffset={50}
             className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
           >
             <p className="font-semibold">{fallbackTitle}</p>
@@ -151,6 +152,7 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
             side="right"
             align="start"
             sideOffset={10}
+            alignOffset={50}
             className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-[100]"
           >
             <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} />

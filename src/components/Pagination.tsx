@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from '@/hooks/use-router';
 import {
   Pagination as ShadcnPagination,
   PaginationContent,

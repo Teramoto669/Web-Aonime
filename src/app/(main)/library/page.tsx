@@ -3,10 +3,11 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useAuth, PRESET_AVATARS, PRESET_THEMES } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { uploadAvatarToSupabase, compressImage, deleteAvatarFromSupabase } from "@/lib/supabase";
 import { AnimeCard } from "@/components/anime/AnimeCard";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,6 +72,9 @@ function LibraryPageContent() {
   } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  
+  const targetUserId = searchParams.get("user");
+  const isOwnLibrary = !targetUserId || (user && targetUserId === user.uid);
   const defaultTab = searchParams.get("tab") === "profile" ? "profile" : "library";
 
   // State
@@ -79,6 +83,16 @@ function LibraryPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   
+  // Viewed user state (for loading other users' libraries)
+  const [viewedUser, setViewedUser] = useState<{
+    uid: string;
+    displayName: string | null;
+    photoURL: string | null;
+    themeColor: string;
+    email?: string | null;
+  } | null>(null);
+  const [loadingViewedUser, setLoadingViewedUser] = useState(true);
+
   // Profile settings state
   const [displayName, setDisplayName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("");
@@ -106,9 +120,49 @@ function LibraryPageContent() {
     }
   }, [user]);
 
+  // Load viewed user details
+  useEffect(() => {
+    if (isOwnLibrary) {
+      setViewedUser(user);
+      setLoadingViewedUser(false);
+      return;
+    }
+
+    if (!targetUserId) {
+      setViewedUser(null);
+      setLoadingViewedUser(false);
+      return;
+    }
+
+    setLoadingViewedUser(true);
+    const userDocRef = doc(db, "users", targetUserId);
+    getDoc(userDocRef)
+      .then((docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setViewedUser({
+            uid: targetUserId,
+            displayName: data.displayName || "Aonime User",
+            photoURL: data.photoURL || null,
+            themeColor: data.themeColor || "violet",
+            email: null, // Protect private details
+          });
+        } else {
+          setViewedUser(null);
+        }
+        setLoadingViewedUser(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching viewed user profile:", err);
+        setViewedUser(null);
+        setLoadingViewedUser(false);
+      });
+  }, [user, targetUserId, isOwnLibrary]);
+
   // Real-time Firestore sync
   useEffect(() => {
-    if (!user) {
+    const fetchId = isOwnLibrary ? user?.uid : targetUserId;
+    if (!fetchId) {
       setLibraryItems([]);
       setLoadingItems(false);
       return;
@@ -117,7 +171,7 @@ function LibraryPageContent() {
     setLoadingItems(true);
     const q = query(
       collection(db, "libraries"),
-      where("userId", "==", user.uid)
+      where("userId", "==", fetchId)
     );
 
     const unsubscribe = onSnapshot(
@@ -145,7 +199,7 @@ function LibraryPageContent() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid, targetUserId, isOwnLibrary]);
 
   const handleUpdateStatus = async (itemId: string, newStatus: string, animeTitle: string) => {
     if (user && !user.emailVerified) {
@@ -403,7 +457,7 @@ function LibraryPageContent() {
   });
 
   const getThemeAccentClass = () => {
-    switch (user?.themeColor) {
+    switch (viewedUser?.themeColor) {
       case "rose": return "text-rose-500 border-rose-500 hover:text-rose-400";
       case "amber": return "text-amber-500 border-amber-500 hover:text-amber-400";
       case "emerald": return "text-emerald-500 border-emerald-500 hover:text-emerald-400";
@@ -413,7 +467,7 @@ function LibraryPageContent() {
   };
 
   const getThemeBgClass = () => {
-    switch (user?.themeColor) {
+    switch (viewedUser?.themeColor) {
       case "rose": return "bg-rose-600 hover:bg-rose-700 text-white";
       case "amber": return "bg-amber-500 hover:bg-amber-600 text-black font-bold";
       case "emerald": return "bg-emerald-600 hover:bg-emerald-700 text-white";
@@ -422,16 +476,31 @@ function LibraryPageContent() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (targetUserId && loadingViewedUser)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground font-medium">Loading your profile...</p>
+        <p className="mt-4 text-muted-foreground font-medium">Loading profile...</p>
       </div>
     );
   }
 
-  if (!user) {
+  if (!isOwnLibrary && !viewedUser) {
+    return (
+      <div className="max-w-md mx-auto my-12 text-center p-8 bg-card/40 border border-border/60 rounded-2xl shadow-xl backdrop-blur-md">
+        <UserX className="h-16 w-16 mx-auto text-destructive mb-6" />
+        <h1 className="text-3xl font-black mb-3">User Not Found</h1>
+        <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
+          The user you are looking for does not exist or has deleted their library profile.
+        </p>
+        <Button asChild className="w-full font-bold h-11 bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Link href="/">Go to Homepage</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (isOwnLibrary && !user) {
     return (
       <div className="max-w-md mx-auto my-12 text-center p-8 bg-card/40 border border-border/60 rounded-2xl shadow-xl backdrop-blur-md">
         <FolderHeart className="h-16 w-16 mx-auto text-muted-foreground/60 mb-6" />
@@ -451,6 +520,127 @@ function LibraryPageContent() {
     );
   }
 
+  const libraryListContent = (
+    <div className="space-y-6">
+      {/* Controls: Search and Filters */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
+        {/* Search */}
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search anime..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-background/50 border-border/60 focus-visible:ring-primary"
+          />
+        </div>
+        {/* Status pills filters */}
+        <div className="flex flex-wrap gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <button
+            onClick={() => setSelectedStatus("all")}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+              selectedStatus === "all"
+                ? getThemeBgClass() + " border-transparent"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted border-border/60"
+            )}
+          >
+            All
+          </button>
+          {Object.entries(statusLabels).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSelectedStatus(key)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border whitespace-nowrap",
+                selectedStatus === key
+                  ? getThemeBgClass() + " border-transparent"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted border-border/60"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid of anime items */}
+      {loadingItems ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="text-center py-20 bg-card/10 rounded-2xl border border-dashed border-border/40">
+          <FolderHeart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="font-semibold text-lg">No anime found</p>
+          <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-1">
+            {searchQuery
+              ? "Try searching with a different keyword or check your status filter."
+              : "No anime tracked in this category yet."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {filteredItems.map((item) => {
+            const mockListItem: AnimeListItem = {
+              id: item.animeId,
+              slug: item.slug,
+              title: item.title,
+              image: item.image,
+              type: item.type,
+              episodes: {},
+            };
+
+            return (
+              <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
+                <div className="flex-1">
+                  <AnimeCard anime={mockListItem} />
+                </div>
+                {isOwnLibrary ? (
+                  <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
+                    <select
+                      value={item.status}
+                      onChange={(e) => handleUpdateStatus(item.id, e.target.value, item.title)}
+                      className="bg-muted/80 text-foreground border border-border/60 hover:border-border rounded px-2 py-1 text-[11px] font-bold focus:outline-none w-[70%]"
+                    >
+                      {Object.entries(statusLabels).map(([k, lbl]) => (
+                        <option key={k} value={k} className="bg-background text-foreground font-semibold">
+                          {lbl}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveItem(item.id, item.title)}
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                      title="Remove from library"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-3 pt-2.5 border-t border-border/30 flex justify-center">
+                    <span className={cn(
+                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider",
+                      item.status === "watching" && "bg-violet-500/10 text-violet-400 border border-violet-500/20",
+                      item.status === "plan_to_watch" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+                      item.status === "completed" && "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+                      item.status === "on_hold" && "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20",
+                      item.status === "dropped" && "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                    )}>
+                      {statusLabels[item.status]}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-8 pb-12">
       {/* Profile Header Banner */}
@@ -463,15 +653,15 @@ function LibraryPageContent() {
         
         <div className="relative">
           <img
-            src={selectedAvatar || PRESET_AVATARS[0].url}
-            alt={user.displayName || "Avatar"}
+            src={(isOwnLibrary ? selectedAvatar : viewedUser?.photoURL) || PRESET_AVATARS[0].url}
+            alt={viewedUser?.displayName || "Avatar"}
             className={cn(
               "h-24 w-24 rounded-full border-4 shadow-lg object-cover bg-muted/20",
-              user.themeColor === "violet" && "border-violet-500",
-              user.themeColor === "rose" && "border-rose-500",
-              user.themeColor === "amber" && "border-amber-500",
-              user.themeColor === "emerald" && "border-emerald-500",
-              user.themeColor === "indigo" && "border-indigo-500"
+              viewedUser?.themeColor === "violet" && "border-violet-500",
+              viewedUser?.themeColor === "rose" && "border-rose-500",
+              viewedUser?.themeColor === "amber" && "border-amber-500",
+              viewedUser?.themeColor === "emerald" && "border-emerald-500",
+              viewedUser?.themeColor === "indigo" && "border-indigo-500"
             )}
           />
           <div className={cn(
@@ -483,136 +673,45 @@ function LibraryPageContent() {
         </div>
 
         <div className="text-center md:text-left space-y-1">
-          <h1 className="text-3xl font-black tracking-tight">{user.displayName}</h1>
-          <p className="text-muted-foreground text-sm font-medium">{user.email}</p>
+          <h1 className="text-3xl font-black tracking-tight">{viewedUser?.displayName}</h1>
+          {isOwnLibrary && <p className="text-muted-foreground text-sm font-medium">{viewedUser?.email}</p>}
           <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
             <span className="text-xs font-semibold px-2.5 py-1 bg-primary/15 text-primary rounded-full border border-primary/20">
-              {libraryItems.length} Anime saved
+              {libraryItems.length} Anime {isOwnLibrary ? "saved" : "tracked"}
             </span>
             <span className="text-xs font-semibold px-2.5 py-1 bg-muted/60 text-muted-foreground rounded-full border border-border/40 capitalize">
-              Theme {user.themeColor}
+              Theme {viewedUser?.themeColor}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="flex w-max bg-muted/60 border border-border/40 p-1 rounded-xl mb-6">
-          <TabsTrigger value="library" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
-            <Bookmark className="h-4 w-4" />
-            My Library
-          </TabsTrigger>
-          <TabsTrigger value="profile" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Edit Profile
-          </TabsTrigger>
-        </TabsList>
-
-        {/* --- LIBRARY TAB --- */}
-        <TabsContent value="library" className="space-y-6 focus-visible:outline-none">
-          {/* Controls: Search and Filters */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
-            {/* Search */}
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search anime in library..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-background/50 border-border/60 focus-visible:ring-primary"
-              />
-            </div>
-            {/* Status pills filters */}
-            <div className="flex flex-wrap gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-              <button
-                onClick={() => setSelectedStatus("all")}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                  selectedStatus === "all"
-                    ? getThemeBgClass() + " border-transparent"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted border-border/60"
-                )}
-              >
-                All
-              </button>
-              {Object.entries(statusLabels).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedStatus(key)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border whitespace-nowrap",
-                    selectedStatus === key
-                      ? getThemeBgClass() + " border-transparent"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted border-border/60"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      {/* Main Tabs / Content */}
+      {!isOwnLibrary ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-6 w-1 rounded-full bg-primary" />
+            <h2 className="text-xl font-bold">Anime Tracker</h2>
           </div>
+          {libraryListContent}
+        </div>
+      ) : (
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="flex w-max bg-muted/60 border border-border/40 p-1 rounded-xl mb-6">
+            <TabsTrigger value="library" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
+              <Bookmark className="h-4 w-4" />
+              My Library
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Edit Profile
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Grid of anime items */}
-          {loadingItems ? (
-            <div className="flex justify-center py-20">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="text-center py-20 bg-card/10 rounded-2xl border border-dashed border-border/40">
-              <FolderHeart className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="font-semibold text-lg">No anime found</p>
-              <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-1">
-                {searchQuery
-                  ? "Try searching with a different keyword or check your status filter."
-                  : "You haven't added any anime to this category yet. Find an anime and click 'Add to Library'."}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              {filteredItems.map((item) => {
-                const mockListItem: AnimeListItem = {
-                  id: item.animeId,
-                  slug: item.slug,
-                  title: item.title,
-                  image: item.image,
-                  type: item.type,
-                  episodes: {},
-                };
-
-                return (
-                  <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
-                    <div className="flex-1">
-                      <AnimeCard anime={mockListItem} />
-                    </div>
-                    <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
-                      <select
-                        value={item.status}
-                        onChange={(e) => handleUpdateStatus(item.id, e.target.value, item.title)}
-                        className="bg-muted/80 text-foreground border border-border/60 hover:border-border rounded px-2 py-1 text-[11px] font-bold focus:outline-none w-[70%]"
-                      >
-                        {Object.entries(statusLabels).map(([k, lbl]) => (
-                          <option key={k} value={k} className="bg-background text-foreground font-semibold">
-                            {lbl}
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveItem(item.id, item.title)}
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                        title="Remove from library"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
+          {/* --- LIBRARY TAB --- */}
+          <TabsContent value="library" className="space-y-6 focus-visible:outline-none">
+            {libraryListContent}
+          </TabsContent>
 
         {/* --- PROFILE TAB --- */}
         <TabsContent value="profile" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-none space-y-8 animate-in fade-in duration-300">
@@ -754,7 +853,7 @@ function LibraryPageContent() {
           </form>
 
           {/* Form 2: Password Modification (Only visible if registered via email/password) */}
-          {!user.isGoogleUser && (
+          {!user?.isGoogleUser && (
             <form onSubmit={handleUpdatePassword} className="space-y-6 pt-6 border-t border-border/30">
               <div className="flex items-center gap-2">
                 <KeyRound className="h-5 w-5 text-primary" />
@@ -848,7 +947,7 @@ function LibraryPageContent() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
 
-                  {!user.isGoogleUser ? (
+                  {!user?.isGoogleUser ? (
                     <div className="space-y-2 mt-4">
                       <Label htmlFor="delete-pwd" className="text-xs font-semibold">Enter Password to Confirm</Label>
                       <Input
@@ -873,7 +972,7 @@ function LibraryPageContent() {
                     </AlertDialogCancel>
                     <Button
                       variant="destructive"
-                      disabled={isDeletingAccount || (!user.isGoogleUser && !deleteConfirmPassword)}
+                      disabled={isDeletingAccount || (!user?.isGoogleUser && !deleteConfirmPassword)}
                       onClick={handleDeleteAccount}
                       className="h-10 text-xs font-bold"
                     >
@@ -894,6 +993,7 @@ function LibraryPageContent() {
 
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }
