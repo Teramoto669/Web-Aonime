@@ -86,6 +86,21 @@ export function FooterSchedule() {
     }
   }, []);
 
+  // Scroll active tab into view when it changes
+  useEffect(() => {
+    if (activeTab) {
+      const safeId = `schedule-tab-${activeTab.replace(/\s+/g, "-")}`;
+      const activeEl = document.getElementById(safeId);
+      if (activeEl) {
+        activeEl.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
+    }
+  }, [activeTab]);
+
   // Fetch schedule whenever timezone changes
   useEffect(() => {
     let active = true;
@@ -209,7 +224,7 @@ export function FooterSchedule() {
             <ChevronLeft className="h-6 w-6" />
           </button>
 
-          <div className="flex justify-center items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide flex-grow px-2">
+          <div className="flex justify-start md:justify-center items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide flex-grow px-2">
             {scheduleData.map((day) => {
               const isActive = day.day === activeTab;
               const [dayOfWeek, month, dateStr] = day.day.split(" ");
@@ -218,6 +233,7 @@ export function FooterSchedule() {
               return (
                 <button
                   key={day.day}
+                  id={`schedule-tab-${day.day.replace(/\s+/g, "-")}`}
                   onClick={() => setActiveTab(day.day)}
                   className={`flex flex-col items-center py-1 transition-all duration-300 relative min-w-[55px] ${
                     isActive

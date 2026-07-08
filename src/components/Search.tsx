@@ -36,6 +36,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
   
   const debouncedQuery = useDebounce(query, 500);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -82,11 +83,14 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     fetchSearch();
   }, [debouncedQuery]);
 
-  // Handle click outside to close dropdown
+  // Handle click outside to close dropdown and collapse search if empty
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowResults(false);
+        if (query.trim() === "") {
+          setIsSearchExpanded(false);
+        }
       }
     };
 
@@ -94,7 +98,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [query, setIsSearchExpanded]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -127,8 +131,20 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
   return (
     <div className="relative transition-all" ref={dropdownRef}>
       <form onSubmit={handleSubmit}>
-        <div className={cn("group relative rounded-lg border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background transition-all", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div 
+          onClick={() => {
+            if (!isSearchExpanded) {
+              inputRef.current?.focus();
+            }
+          }}
+          className={cn(
+            "group relative rounded-full border transition-all duration-300 ease-in-out overflow-hidden h-9",
+            isSearchExpanded 
+              ? "w-full md:w-64 lg:w-80 border-input bg-background/50 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background" 
+              : "w-9 border-transparent bg-transparent hover:bg-muted/50 cursor-pointer"
+          )}
+        >
+          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
             {isSearching ? (
               <Loader2 className="h-4 w-4 opacity-50 animate-spin" />
             ) : (
@@ -136,14 +152,24 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
             )}
           </div>
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={handleInputChange}
-            placeholder={getPlaceholder()}
-            className="flex h-10 w-full rounded-md bg-transparent py-3 pl-10 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            placeholder="Search anime..."
+            className="flex h-9 w-full rounded-md bg-transparent py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onFocus={() => {
               setIsSearchExpanded(true);
               if (query.trim().length > 0) setShowResults(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                inputRef.current?.blur();
+                setShowResults(false);
+                if (query.trim() === "") {
+                  setIsSearchExpanded(false);
+                }
+              }
             }}
           />
         </div>

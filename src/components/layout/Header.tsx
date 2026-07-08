@@ -16,8 +16,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Bookmark } from "lucide-react";
+import { User, LogOut, Bookmark, Menu } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
 
 export default function Header() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -25,12 +33,62 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center px-4 sm:px-6">
-        <div className={cn("mr-4 flex transition-all overflow-hidden", "md:flex md:opacity-100 md:max-w-full md:pointer-events-auto", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
+      <div className="container mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
+        <div className={cn("mr-4 flex items-center transition-all overflow-hidden", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
+          {/* Mobile Navigation Trigger */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="md:hidden mr-2 h-9 w-9 text-foreground/60 hover:text-foreground hover:bg-muted/50"
+              >
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 bg-background/95 border-r border-border/80 backdrop-blur-md p-6 flex flex-col">
+              <SheetHeader className="text-left border-b border-border/40 pb-4 mb-4">
+                <SheetTitle className="text-xl font-black text-primary">Aonime</SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 text-sm font-medium">
+                <SheetClose asChild>
+                  <Link
+                    href="/"
+                    className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
+                  >
+                    Home
+                  </Link>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Link
+                    href="/browse"
+                    className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
+                  >
+                    Browse
+                  </Link>
+                </SheetClose>
+                {user && (
+                  <SheetClose asChild>
+                    <Link
+                      href="/library"
+                      className="flex items-center px-3 py-2.5 rounded-md transition-colors hover:text-foreground hover:bg-muted/50 text-foreground/70"
+                    >
+                      Library
+                    </Link>
+                  </SheetClose>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
+          {/* Logo */}
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <span className="font-bold text-lg text-primary">Aonime</span>
           </Link>
-          <nav className="flex items-center gap-6 text-sm">
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-6 text-sm">
             <Link
               href="/"
               className="transition-colors hover:text-foreground/80 text-foreground/60"
@@ -53,9 +111,12 @@ export default function Header() {
             )}
           </nav>
         </div>
-        <div className={cn("flex flex-1 items-center justify-between space-x-4 transition-all", "md:justify-end", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
-          <div className={cn("w-full flex-1 transition-all", "md:w-auto md:flex-none", isSearchExpanded ? "w-full duration-300" : "w-auto duration-700")}>
-            <Suspense fallback={<div className="w-[200px] h-10 bg-muted rounded-md" />}>
+        <div className="flex flex-1 items-center justify-end gap-4 transition-all duration-300">
+          <div className={cn(
+            "transition-all duration-300",
+            isSearchExpanded ? "w-full md:w-auto" : "w-auto"
+          )}>
+            <Suspense fallback={<div className="w-9 h-9 bg-muted rounded-full animate-pulse" />}>
               <Search isSearchExpanded={isSearchExpanded} setIsSearchExpanded={setIsSearchExpanded} />
             </Suspense>
           </div>

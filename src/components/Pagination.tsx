@@ -52,7 +52,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPa
         }
     }
 
-    if (startPage > minPage) {
+    if (startPage > minPage && !isMobile) {
       pages.push(
         <PaginationItem key={minPage}>
           <PaginationLink onClick={() => handlePageChange(minPage)}>{minPage}</PaginationLink>
@@ -73,7 +73,7 @@ export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPa
       );
     }
     
-    if (endPage < totalPages) {
+    if (endPage < totalPages && !isMobile) {
       if (endPage < totalPages - 1) {
         pages.push(<PaginationEllipsis key="end-ellipsis" />);
       }
