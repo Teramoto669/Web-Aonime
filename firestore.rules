@@ -76,5 +76,19 @@ service cloud.firestore {
       // User can update/delete their own notifications (e.g. mark as read or dismiss)
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
+
+    // Strict rules for the "watch_history" collection
+    match /watch_history/{historyId} {
+      // Anyone logged in can read watch history items
+      allow read: if request.auth != null;
+      
+      // Users can only delete a history item if it exists and belongs to them
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Users can only create or update a history item if the data's userId matches their authenticated UID
+      allow create, update: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && (resource == null || resource.data.userId == request.auth.uid);
+    }
   }
 }

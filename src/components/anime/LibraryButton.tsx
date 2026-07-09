@@ -93,6 +93,17 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
 
     setLoading(true);
     try {
+      // Check if watch history exists for this anime to inherit lastEpisodeWatched
+      const historyRef = doc(db, "watch_history", `${user.uid}_${animeId}`);
+      const historySnap = await getDoc(historyRef);
+      let lastEp = null;
+      let lastEpAt = null;
+      if (historySnap.exists()) {
+        const histData = historySnap.data();
+        lastEp = histData.episodeNum || null;
+        lastEpAt = histData.watchedAt || null;
+      }
+
       const docRef = doc(db, "libraries", `${user.uid}_${animeId}`);
       await setDoc(docRef, {
         userId: user.uid,
@@ -104,6 +115,8 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
         status: "watching" as LibraryStatus,
         addedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        ...(lastEp ? { lastEpisodeWatched: lastEp } : {}),
+        ...(lastEpAt ? { lastEpisodeWatchedAt: lastEpAt } : {}),
       });
       setStatus("watching");
       toast({

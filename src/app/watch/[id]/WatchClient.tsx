@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { VideoPlayer } from "./VideoPlayer";
@@ -10,6 +10,9 @@ import type { AnimeDetail, AnimeEpisodes, WatchData, Source, RelatedAnime, Anime
 import LibraryButton from "@/components/anime/LibraryButton";
 import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
+import { useAuth } from "@/lib/auth-context";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
 interface WatchClientProps {
     animeId: string;
@@ -114,6 +117,46 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     const slug = detailsData.slug || animeId;
     const title = detailsData.title || animeId;
+
+    const { user } = useAuth();
+
+    useEffect(() => {
+        if (!user) return;
+
+        const saveWatchHistory = async () => {
+            try {
+                const targetId = detailsData.id || animeId;
+                if (!targetId) return;
+
+                // 1. Save/update watch history entry
+                const historyRef = doc(db, "watch_history", `${user.uid}_${targetId}`);
+                await setDoc(historyRef, {
+                    userId: user.uid,
+                    animeId: targetId,
+                    title: detailsData.title || animeId,
+                    image: detailsData.image || "",
+                    type: detailsData.type || "TV",
+                    slug: detailsData.slug || animeId,
+                    episodeNum: episodeNum,
+                    watchedAt: serverTimestamp()
+                }, { merge: true });
+
+                // 2. Update library item if it exists
+                const libraryRef = doc(db, "libraries", `${user.uid}_${targetId}`);
+                const librarySnap = await getDoc(libraryRef);
+                if (librarySnap.exists()) {
+                    await updateDoc(libraryRef, {
+                        lastEpisodeWatched: episodeNum,
+                        lastEpisodeWatchedAt: serverTimestamp()
+                    });
+                }
+            } catch (error) {
+                console.error("Error saving watch history:", error);
+            }
+        };
+
+        saveWatchHistory();
+    }, [user, detailsData.id, animeId, episodeNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
 
     return (
         <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

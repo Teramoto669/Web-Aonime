@@ -41,7 +41,9 @@ import {
   Check,
   Upload,
   KeyRound,
-  UserX
+  UserX,
+  Play,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -58,6 +60,44 @@ interface LibraryItem {
   status: "watching" | "plan_to_watch" | "completed" | "on_hold" | "dropped";
   addedAt: any;
   updatedAt: any;
+  lastEpisodeWatched?: string;
+  lastEpisodeWatchedAt?: any;
+}
+
+interface WatchHistoryItem {
+  id: string;
+  userId: string;
+  animeId: string;
+  title: string;
+  image: string;
+  type: string;
+  slug: string;
+  episodeNum: string;
+  watchedAt: any;
+}
+
+function formatRelativeTime(timestamp: any): string {
+  if (!timestamp) return "Recently";
+  // Check if timestamp has a toDate method (Firestore Timestamp)
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSecs < 60) {
+    return "Just now";
+  } else if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  } else {
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
 }
 
 const statusLabels: Record<string, string> = {
@@ -207,6 +247,89 @@ function LibraryPageContent() {
 
     return () => unsubscribe();
   }, [user?.uid, targetUserId, isOwnLibrary]);
+
+  // Watch History states
+  const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Sync Watch History (only for owned library)
+  useEffect(() => {
+    if (!isOwnLibrary || !user?.uid) {
+      setHistoryItems([]);
+      setLoadingHistory(false);
+      return;
+    }
+
+    setLoadingHistory(true);
+    const q = query(
+      collection(db, "watch_history"),
+      where("userId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as WatchHistoryItem[];
+
+        items.sort((a, b) => {
+          const timeA = a.watchedAt?.seconds || 0;
+          const timeB = b.watchedAt?.seconds || 0;
+          return timeB - timeA;
+        });
+
+        setHistoryItems(items);
+        setLoadingHistory(false);
+      },
+      (error) => {
+        console.error("Watch history sync error:", error);
+        setLoadingHistory(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, isOwnLibrary]);
+
+  const handleRemoveHistoryItem = async (itemId: string, animeTitle: string) => {
+    try {
+      const docRef = doc(db, "watch_history", itemId);
+      await deleteDoc(docRef);
+      toast({
+        title: "Removed from History",
+        description: `"${animeTitle}" has been removed from your watch history.`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Remove Failed",
+        description: "Failed to remove item from history.",
+      });
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (historyItems.length === 0) return;
+    try {
+      const deletePromises = historyItems.map((item) =>
+        deleteDoc(doc(db, "watch_history", item.id))
+      );
+      await Promise.all(deletePromises);
+      toast({
+        title: "History Cleared",
+        description: "Your watch history has been cleared.",
+      });
+    } catch (error) {
+      console.error("Error clearing history:", error);
+      toast({
+        variant: "destructive",
+        title: "Clear Failed",
+        description: "Failed to clear watch history.",
+      });
+    }
+  };
 
   const handleUpdateStatus = async (itemId: string, newStatus: string, animeTitle: string) => {
     if (user && !user.emailVerified) {
@@ -603,6 +726,17 @@ function LibraryPageContent() {
                 <div className="flex-1">
                   <AnimeCard anime={mockListItem} />
                 </div>
+                
+                {isOwnLibrary && item.lastEpisodeWatched && (
+                  <Link
+                    href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
+                    className="mt-2 flex items-center justify-center gap-1.5 w-full h-8 text-[11px] font-black uppercase tracking-wider bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary rounded-md transition-all duration-300 shadow-sm"
+                  >
+                    <Play className="h-3 w-3 fill-current" />
+                    <span>Resume Ep {item.lastEpisodeWatched}</span>
+                  </Link>
+                )}
+
                 {isOwnLibrary ? (
                   <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
                     <Select
@@ -631,7 +765,7 @@ function LibraryPageContent() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="mt-3 pt-2.5 border-t border-border/30 flex justify-center">
+                  <div className="mt-3 pt-2.5 border-t border-border/30 flex flex-col items-center gap-1.5">
                     <span className={cn(
                       "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider",
                       item.status === "watching" && "bg-violet-500/10 text-violet-400 border border-violet-500/20",
@@ -642,6 +776,11 @@ function LibraryPageContent() {
                     )}>
                       {statusLabels[item.status]}
                     </span>
+                    {item.lastEpisodeWatched && (
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        Ep {item.lastEpisodeWatched} watched
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -713,6 +852,10 @@ function LibraryPageContent() {
               <Bookmark className="h-4 w-4" />
               My Library
             </TabsTrigger>
+            <TabsTrigger value="history" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Watch History
+            </TabsTrigger>
             <TabsTrigger value="profile" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
               <User className="h-4 w-4" />
               Edit Profile
@@ -722,6 +865,85 @@ function LibraryPageContent() {
           {/* --- LIBRARY TAB --- */}
           <TabsContent value="library" className="space-y-6 focus-visible:outline-none">
             {libraryListContent}
+          </TabsContent>
+
+          {/* --- WATCH HISTORY TAB --- */}
+          <TabsContent value="history" className="space-y-6 focus-visible:outline-none">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-sm">Recently Watched Anime</h3>
+              </div>
+              {historyItems.length > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={handleClearHistory}
+                  className="h-9 px-4 text-xs font-bold text-destructive hover:bg-destructive/10 hover:text-destructive transition-all"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Clear History
+                </Button>
+              )}
+            </div>
+
+            {loadingHistory ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+            ) : historyItems.length === 0 ? (
+              <div className="text-center py-20 bg-card/10 rounded-2xl border border-dashed border-border/40">
+                <History className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                <p className="font-semibold text-lg">No watch history</p>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-1">
+                  Anime you watch will show up here. Go start watching some shows!
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                {historyItems.map((item) => {
+                  const mockListItem: AnimeListItem = {
+                    id: item.animeId,
+                    slug: item.slug,
+                    title: item.title,
+                    image: item.image,
+                    type: item.type,
+                    episodes: {},
+                  };
+
+                  return (
+                    <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
+                      <div className="flex-1">
+                        <AnimeCard anime={mockListItem} />
+                      </div>
+                      
+                      <div className="mt-2 text-[10px] font-semibold text-muted-foreground flex flex-col items-center justify-center text-center bg-muted/20 py-1 rounded">
+                        <span className="font-bold text-foreground">Ep {item.episodeNum} watched</span>
+                        <span className="text-[9px] opacity-75">{formatRelativeTime(item.watchedAt)}</span>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
+                        <Link
+                          href={`/watch/${item.slug}?ep=${item.episodeNum}`}
+                          className="flex items-center justify-center gap-1 h-7 w-[72%] text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all uppercase tracking-wider text-center"
+                        >
+                          <Play className="h-2.5 w-2.5 fill-current" />
+                          Resume
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveHistoryItem(item.id, item.title)}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                          title="Remove from history"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
         {/* --- PROFILE TAB --- */}

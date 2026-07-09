@@ -270,8 +270,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => setCurrentLevel(data.level));
             let mediaErrorRecoveryAttempts = 0;
             hls.on(HLS.Events.ERROR, (_, data) => {
-                console.error("[HLS] ERROR:", data.type, data.details, "fatal:", data.fatal, "url:", (data as any).url?.substring(0, 120));
                 if (data.fatal) {
+                    console.error("[HLS] FATAL ERROR:", data.type, data.details, "url:", (data as any).url?.substring(0, 120));
                     switch (data.type) {
                         case HLS.ErrorTypes.MEDIA_ERROR:
                             mediaErrorRecoveryAttempts++;
@@ -294,6 +294,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                             break;
                     }
                 } else {
+                    console.warn("[HLS] Non-fatal error:", data.type, data.details, "url:", (data as any).url?.substring(0, 120));
                     // Reset recovery counter on successful playback progress or non-fatal events
                     const detailsStr = data.details as any;
                     if (detailsStr === 'bufferSeekOverhole' || detailsStr === 'bufferNudgeOnStall') {
