@@ -517,7 +517,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
             )}
 
             <div className="flex gap-4 items-start">
-              <Link href={`/library?user=${user.displayName || user.uid}`} className="hover:opacity-85 transition-opacity">
+              <Link href={`/library?user=${user.uid}`} className="hover:opacity-85 transition-opacity">
                 <Avatar className="h-10 w-10 border border-border ring-2 ring-primary/20">
                   <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
@@ -529,7 +529,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               <div className="flex-1 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold flex items-center gap-1 text-foreground/90">
-                    Posting as <Link href={`/library?user=${user.displayName || user.uid}`} className={`font-bold hover:underline ${getThemeTextClass(user.themeColor)}`}>{user.displayName}</Link>
+                    Posting as <Link href={`/library?user=${user.uid}`} className={`font-bold hover:underline ${getThemeTextClass(user.themeColor)}`}>{user.displayName}</Link>
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
                     {commentText.length}/500
@@ -617,7 +617,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                 <div key={comment.id} className="space-y-4">
                   {/* Parent Comment */}
                   <div className="group flex gap-4 p-4 rounded-xl border border-border/50 bg-card/10 hover:bg-card/20 transition-all duration-300 shadow-sm">
-                    <Link href={`/library?user=${comment.userName || comment.userId}`} className="hover:opacity-85 transition-opacity">
+                    <Link href={`/library?user=${comment.userId}`} className="hover:opacity-85 transition-opacity">
                       <Avatar className="h-10 w-10 border border-border/80">
                         <AvatarImage src={comment.userPhoto || undefined} alt={comment.userName} />
                         <AvatarFallback className="bg-primary/5 text-primary font-semibold text-xs">
@@ -629,7 +629,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <Link href={`/library?user=${comment.userName || comment.userId}`} className="hover:underline">
+                          <Link href={`/library?user=${comment.userId}`} className="hover:underline">
                             <span className={`text-sm font-bold ${getThemeTextClass(comment.userThemeColor)}`}>
                               {comment.userName}
                             </span>
@@ -792,7 +792,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                             key={reply.id} 
                             className="group/reply flex gap-3 p-3 rounded-xl border border-border/30 bg-card/5 hover:bg-card/10 transition-all duration-200"
                           >
-                            <Link href={`/library?user=${reply.userName || reply.userId}`} className="hover:opacity-85 transition-opacity">
+                            <Link href={`/library?user=${reply.userId}`} className="hover:opacity-85 transition-opacity">
                               <Avatar className="h-8 w-8 border border-border/80">
                                 <AvatarImage src={reply.userPhoto || undefined} alt={reply.userName} />
                                 <AvatarFallback className="bg-primary/5 text-primary font-semibold text-[10px]">
@@ -804,7 +804,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-baseline gap-2 flex-wrap">
-                                  <Link href={`/library?user=${reply.userName || reply.userId}`} className="hover:underline">
+                                  <Link href={`/library?user=${reply.userId}`} className="hover:underline">
                                     <span className={`text-xs font-bold ${getThemeTextClass(reply.userThemeColor)}`}>
                                       {reply.userName}
                                     </span>

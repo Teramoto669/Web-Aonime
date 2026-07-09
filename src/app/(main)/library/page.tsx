@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useAuth, PRESET_AVATARS, PRESET_THEMES } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { uploadAvatarToSupabase, compressImage, deleteAvatarFromSupabase } from "@/lib/supabase";
 import { AnimeCard } from "@/components/anime/AnimeCard";
 import { Button } from "@/components/ui/button";
@@ -120,7 +120,7 @@ function LibraryPageContent() {
   const searchParams = useSearchParams();
   
   const targetUserId = searchParams.get("user");
-  const isOwnLibrary = !targetUserId || (user && (targetUserId === user.uid || targetUserId === user.displayName));
+  const isOwnLibrary = !targetUserId || (user && targetUserId === user.uid);
   const defaultTab = searchParams.get("tab") === "profile" ? "profile" : "library";
 
   // State
@@ -193,67 +193,21 @@ function LibraryPageContent() {
             themeColor: data.themeColor || "violet",
             email: null, // Protect private details
           });
-          setLoadingViewedUser(false);
         } else {
-          // If not found by UID, search by displayName (username)
-          const usersRef = collection(db, "users");
-          const q = query(usersRef, where("displayName", "==", targetUserId));
-          getDocs(q)
-            .then((querySnapshot) => {
-              if (!querySnapshot.empty) {
-                const docSnap = querySnapshot.docs[0];
-                const data = docSnap.data();
-                setViewedUser({
-                  uid: docSnap.id,
-                  displayName: data.displayName || "Aonime User",
-                  photoURL: data.photoURL || null,
-                  themeColor: data.themeColor || "violet",
-                  email: null,
-                });
-              } else {
-                setViewedUser(null);
-              }
-              setLoadingViewedUser(false);
-            })
-            .catch((err) => {
-              console.error("Error fetching viewed user profile by displayName:", err);
-              setViewedUser(null);
-              setLoadingViewedUser(false);
-            });
+          setViewedUser(null);
         }
+        setLoadingViewedUser(false);
       })
       .catch((err) => {
-        // If error fetching by UID (e.g. invalid document path format), try searching by displayName
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("displayName", "==", targetUserId));
-        getDocs(q)
-          .then((querySnapshot) => {
-            if (!querySnapshot.empty) {
-              const docSnap = querySnapshot.docs[0];
-              const data = docSnap.data();
-              setViewedUser({
-                uid: docSnap.id,
-                displayName: data.displayName || "Aonime User",
-                photoURL: data.photoURL || null,
-                themeColor: data.themeColor || "violet",
-                email: null,
-              });
-            } else {
-              setViewedUser(null);
-            }
-            setLoadingViewedUser(false);
-          })
-          .catch((queryErr) => {
-            console.error("Error fetching viewed user profile by displayName after UID fetch fail:", queryErr);
-            setViewedUser(null);
-            setLoadingViewedUser(false);
-          });
+        console.error("Error fetching viewed user profile:", err);
+        setViewedUser(null);
+        setLoadingViewedUser(false);
       });
   }, [user, targetUserId, isOwnLibrary]);
 
   // Real-time Firestore sync
   useEffect(() => {
-    const fetchId = isOwnLibrary ? user?.uid : viewedUser?.uid;
+    const fetchId = isOwnLibrary ? user?.uid : targetUserId;
     if (!fetchId) {
       setLibraryItems([]);
       setLoadingItems(false);
@@ -291,7 +245,7 @@ function LibraryPageContent() {
     );
 
     return () => unsubscribe();
-  }, [user?.uid, viewedUser?.uid, isOwnLibrary]);
+  }, [user?.uid, targetUserId, isOwnLibrary]);
 
   // Watch History states
   const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
