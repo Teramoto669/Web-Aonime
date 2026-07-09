@@ -35,7 +35,6 @@ import {
   Search,
   Trash2,
   Loader2,
-  Sparkles,
   FolderHeart,
   ShieldAlert,
   Check,
@@ -814,12 +813,7 @@ function LibraryPageContent() {
               viewedUser?.themeColor === "indigo" && "border-indigo-500"
             )}
           />
-          <div className={cn(
-            "absolute -bottom-1 -right-1 p-1.5 rounded-full text-white shadow-md",
-            getThemeBgClass()
-          )}>
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
+
         </div>
 
         <div className="text-center md:text-left space-y-1">
