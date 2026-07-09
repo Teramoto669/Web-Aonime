@@ -14,8 +14,9 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
-  updateDoc,
   serverTimestamp,
+  orderBy,
+  limit,
   type Timestamp,
 } from "firebase/firestore";
 import { getAnimeSlug } from "@/lib/types";
@@ -72,7 +73,9 @@ export function NotificationBell() {
     setLoading(true);
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid)
+      where("userId", "==", user.uid),
+      orderBy("createdAt", "desc"),
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(
@@ -98,19 +101,7 @@ export function NotificationBell() {
           return timeB - timeA;
         });
 
-        // Cap at 5: Delete excess oldest notifications in the background
-        if (items.length > 5) {
-          const excessItems = items.slice(5);
-          excessItems.forEach(async (item) => {
-            try {
-              await deleteDoc(doc(db, "notifications", item.id));
-            } catch (err) {
-              console.error("Error deleting excess notification:", err);
-            }
-          });
-        }
-
-        setNotifications(items.slice(0, 5));
+        setNotifications(items);
         setLoading(false);
       },
       (error) => {
@@ -135,10 +126,7 @@ export function NotificationBell() {
           where("status", "==", "watching")
         );
         const libSnap = await getDocs(libQuery);
-        const watchingAnimes = libSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as any),
-        }));
+        const watchingAnimes = libSnap.docs.map((doc) => doc.data());
         if (watchingAnimes.length === 0) return;
 
         // Fetch latest home page releases
@@ -162,34 +150,36 @@ export function NotificationBell() {
             const total = homeAnime.episodes?.total || 0;
             const latestEpNum = Math.max(sub, dub, total);
 
-            const lastNotified = matchedLib.lastNotifiedEpisode || 0;
-
-            if (latestEpNum > lastNotified) {
-              // Deterministic notification ID prevents duplicates
-              const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
-              const notifRef = doc(db, "notifications", notifId);
-
-              await setDoc(
-                notifRef,
-                {
-                  userId: user.uid,
-                  type: "library_update",
-                  title: "Library Update",
-                  message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
-                  link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
-                  isRead: false,
-                  createdAt: serverTimestamp(),
-                  animeId: matchedLib.animeId,
-                  episodeNum: latestEpNum,
-                },
-                { merge: true }
+            if (latestEpNum > 0) {
+              // Check if notification already exists using query (safe from permission errors)
+              const notifQuery = query(
+                collection(db, "notifications"),
+                where("userId", "==", user.uid),
+                where("type", "==", "library_update"),
+                where("animeId", "==", matchedLib.animeId),
+                where("episodeNum", "==", latestEpNum)
               );
+              const notifSnap = await getDocs(notifQuery);
 
-              // Update the library item so we don't notify again for this episode
-              const libRef = doc(db, "libraries", matchedLib.id);
-              await updateDoc(libRef, {
-                lastNotifiedEpisode: latestEpNum,
-              });
+              if (notifSnap.empty) {
+                const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
+                const notifRef = doc(db, "notifications", notifId);
+
+                await setDoc(
+                  notifRef,
+                  {
+                    userId: user.uid,
+                    type: "library_update",
+                    title: "Library Update",
+                    message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
+                    link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
+                    isRead: false,
+                    createdAt: serverTimestamp(),
+                    animeId: matchedLib.animeId,
+                    episodeNum: latestEpNum,
+                  }
+                );
+              }
             }
           }
         }
@@ -303,7 +293,7 @@ export function NotificationBell() {
               </div>
             </div>
           ) : (
-            notifications.map((notif) => {
+            notifications.slice(0, 5).map((notif) => {
               const formattedTime = notif.createdAt
                 ? formatDistanceToNow(
                     typeof notif.createdAt.toDate === "function"
