@@ -83,14 +83,12 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     fetchSearch();
   }, [debouncedQuery]);
 
-  // Handle click outside to close dropdown and collapse search if empty
+  // Handle click outside to close dropdown and collapse search
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowResults(false);
-        if (query.trim() === "") {
-          setIsSearchExpanded(false);
-        }
+        setIsSearchExpanded(false);
       }
     };
 
@@ -98,7 +96,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [query, setIsSearchExpanded]);
+  }, [setIsSearchExpanded]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -129,12 +127,15 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
   };
 
   return (
-    <div className="relative transition-all" ref={dropdownRef}>
+    <div className={cn("relative transition-all", isSearchExpanded ? "w-full" : "")} ref={dropdownRef}>
       <form onSubmit={handleSubmit}>
         <div 
           onClick={() => {
             if (!isSearchExpanded) {
-              inputRef.current?.focus();
+              setIsSearchExpanded(true);
+              setTimeout(() => {
+                inputRef.current?.focus();
+              }, 50);
             }
           }}
           className={cn(
@@ -159,7 +160,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
             type="text"
             value={query}
             onChange={handleInputChange}
-            placeholder="Search anime..."
+            placeholder={getPlaceholder()}
             className="flex h-9 w-full rounded-md bg-transparent py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onFocus={() => {
               setIsSearchExpanded(true);
@@ -169,9 +170,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
               if (e.key === "Escape") {
                 inputRef.current?.blur();
                 setShowResults(false);
-                if (query.trim() === "") {
-                  setIsSearchExpanded(false);
-                }
+                setIsSearchExpanded(false);
               }
             }}
           />
@@ -180,7 +179,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
 
       {/* Real-time search dropdown */}
       {showResults && query.trim().length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-full right-0 md:left-0 md:right-0 mt-2 w-[calc(100vw-2rem)] md:w-full max-w-[360px] md:max-w-none bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
           {isSearching && results.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -192,7 +191,10 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
                 <Link
                   key={anime.id}
                   href={`/anime/${anime.slug}`}
-                  onClick={() => setShowResults(false)}
+                  onClick={() => {
+                    setShowResults(false);
+                    setIsSearchExpanded(false);
+                  }}
                   className="flex gap-3 p-3 hover:bg-muted/50 transition-colors border-b last:border-0"
                 >
                   <div className="relative h-16 w-12 flex-shrink-0 overflow-hidden rounded-md bg-muted">
@@ -232,6 +234,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
                   e.preventDefault();
                   router.push(`/search?q=${encodeURIComponent(query.trim())}&page=1`);
                   setShowResults(false);
+                  setIsSearchExpanded(false);
                 }}
                 className="p-3 text-sm text-center text-primary hover:bg-muted/50 font-medium border-t transition-colors"
               >

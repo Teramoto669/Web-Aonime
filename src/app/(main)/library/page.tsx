@@ -122,6 +122,11 @@ function LibraryPageContent() {
   const targetUserId = searchParams.get("user");
   const isOwnLibrary = !targetUserId || (user && targetUserId === user.uid);
   const defaultTab = searchParams.get("tab") === "profile" ? "profile" : "library";
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // State
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
@@ -840,8 +845,47 @@ function LibraryPageContent() {
           {libraryListContent}
         </div>
       ) : (
-        <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="flex w-max bg-muted/60 border border-border/40 p-1 rounded-xl mb-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {/* Mobile Tab Dropdown */}
+          <div className="md:hidden w-full mb-6">
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="w-full h-11 bg-muted/60 border border-border/40 rounded-xl px-4 text-sm font-bold flex items-center justify-between text-foreground focus:ring-0 focus:ring-offset-0">
+                <div className="flex items-center gap-2">
+                  {activeTab === "library" && <Bookmark className="h-4 w-4 text-primary" />}
+                  {activeTab === "history" && <History className="h-4 w-4 text-primary" />}
+                  {activeTab === "profile" && <User className="h-4 w-4 text-primary" />}
+                  <span>
+                    {activeTab === "library" && "My Library"}
+                    {activeTab === "history" && "Watch History"}
+                    {activeTab === "profile" && "Edit Profile"}
+                  </span>
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-background/95 border border-border/60 backdrop-blur-md z-50 rounded-xl shadow-xl">
+                <SelectItem value="library" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
+                  <div className="flex items-center gap-2">
+                    <Bookmark className="h-4 w-4 text-primary" />
+                    <span>My Library</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="history" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-primary" />
+                    <span>Watch History</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="profile" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    <span>Edit Profile</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop Tab List */}
+          <TabsList className="hidden md:flex w-max bg-muted/60 border border-border/40 p-1 rounded-xl mb-6">
             <TabsTrigger value="library" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
               <Bookmark className="h-4 w-4" />
               My Library
