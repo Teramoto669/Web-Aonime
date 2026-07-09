@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "@/hooks/use-router";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import {
@@ -58,6 +59,7 @@ interface NotificationType {
 export function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -116,6 +118,10 @@ export function NotificationBell() {
   // 2. Background library update checker
   useEffect(() => {
     if (!user) return;
+
+    // Only run update scan on home ("/") or browse ("/browse") pages
+    const isHomeOrBrowse = pathname === "/" || pathname === "/browse";
+    if (!isHomeOrBrowse) return;
 
     const checkLibraryUpdates = async () => {
       try {
@@ -192,7 +198,7 @@ export function NotificationBell() {
     // Check every 5 minutes
     const interval = setInterval(checkLibraryUpdates, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, pathname]);
 
   // Mark a single notification as read and route
   const handleNotificationClick = async (notif: NotificationType) => {
