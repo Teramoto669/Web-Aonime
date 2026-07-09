@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': '*',
+    'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
   };
 
   const refererParam = searchParams.get('referer');
@@ -33,6 +34,12 @@ export async function GET(req: NextRequest) {
   if (refererParam) {
     forwarded['Referer'] = refererParam;
     try { forwarded['Origin'] = new URL(refererParam).origin; } catch (_) {}
+  }
+
+  // Forward Range header for segment/key requests only — NOT for manifests.
+  const rangeHeader = req.headers.get('Range');
+  if (rangeHeader && !isManifest) {
+    forwarded['Range'] = rangeHeader;
   }
 
   try {
@@ -116,13 +123,25 @@ export async function GET(req: NextRequest) {
       ct.includes('mp4') ||
       ct.includes('mpegurl');
 
+    const responseHeaders: Record<string, string> = {
+      'content-type': isRealMedia ? ct : 'application/octet-stream',
+      'cache-control': 'public, max-age=3600',
+      ...corsHeaders,
+    };
+
+    const contentLength = upstreamRes.headers.get('Content-Length');
+    const contentRange  = upstreamRes.headers.get('Content-Range');
+    const acceptRanges  = upstreamRes.headers.get('Accept-Ranges');
+    if (contentLength) responseHeaders['Content-Length'] = contentLength;
+    if (contentRange)  responseHeaders['Content-Range']  = contentRange;
+    if (acceptRanges)  responseHeaders['Accept-Ranges']  = acceptRanges;
+    if (!acceptRanges && upstreamRes.status === 206) {
+      responseHeaders['Accept-Ranges'] = 'bytes';
+    }
+
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,
-      headers: {
-        'content-type': isRealMedia ? ct : 'application/octet-stream',
-        'cache-control': 'public, max-age=3600',
-        ...corsHeaders,
-      },
+      headers: responseHeaders,
     });
 
   } catch (err: unknown) {
