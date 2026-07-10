@@ -442,6 +442,52 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             ],
         });
 
+        // Register custom settings in fixed order to lock their position
+        art.setting.add({
+            name: "subtitles-list",
+            html: "Subtitles",
+            icon: captionsListIcon,
+            tooltip: "Off",
+            position: "right",
+            selector: []
+        });
+
+        art.setting.add({
+            name: "subtitle-sync",
+            html: "Subtitle Sync",
+            icon: clockIcon,
+            tooltip: "Synced",
+            position: "right",
+            selector: []
+        });
+
+        art.setting.add({
+            name: "subtitle-size",
+            html: "Subtitle Size",
+            icon: sizeIcon,
+            tooltip: "100%",
+            position: "right",
+            selector: []
+        });
+
+        art.setting.add({
+            name: "subtitle-color",
+            html: "Subtitle Color",
+            icon: colorIcon,
+            tooltip: "White",
+            position: "right",
+            selector: []
+        });
+
+        art.setting.add({
+            name: "subtitle-style",
+            html: "Subtitle Style",
+            icon: styleIcon,
+            tooltip: "O:ON S:ON",
+            position: "right",
+            selector: []
+        });
+
         // Hide watermark after 3 seconds
         const timer = setTimeout(() => {
             const layer = art.layers.watermark;
@@ -646,92 +692,47 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     useEffect(() => {
         if (!artInstance) return;
 
-        try {
-            artInstance.setting.remove("subtitles-list");
-        } catch (e) { }
+        const hasTracks = tracks.length > 0;
+        const tooltipVal = hasTracks
+            ? (selectedSubtitleIndex >= 0 && tracks[selectedSubtitleIndex]
+                ? (tracks[selectedSubtitleIndex].label || "default")
+                : "Off")
+            : "Not Available";
 
-        if (tracks.length > 0) {
-            artInstance.setting.add({
+        const selectorItems = hasTracks
+            ? [
+                {
+                    html: "Off",
+                    default: selectedSubtitleIndex === -1,
+                    onClick: () => {
+                        setSelectedSubtitleIndex(-1);
+                    }
+                },
+                ...tracks.map((track, i) => ({
+                    html: track.label || `Track ${i + 1}`,
+                    default: selectedSubtitleIndex === i,
+                    onClick: () => {
+                        setSelectedSubtitleIndex(i);
+                    }
+                }))
+              ]
+            : [];
+
+        try {
+            artInstance.setting.update({
                 name: "subtitles-list",
-                html: "Subtitles",
-                icon: captionsListIcon,
-                tooltip: selectedSubtitleIndex >= 0 && tracks[selectedSubtitleIndex]
-                    ? (tracks[selectedSubtitleIndex].label || "default")
-                    : "Off",
-                position: "right",
-                selector: [
-                    {
-                        html: "Off",
-                        default: selectedSubtitleIndex === -1,
-                        onClick: () => {
-                            setSelectedSubtitleIndex(-1);
-                        }
-                    },
-                    ...tracks.map((track, i) => ({
-                        html: track.label || `Track ${i + 1}`,
-                        default: selectedSubtitleIndex === i,
-                        onClick: () => {
-                            setSelectedSubtitleIndex(i);
-                        }
-                    }))
-                ]
+                tooltip: tooltipVal,
+                selector: selectorItems,
             });
-        }
+        } catch (e) {}
     }, [tracksKey, artInstance, selectedSubtitleIndex, tracks]);
 
     // ── Update Subtitle settings selector menus dynamically when subConfig/subDelay change ──
     useEffect(() => {
         if (!artInstance) return;
 
-        // 1. Subtitle Sync
-        try {
-            artInstance.setting.remove("subtitle-sync");
-        } catch (e) { }
-
         const delayVal = subDelay || 0;
-        artInstance.setting.add({
-            name: "subtitle-sync",
-            html: "Subtitle Sync",
-            icon: clockIcon,
-            tooltip: delayVal === 0 ? "Synced" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`,
-            position: "right",
-            selector: [
-                { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
-                { html: "-0.5s", onClick: () => adjustDelay(-0.5) },
-                { html: "-0.1s", onClick: () => adjustDelay(-0.1) },
-                { html: "Synced (0.0s)", onClick: () => adjustDelay(0, true) },
-                { html: "+0.1s", onClick: () => adjustDelay(0.1) },
-                { html: "+0.5s", onClick: () => adjustDelay(0.5) },
-                { html: "+1.0s", onClick: () => adjustDelay(1.0) },
-            ]
-        });
-
-        // 2. Subtitle Size
-        try {
-            artInstance.setting.remove("subtitle-size");
-        } catch (e) { }
-
         const sizeVal = subConfig.size || 1.0;
-        artInstance.setting.add({
-            name: "subtitle-size",
-            html: "Subtitle Size",
-            icon: sizeIcon,
-            tooltip: `${Math.round(sizeVal * 100)}%`,
-            position: "right",
-            selector: [
-                { html: "75%", onClick: () => updateSubConfig({ size: 0.75 }) },
-                { html: "100%", onClick: () => updateSubConfig({ size: 1.0 }) },
-                { html: "125%", onClick: () => updateSubConfig({ size: 1.25 }) },
-                { html: "150%", onClick: () => updateSubConfig({ size: 1.5 }) },
-                { html: "200%", onClick: () => updateSubConfig({ size: 2.0 }) },
-            ]
-        });
-
-        // 3. Subtitle Color
-        try {
-            artInstance.setting.remove("subtitle-color");
-        } catch (e) { }
-
         const colorVal = subConfig.color || '#ffffff';
         const getColorName = (c: string) => {
             if (c === '#ffffff') return 'White';
@@ -740,63 +741,84 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             if (c === '#00ff00') return 'Green';
             return 'Custom';
         };
-        artInstance.setting.add({
-            name: "subtitle-color",
-            html: "Subtitle Color",
-            icon: colorIcon,
-            tooltip: getColorName(colorVal),
-            position: "right",
-            selector: [
-                { html: "White", onClick: () => updateSubConfig({ color: '#ffffff' }) },
-                { html: "Yellow", onClick: () => updateSubConfig({ color: '#ffff00' }) },
-                { html: "Cyan", onClick: () => updateSubConfig({ color: '#00ffff' }) },
-                { html: "Green", onClick: () => updateSubConfig({ color: '#00ff00' }) },
-            ]
-        });
+
+        try {
+            artInstance.setting.update({
+                name: "subtitle-sync",
+                tooltip: delayVal === 0 ? "Synced" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`,
+                selector: [
+                    { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
+                    { html: "-0.5s", onClick: () => adjustDelay(-0.5) },
+                    { html: "-0.1s", onClick: () => adjustDelay(-0.1) },
+                    { html: "Synced (0.0s)", onClick: () => adjustDelay(0, true) },
+                    { html: "+0.1s", onClick: () => adjustDelay(0.1) },
+                    { html: "+0.5s", onClick: () => adjustDelay(0.5) },
+                    { html: "+1.0s", onClick: () => adjustDelay(1.0) },
+                ]
+            });
+
+            artInstance.setting.update({
+                name: "subtitle-size",
+                tooltip: `${Math.round(sizeVal * 100)}%`,
+                selector: [
+                    { html: "75%", onClick: () => updateSubConfig({ size: 0.75 }) },
+                    { html: "100%", onClick: () => updateSubConfig({ size: 1.0 }) },
+                    { html: "125%", onClick: () => updateSubConfig({ size: 1.25 }) },
+                    { html: "150%", onClick: () => updateSubConfig({ size: 1.5 }) },
+                    { html: "200%", onClick: () => updateSubConfig({ size: 2.0 }) },
+                ]
+            });
+
+            artInstance.setting.update({
+                name: "subtitle-color",
+                tooltip: getColorName(colorVal),
+                selector: [
+                    { html: "White", onClick: () => updateSubConfig({ color: '#ffffff' }) },
+                    { html: "Yellow", onClick: () => updateSubConfig({ color: '#ffff00' }) },
+                    { html: "Cyan", onClick: () => updateSubConfig({ color: '#00ffff' }) },
+                    { html: "Green", onClick: () => updateSubConfig({ color: '#00ff00' }) },
+                ]
+            });
+        } catch (e) {}
     }, [subConfig, subDelay, artInstance]);
 
     // ── Update Subtitle Style selector menu dynamically when subConfig changes ──
     useEffect(() => {
         if (!artInstance) return;
 
-        try {
-            artInstance.setting.remove("subtitle-style");
-        } catch (e) { }
-
         const showOutline = subConfig.showOutline !== false;
         const showShadow = subConfig.showShadow !== false;
 
-        artInstance.setting.add({
-            name: "subtitle-style",
-            html: "Subtitle Style",
-            icon: styleIcon,
-            tooltip: `O:${showOutline ? 'ON' : 'OFF'} S:${showShadow ? 'ON' : 'OFF'}`,
-            position: "right",
-            selector: [
-                {
-                    html: `Outline: ${showOutline ? 'ON' : 'OFF'}`,
-                    onClick: () => {
-                        updateSubConfig({ showOutline: !showOutline });
+        try {
+            artInstance.setting.update({
+                name: "subtitle-style",
+                tooltip: `O:${showOutline ? 'ON' : 'OFF'} S:${showShadow ? 'ON' : 'OFF'}`,
+                selector: [
+                    {
+                        html: `Outline: ${showOutline ? 'ON' : 'OFF'}`,
+                        onClick: () => {
+                            updateSubConfig({ showOutline: !showOutline });
+                        }
+                    },
+                    {
+                        html: `Shadow: ${showShadow ? 'ON' : 'OFF'}`,
+                        onClick: () => {
+                            updateSubConfig({ showShadow: !showShadow });
+                        }
+                    },
+                    {
+                        html: `Background: ${subConfig.background !== 'rgba(0,0,0,0)' ? 'Ghost' : 'None'}`,
+                        onClick: () => {
+                            updateSubConfig({
+                                background: subConfig.background === 'rgba(0,0,0,0)'
+                                    ? 'rgba(0,0,0,0.5)'
+                                    : 'rgba(0,0,0,0)'
+                            });
+                        }
                     }
-                },
-                {
-                    html: `Shadow: ${showShadow ? 'ON' : 'OFF'}`,
-                    onClick: () => {
-                        updateSubConfig({ showShadow: !showShadow });
-                    }
-                },
-                {
-                    html: `Background: ${subConfig.background !== 'rgba(0,0,0,0)' ? 'Ghost' : 'None'}`,
-                    onClick: () => {
-                        updateSubConfig({
-                            background: subConfig.background === 'rgba(0,0,0,0)'
-                                ? 'rgba(0,0,0,0.5)'
-                                : 'rgba(0,0,0,0)'
-                        });
-                    }
-                }
-            ]
-        });
+                ]
+            });
+        } catch (e) {}
     }, [subConfig, artInstance]);
 
 
