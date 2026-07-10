@@ -52,8 +52,7 @@ const fullScreenOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
 const fullScreenOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path d="M109.2,134.9l-8.4,50.1c-0.4,2.7-2.4,3.3-4.4,1.4L82,172l-27.9,27.9l-14.2-14.2l27.9-27.9l-14.4-14.4c-1.9-1.9-1.3-3.9,1.4-4.4l50.1-8.4c1.8-0.5,3.6,0.6,4.1,2.4C109.4,133.7,109.4,134.3,109.2,134.9L109.2,134.9z M172.1,82.1L200,54.2L185.8,40l-27.9,27.9l-14.4-14.4c-1.9-1.9-3.9-1.3-4.4,1.4l-8.4,50.1c-0.5,1.8,0.6,3.6,2.4,4.1c0.5,0.2,1.2,0.2,1.7,0l50.1-8.4c2.7-0.4,3.3-2.4,1.4-4.4L172.1,82.1z" fill="#fff"/></svg>`;
 
 const logo = `<p style="display: flex; gap: 7px; align-items: center; background-color: rgba(20, 20, 20, 0.7); backdrop-filter: blur(4px); padding: 5px 8px; border-radius: 6px; margin: 0; font-family: sans-serif;">
-    <b style="color: #3b82f6;">Powered by</b>
-    <span style="font-size: 14px; font-weight: bold; color: white;">
+    <span style="font-size: 14px; font-weight: bold; color: hsl(var(--primary));">
         Aonime
     </span>
 </p>`;
@@ -513,11 +512,11 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             document.head.appendChild(style);
         }
 
-        const shadowOutline = subConfig.showOutline 
-            ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` 
+        const shadowOutline = subConfig.showOutline
+            ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000`
             : '';
-        const shadowText = subConfig.showShadow 
-            ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` 
+        const shadowText = subConfig.showShadow
+            ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)`
             : '';
         const combinedShadow = [shadowOutline, shadowText].filter(Boolean).join(', ') || 'none';
 
@@ -646,7 +645,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
         try {
             artInstance.setting.remove("subtitles-list");
-        } catch (e) {}
+        } catch (e) { }
 
         if (tracks.length > 0) {
             artInstance.setting.add({
@@ -684,8 +683,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         // 1. Subtitle Sync
         try {
             artInstance.setting.remove("subtitle-sync");
-        } catch (e) {}
-        
+        } catch (e) { }
+
         const delayVal = subDelay || 0;
         artInstance.setting.add({
             name: "subtitle-sync",
@@ -707,8 +706,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         // 2. Subtitle Size
         try {
             artInstance.setting.remove("subtitle-size");
-        } catch (e) {}
-        
+        } catch (e) { }
+
         const sizeVal = subConfig.size || 1.0;
         artInstance.setting.add({
             name: "subtitle-size",
@@ -728,8 +727,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         // 3. Subtitle Color
         try {
             artInstance.setting.remove("subtitle-color");
-        } catch (e) {}
-        
+        } catch (e) { }
+
         const colorVal = subConfig.color || '#ffffff';
         const getColorName = (c: string) => {
             if (c === '#ffffff') return 'White';
@@ -759,7 +758,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
         try {
             artInstance.setting.remove("subtitle-style");
-        } catch (e) {}
+        } catch (e) { }
 
         const showOutline = subConfig.showOutline !== false;
         const showShadow = subConfig.showShadow !== false;
@@ -787,8 +786,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     html: `Background: ${subConfig.background !== 'rgba(0,0,0,0)' ? 'Ghost' : 'None'}`,
                     onClick: () => {
                         updateSubConfig({
-                            background: subConfig.background === 'rgba(0,0,0,0)' 
-                                ? 'rgba(0,0,0,0.5)' 
+                            background: subConfig.background === 'rgba(0,0,0,0)'
+                                ? 'rgba(0,0,0,0.5)'
                                 : 'rgba(0,0,0,0)'
                         });
                     }
