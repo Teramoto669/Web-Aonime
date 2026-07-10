@@ -44,7 +44,8 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
                 : `?url=${encodeURIComponent(source.proxyUrl)}`;
 
             if (CF_PROXY) {
-                const finalUrl = `${CF_PROXY}/${queryString}`;
+                // queryString starts with '?', so no '/' separator needed
+                const finalUrl = `${CF_PROXY}${queryString}`;
                 console.log("[VideoPlayer] final m3u8 URL (proxyUrl+CF):", finalUrl);
                 setPlayerUrl({ m3u8: finalUrl });
             } else {
@@ -54,7 +55,8 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
         } else if (source.m3u8) {
             const base = CF_PROXY || '';
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            const finalUrl = base ? `${base}/${qs}` : `/api/proxy${qs}`;
+            // qs starts with '?', so no '/' separator needed between base and qs
+            const finalUrl = base ? `${base}${qs}` : `/api/proxy${qs}`;
             console.log("[VideoPlayer] final m3u8 URL (m3u8):", finalUrl);
             setPlayerUrl({ m3u8: finalUrl });
         } else if (source.url) {
