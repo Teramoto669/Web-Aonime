@@ -721,6 +721,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         try {
             artInstance.setting.update({
                 name: "subtitles-list",
+                html: "Subtitles",
+                icon: captionsListIcon,
+                position: "right",
                 tooltip: tooltipVal,
                 selector: selectorItems,
             });
@@ -745,6 +748,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         try {
             artInstance.setting.update({
                 name: "subtitle-sync",
+                html: "Subtitle Sync",
+                icon: clockIcon,
+                position: "right",
                 tooltip: delayVal === 0 ? "Synced" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`,
                 selector: [
                     { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
@@ -759,6 +765,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
             artInstance.setting.update({
                 name: "subtitle-size",
+                html: "Subtitle Size",
+                icon: sizeIcon,
+                position: "right",
                 tooltip: `${Math.round(sizeVal * 100)}%`,
                 selector: [
                     { html: "75%", onClick: () => updateSubConfig({ size: 0.75 }) },
@@ -771,6 +780,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
             artInstance.setting.update({
                 name: "subtitle-color",
+                html: "Subtitle Color",
+                icon: colorIcon,
+                position: "right",
                 tooltip: getColorName(colorVal),
                 selector: [
                     { html: "White", onClick: () => updateSubConfig({ color: '#ffffff' }) },
@@ -792,6 +804,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         try {
             artInstance.setting.update({
                 name: "subtitle-style",
+                html: "Subtitle Style",
+                icon: styleIcon,
+                position: "right",
                 tooltip: `O:${showOutline ? 'ON' : 'OFF'} S:${showShadow ? 'ON' : 'OFF'}`,
                 selector: [
                     {
