@@ -444,17 +444,145 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
 
 
+        // Lock screen orientation to landscape when in fullscreen mode on mobile devices
+        art.on('fullscreen', async (state) => {
+            if (state) {
+                try {
+                    const orientation = screen.orientation as any;
+                    if (orientation && typeof orientation.lock === 'function') {
+                        await orientation.lock('landscape');
+                    }
+                } catch (err) {
+                    console.warn("Landscape orientation lock failed:", err);
+                }
+            } else {
+                try {
+                    const orientation = screen.orientation as any;
+                    if (orientation && typeof orientation.unlock === 'function') {
+                        orientation.unlock();
+                    }
+                } catch (err) {
+                    console.warn("Screen orientation unlock failed:", err);
+                }
+            }
+        });
+
         // Hide watermark after 3 seconds
         const timer = setTimeout(() => {
             const layer = art.layers.watermark;
             if (layer) layer.style.opacity = "0";
         }, 3000);
 
+        // Mobile Double Tap to Skip 5s Gesture (Left/Right side)
+        let lastTouchTime = 0;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+
+        const playerDom = art.template.$player;
+
+        const showDoubleTapOverlay = (direction: 'forward' | 'backward') => {
+            const overlay = document.createElement('div');
+            overlay.className = `art-double-tap-overlay art-double-tap-${direction}`;
+            
+            const isFwd = direction === 'forward';
+            overlay.innerHTML = `
+                <div class="art-double-tap-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                    <div class="art-double-tap-icon" style="display: flex; gap: 2px;">
+                        ${isFwd 
+                            ? '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M6 18l8.5-6L6 6v12zm8.5 0L23 12l-8.5-6v12z"/></svg>' 
+                            : '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M18 6l-8.5 6L18 18V6zm-8.5 0L1 12l8.5 6V6z"/></svg>'
+                        }
+                    </div>
+                    <span style="color: white; font-weight: bold; font-size: 14px;">${isFwd ? '+5s' : '-5s'}</span>
+                </div>
+            `;
+
+            overlay.style.position = 'absolute';
+            overlay.style.top = '0';
+            overlay.style.bottom = '0';
+            overlay.style.width = '35%';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '20';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.background = 'rgba(255, 255, 255, 0.1)';
+            overlay.style.backdropFilter = 'blur(2px)';
+            overlay.style.borderRadius = isFwd ? '100% 0 0 100% / 50% 0 0 50%' : '0 100% 100% 0 / 0 50% 50% 0';
+            
+            if (isFwd) {
+                overlay.style.right = '0';
+            } else {
+                overlay.style.left = '0';
+            }
+
+            overlay.animate([
+                { opacity: 0, transform: isFwd ? 'scale(0.8) translateX(20px)' : 'scale(0.8) translateX(-20px)' },
+                { opacity: 1, transform: 'scale(1) translateX(0)' },
+                { opacity: 0, transform: isFwd ? 'scale(0.9) translateX(10px)' : 'scale(0.9) translateX(-10px)' }
+            ], {
+                duration: 500,
+                easing: 'ease-out'
+            });
+
+            playerDom.appendChild(overlay);
+            setTimeout(() => {
+                overlay.remove();
+            }, 500);
+        };
+
+        const onTouchStart = (e: TouchEvent) => {
+            if (e.touches.length !== 1) return;
+
+            const target = e.target as HTMLElement;
+            // Ignore touches on settings, controls, selectors, control bar, volume bar, etc.
+            if (target.closest('.art-controls') || 
+                target.closest('.art-settings') || 
+                target.closest('.art-volume-panel') ||
+                target.closest('.art-control')) {
+                return;
+            }
+
+            const touch = e.touches[0];
+            const now = Date.now();
+            const timeDiff = now - lastTouchTime;
+            const rect = playerDom.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            const width = rect.width;
+
+            // Check if it is a double tap (within 300ms and close to the last touch position)
+            const isDoubleTap = timeDiff < 300 && 
+                                Math.abs(x - lastTouchX) < 50 && 
+                                Math.abs(y - lastTouchY) < 50;
+
+            if (isDoubleTap) {
+                if (x < width * 0.35) {
+                    e.preventDefault(); // Prevent play/pause toggle
+                    art.seek = Math.max(0, art.currentTime - 5);
+                    showDoubleTapOverlay('backward');
+                } else if (x > width * 0.65) {
+                    e.preventDefault(); // Prevent play/pause toggle
+                    art.seek = Math.min(art.duration, art.currentTime + 5);
+                    showDoubleTapOverlay('forward');
+                }
+            }
+
+            lastTouchTime = now;
+            lastTouchX = x;
+            lastTouchY = y;
+        };
+
+        playerDom.addEventListener('touchstart', onTouchStart, { passive: false });
+
         setArtInstance(art);
 
         return () => {
             clearTimeout(timer);
             isDestroyedRef.current = true;
+            if (playerDom) {
+                playerDom.removeEventListener('touchstart', onTouchStart);
+            }
             if (hlsRef.current) {
                 try {
                     hlsRef.current.destroy();
@@ -548,21 +676,25 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         style.textContent = `
             .art-subtitle {
                 padding-inline: 0px !important;
-                gap: 2px !important;
+                gap: 4px !important;
                 font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
                 bottom: 30px !important;
             }
             .art-subtitle-line {
                 min-width: fit-content;
-                padding: 4px 10px !important;
-                border-radius: 6px !important;
+                padding: 2px 8px !important;
+                margin: 0px !important;
+                border-radius: 4px !important;
                 font-size: calc(var(--subtitle-font-size, 20px) * var(--subtitle-size-factor, ${subConfig.size})) !important;
                 font-weight: 700 !important;
-                line-height: 1.4 !important;
+                line-height: 1.25 !important;
                 color: ${subConfig.color} !important;
                 background-color: ${subConfig.background} !important;
                 text-shadow: ${combinedShadow} !important;
                 text-align: center !important;
+            }
+            .art-subtitle-line:empty {
+                display: none !important;
             }
             /* Custom styling for subtitle size range input */
             .art-subtitle-size-slider-input::-webkit-slider-thumb {
@@ -595,6 +727,29 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             }
             .art-settings {
                 margin-bottom: 20px !important;
+                max-width: calc(100% - 20px) !important;
+                max-height: calc(100% - 70px) !important;
+                overflow-y: auto !important;
+                scrollbar-width: thin;
+            }
+            .art-setting-panel {
+                max-height: 100% !important;
+                overflow-y: auto !important;
+            }
+            @media screen and (max-width: 640px) {
+                .art-settings {
+                    width: 220px !important;
+                    max-width: calc(100% - 20px) !important;
+                }
+                .art-setting-item, .art-setting-header {
+                    padding: 8px 12px !important;
+                    font-size: 13px !important;
+                    min-height: 36px !important;
+                }
+                .art-subtitle-size-container {
+                    padding: 8px 12px !important;
+                    min-width: 150px !important;
+                }
             }
             /* Hide the default vertical volume panel */
             .art-control-volume {
