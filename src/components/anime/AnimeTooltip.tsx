@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +16,23 @@ import Link from "next/link";
 // Session-based in-memory cache to prevent redundant API calls
 const tooltipCache = new Map<string, AnimeTooltipData>();
 const tooltipPromises = new Map<string, Promise<AnimeTooltipData>>();
+
+// Global scrolling flag to prevent tooltips from prefetching/opening during swipe/scroll
+let isGlobalScrolling = false;
+let globalScrollTimeout: NodeJS.Timeout | null = null;
+
+if (typeof window !== "undefined") {
+  const handleGlobalScroll = () => {
+    isGlobalScrolling = true;
+    if (globalScrollTimeout) {
+      clearTimeout(globalScrollTimeout);
+    }
+    globalScrollTimeout = setTimeout(() => {
+      isGlobalScrolling = false;
+    }, 150); // 150ms after scroll stops
+  };
+  window.addEventListener("scroll", handleGlobalScroll, { passive: true, capture: true });
+}
 
 function prefetchTooltip(id: string): Promise<AnimeTooltipData> {
   if (tooltipCache.has(id)) {
@@ -53,63 +69,56 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
   const [open, setOpen] = useState(false);
   const prefetchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const isHoveredRef = React.useRef(false);
-  const isScrollingRef = React.useRef(false);
-  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  // Clear prefetch timeout on unmount
   useEffect(() => {
-    const handleScroll = () => {
-      isScrollingRef.current = true;
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      scrollTimeoutRef.current = setTimeout(() => {
-        isScrollingRef.current = false;
-        // When scrolling stops, if the mouse is no longer hovering this card, close the tooltip
-        if (!isHoveredRef.current) {
-          setOpen(false);
-        }
-      }, 150); // 150ms after scroll stops
-    };
-
-    // Capture scroll events from any container on the page (like carousels)
-    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
-
     return () => {
-      window.removeEventListener("scroll", handleScroll, { capture: true });
       if (prefetchTimeoutRef.current) {
         clearTimeout(prefetchTimeoutRef.current);
-      }
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
       }
     };
   }, []);
 
+  // Close open tooltip immediately on scroll
+  useEffect(() => {
+    if (!open) return;
+
+    const handleScroll = () => {
+      setOpen(false);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+    };
+  }, [open]);
+
   // If there's no ID, we fall back to a simple, title-only tooltip
   if (!id) {
     return (
-      <TooltipProvider delayDuration={200}>
-        <Tooltip open={open} onOpenChange={setOpen}>
-          <TooltipTrigger asChild>{children}</TooltipTrigger>
-          <TooltipContent
-            side="right"
-            align="start"
-            sideOffset={10}
-            alignOffset={50}
-            className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
-          >
-            <p className="font-semibold">{fallbackTitle}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent
+          side="right"
+          align="start"
+          sideOffset={10}
+          alignOffset={50}
+          className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
+        >
+          <p className="font-semibold">{fallbackTitle}</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
   const handlePointerEnter = () => {
     isHoveredRef.current = true;
+    if (isGlobalScrolling) return;
+
     prefetchTimeoutRef.current = setTimeout(() => {
+      if (isGlobalScrolling) return;
       prefetchTooltip(id);
-    }, 60); // 60ms debounce to prevent spamming on fast swipes
+    }, 150); // 150ms debounce to prevent spamming on fast swipes
   };
 
   const handlePointerLeave = () => {
@@ -120,48 +129,41 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      // Defer closing slightly to let scroll events register and update isScrollingRef
+    if (nextOpen) {
+      if (isGlobalScrolling) return;
+      setOpen(true);
+    } else {
+      // Defer closing slightly to check if user moved mouse back onto the trigger card
       setTimeout(() => {
-        // If user moved mouse back onto the trigger card, don't close it
         if (isHoveredRef.current) {
-          return;
-        }
-        const isLoaded = tooltipCache.has(id);
-        // If data is loaded and we are currently scrolling, keep it open
-        if (isLoaded && isScrollingRef.current) {
           return;
         }
         setOpen(false);
       }, 50);
-      return;
     }
-    setOpen(nextOpen);
   };
 
   return (
-    <TooltipProvider delayDuration={180}>
-      <Tooltip open={open} onOpenChange={handleOpenChange}>
-        <TooltipTrigger
-          asChild
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
+    <Tooltip open={open} onOpenChange={handleOpenChange}>
+      <TooltipTrigger
+        asChild
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
+        {children}
+      </TooltipTrigger>
+      {open && (
+        <TooltipContent
+          side="right"
+          align="start"
+          sideOffset={10}
+          alignOffset={50}
+          className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-[100]"
         >
-          {children}
-        </TooltipTrigger>
-        {open && (
-          <TooltipContent
-            side="right"
-            align="start"
-            sideOffset={10}
-            alignOffset={50}
-            className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-[100]"
-          >
-            <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} />
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+          <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} />
+        </TooltipContent>
+      )}
+    </Tooltip>
   );
 }
 

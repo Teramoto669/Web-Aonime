@@ -8,6 +8,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from '@/lib/auth-context';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { NavigationProvider } from '@/components/layout/NavigationProvider';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export const metadata: Metadata = {
   title: 'Aonime Stream',
@@ -29,14 +30,16 @@ export default function RootLayout({
       <body className={cn('font-body antialiased')}>
         <AuthProvider>
           <NavigationProvider>
-            <div className="relative flex min-h-screen flex-col bg-background">
-              <Header />
-              <VerificationBanner />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
-            <Toaster />
-            <SpeedInsights />
+            <TooltipProvider>
+              <div className="relative flex min-h-screen flex-col bg-background">
+                <Header />
+                <VerificationBanner />
+                <main className="flex-1">{children}</main>
+                <Footer />
+              </div>
+              <Toaster />
+              <SpeedInsights />
+            </TooltipProvider>
           </NavigationProvider>
         </AuthProvider>
       </body>

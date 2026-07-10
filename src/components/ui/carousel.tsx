@@ -28,6 +28,7 @@ type CarouselContextProps = {
   scrollNext: () => void
   canScrollPrev: boolean
   canScrollNext: boolean
+  isScrolling: boolean
 } & CarouselProps
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null)
@@ -67,6 +68,7 @@ const Carousel = React.forwardRef<
     )
     const [canScrollPrev, setCanScrollPrev] = React.useState(false)
     const [canScrollNext, setCanScrollNext] = React.useState(false)
+    const [isScrolling, setIsScrolling] = React.useState(false)
 
     const onSelect = React.useCallback((api: CarouselApi) => {
       if (!api) {
@@ -120,6 +122,28 @@ const Carousel = React.forwardRef<
       }
     }, [api, onSelect])
 
+    React.useEffect(() => {
+      if (!api) {
+        return
+      }
+
+      const handleScrollStart = () => {
+        setIsScrolling(true)
+      }
+
+      const handleScrollEnd = () => {
+        setIsScrolling(false)
+      }
+
+      api.on("scroll", handleScrollStart)
+      api.on("settle", handleScrollEnd)
+
+      return () => {
+        api.off("scroll", handleScrollStart)
+        api.off("settle", handleScrollEnd)
+      }
+    }, [api])
+
     return (
       <CarouselContext.Provider
         value={{
@@ -132,6 +156,7 @@ const Carousel = React.forwardRef<
           scrollNext,
           canScrollPrev,
           canScrollNext,
+          isScrolling,
         }}
       >
         <div
@@ -154,7 +179,7 @@ const CarouselContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
-  const { carouselRef, orientation } = useCarousel()
+  const { carouselRef, orientation, isScrolling } = useCarousel()
 
   return (
     <div ref={carouselRef} className="overflow-hidden">
@@ -163,6 +188,7 @@ const CarouselContent = React.forwardRef<
         className={cn(
           "flex",
           orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
+          isScrolling && "pointer-events-none select-none",
           className
         )}
         {...props}

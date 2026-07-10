@@ -36,7 +36,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
         }}
       >
         <CarouselContent>
-          {animes.map((anime) => (
+          {animes.map((anime, index) => (
             <CarouselItem key={getAnimeSlug(anime)}>
               <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
                 <div className="absolute inset-0">
@@ -44,8 +44,10 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                     src={anime.image || '/placeholder.jpg'}
                     alt={anime.title}
                     fill
-                    className="object-cover brightness-50 blur-sm"
-                    priority
+                    sizes="(max-width: 1024px) 100vw, 1280px"
+                    quality={70}
+                    className="object-cover brightness-50 blur-sm transform-gpu will-change-[transform,filter]"
+                    priority={index === 0}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                 </div>
