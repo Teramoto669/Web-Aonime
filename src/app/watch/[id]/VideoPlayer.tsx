@@ -504,6 +504,29 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         });
     };
 
+    // Global window functions for the subtitle size slider to avoid React re-render lags
+    useEffect(() => {
+        (window as any).updateArtSubtitleSizeDOM = (val: number) => {
+            const playerEl = document.querySelector('.art-video-player') as HTMLElement;
+            if (playerEl) {
+                playerEl.style.setProperty('--subtitle-size-factor', String(val));
+            }
+        };
+
+        (window as any).saveArtSubtitleSize = (val: number) => {
+            const playerEl = document.querySelector('.art-video-player') as HTMLElement;
+            if (playerEl) {
+                playerEl.style.removeProperty('--subtitle-size-factor');
+            }
+            updateSubConfig({ size: val });
+        };
+
+        return () => {
+            delete (window as any).updateArtSubtitleSizeDOM;
+            delete (window as any).saveArtSubtitleSize;
+        };
+    }, [updateSubConfig]);
+
     // ── Inject/Sync subtitle styling into Artplayer ──
     useEffect(() => {
         const styleId = 'artplayer-subtitle-styles';
@@ -533,13 +556,39 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 min-width: fit-content;
                 padding: 4px 10px !important;
                 border-radius: 6px !important;
-                font-size: calc(var(--subtitle-font-size, 20px) * ${subConfig.size}) !important;
+                font-size: calc(var(--subtitle-font-size, 20px) * var(--subtitle-size-factor, ${subConfig.size})) !important;
                 font-weight: 700 !important;
                 line-height: 1.4 !important;
                 color: ${subConfig.color} !important;
                 background-color: ${subConfig.background} !important;
                 text-shadow: ${combinedShadow} !important;
                 text-align: center !important;
+            }
+            /* Custom styling for subtitle size range input */
+            .art-subtitle-size-slider-input::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: white;
+                cursor: pointer;
+                border: none;
+                transition: transform 0.1s ease;
+            }
+            .art-subtitle-size-slider-input::-webkit-slider-thumb:hover {
+                transform: scale(1.2);
+            }
+            .art-subtitle-size-slider-input::-moz-range-thumb {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: white;
+                cursor: pointer;
+                border: none;
+                transition: transform 0.1s ease;
+            }
+            .art-subtitle-size-slider-input::-moz-range-thumb:hover {
+                transform: scale(1.2);
             }
             .art-volume-panel {
                 padding-bottom: 20px !important;
@@ -708,6 +757,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
             // 3. Subtitle Size
             const sizeVal = subConfig.size || 1.0;
+            const sizePct = Math.min(100, Math.max(0, ((sizeVal - 0.5) / 2.0) * 100));
+            const sliderBg = `linear-gradient(to right, hsl(var(--primary)) ${sizePct}%, rgba(255, 255, 255, 0.2) ${sizePct}%)`;
+
             artInstance.setting.add({
                 name: "subtitle-size",
                 html: "Subtitle Size",
@@ -715,11 +767,34 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 position: "right",
                 tooltip: `${Math.round(sizeVal * 100)}%`,
                 selector: [
-                    { html: "75%", onClick: () => updateSubConfig({ size: 0.75 }) },
-                    { html: "100%", onClick: () => updateSubConfig({ size: 1.0 }) },
-                    { html: "125%", onClick: () => updateSubConfig({ size: 1.25 }) },
-                    { html: "150%", onClick: () => updateSubConfig({ size: 1.5 }) },
-                    { html: "200%", onClick: () => updateSubConfig({ size: 2.0 }) },
+                    {
+                        html: `
+                            <div class="art-subtitle-size-container" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 170px; cursor: default;" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: white;">
+                                    <span>Scale</span>
+                                    <span class="art-subtitle-size-lbl">${Math.round(sizeVal * 100)}%</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0.5" 
+                                    max="2.5" 
+                                    step="0.05" 
+                                    value="${sizeVal}" 
+                                    class="art-subtitle-size-slider-input" 
+                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${sliderBg}; cursor: pointer;"
+                                    oninput="const val = parseFloat(this.value); const pct = Math.min(100, Math.max(0, ((val - 0.5) / 2.0) * 100)); this.style.background = 'linear-gradient(to right, hsl(var(--primary)) ' + pct + '%, rgba(255, 255, 255, 0.2) ' + pct + '%)'; this.parentNode.querySelector('.art-subtitle-size-lbl').textContent = Math.round(val * 100) + '%'; window.updateArtSubtitleSizeDOM(val);"
+                                    onchange="window.saveArtSubtitleSize(parseFloat(this.value));"
+                                    onclick="event.stopPropagation();"
+                                    onmousedown="event.stopPropagation();"
+                                />
+                            </div>
+                        `,
+                    },
+                    { html: "75%", default: sizeVal === 0.75, onClick: () => updateSubConfig({ size: 0.75 }) },
+                    { html: "100%", default: sizeVal === 1.0, onClick: () => updateSubConfig({ size: 1.0 }) },
+                    { html: "125%", default: sizeVal === 1.25, onClick: () => updateSubConfig({ size: 1.25 }) },
+                    { html: "150%", default: sizeVal === 1.5, onClick: () => updateSubConfig({ size: 1.5 }) },
+                    { html: "200%", default: sizeVal === 2.0, onClick: () => updateSubConfig({ size: 2.0 }) },
                 ]
             });
 
