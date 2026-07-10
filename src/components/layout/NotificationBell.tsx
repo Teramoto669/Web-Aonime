@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "@/hooks/use-router";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import {
@@ -12,7 +11,6 @@ import {
   onSnapshot,
   doc,
   setDoc,
-  deleteDoc,
   writeBatch,
   getDocs,
   serverTimestamp,
@@ -20,7 +18,6 @@ import {
   limit,
   type Timestamp,
 } from "firebase/firestore";
-import { getAnimeSlug } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import {
   Bell,
@@ -59,7 +56,6 @@ interface NotificationType {
 export function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -119,10 +115,6 @@ export function NotificationBell() {
   useEffect(() => {
     if (!user) return;
 
-    // Only run update scan on home ("/") or browse ("/browse") pages
-    const isHomeOrBrowse = pathname === "/" || pathname === "/browse";
-    if (!isHomeOrBrowse) return;
-
     const checkLibraryUpdates = async () => {
       try {
         // Fetch library items marked as "watching"
@@ -132,59 +124,62 @@ export function NotificationBell() {
           where("status", "==", "watching")
         );
         const libSnap = await getDocs(libQuery);
-        const watchingAnimes = libSnap.docs.map((doc) => doc.data());
+        const watchingAnimes = libSnap.docs.map((d) => d.data());
         if (watchingAnimes.length === 0) return;
 
-        // Fetch latest home page releases
-        const homeRes = await fetch("/api/home");
-        if (!homeRes.ok) throw new Error("Failed to fetch home data");
-        const homeJson = await homeRes.json();
-        if (!homeJson.ok || !homeJson.data?.latestEpisodes) return;
+        // Fetch latest updated episodes via internal proxy (avoids CORS)
+        const latestRes = await fetch("/api/latest-episodes");
+        if (!latestRes.ok) throw new Error("Failed to fetch latest episodes");
+        const latestJson = await latestRes.json();
+        if (!latestJson.ok || !latestJson.data?.results) return;
 
-        const latestEpisodes = homeJson.data.latestEpisodes;
+        const latestEpisodes: Array<{
+          id: string;
+          slug: string;
+          title: string;
+          episodes?: { sub?: number; dub?: number; total?: number };
+        }> = latestJson.data.results;
 
         // Compare and write notifications for new episodes
-        for (const homeAnime of latestEpisodes) {
-          const slug = getAnimeSlug(homeAnime);
+        for (const apiAnime of latestEpisodes) {
           const matchedLib = watchingAnimes.find(
-            (la) => la.animeId === homeAnime.id || la.slug === slug
+            (la) =>
+              la.animeId === apiAnime.id ||
+              la.slug === apiAnime.slug
           );
 
           if (matchedLib) {
-            const sub = homeAnime.episodes?.sub || 0;
-            const dub = homeAnime.episodes?.dub || 0;
-            const total = homeAnime.episodes?.total || 0;
+            const sub = apiAnime.episodes?.sub || 0;
+            const dub = apiAnime.episodes?.dub || 0;
+            const total = apiAnime.episodes?.total || 0;
             const latestEpNum = Math.max(sub, dub, total);
 
             if (latestEpNum > 0) {
-              // Check if notification already exists using query (safe from permission errors)
-              const notifQuery = query(
-                collection(db, "notifications"),
-                where("userId", "==", user.uid),
-                where("type", "==", "library_update"),
-                where("animeId", "==", matchedLib.animeId),
-                where("episodeNum", "==", latestEpNum)
+              // Use deterministic notifId — getDoc is faster & more reliable than a query
+              const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
+              const notifRef = doc(db, "notifications", notifId);
+              const notifSnap = await getDocs(
+                query(
+                  collection(db, "notifications"),
+                  where("userId", "==", user.uid),
+                  where("type", "==", "library_update"),
+                  where("animeId", "==", matchedLib.animeId),
+                  where("episodeNum", "==", latestEpNum)
+                )
               );
-              const notifSnap = await getDocs(notifQuery);
 
               if (notifSnap.empty) {
-                const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
-                const notifRef = doc(db, "notifications", notifId);
-
-                await setDoc(
-                  notifRef,
-                  {
-                    userId: user.uid,
-                    type: "library_update",
-                    title: "Library Update",
-                    message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
-                    link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
-                    isRead: false,
-                    createdAt: serverTimestamp(),
-                    animeId: matchedLib.animeId,
-                    episodeNum: latestEpNum,
-                  }
-                );
+                await setDoc(notifRef, {
+                  userId: user.uid,
+                  type: "library_update",
+                  title: "Library Update",
+                  message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
+                  link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
+                  isRead: false,
+                  createdAt: serverTimestamp(),
+                  animeId: matchedLib.animeId,
+                  episodeNum: latestEpNum,
+                });
               }
             }
           }
@@ -198,7 +193,7 @@ export function NotificationBell() {
     // Check every 5 minutes
     const interval = setInterval(checkLibraryUpdates, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [user, pathname]);
+  }, [user]);
 
   // Mark a single notification as read and route
   const handleNotificationClick = async (notif: NotificationType) => {
