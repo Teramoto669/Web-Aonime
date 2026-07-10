@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, AlertCircle, Settings, Subtitles, ChevronDown, Check, Palette, Type, RotateCcw, Clock } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import HLS from "hls.js";
 import type { Source, Track } from "@/lib/types";
+import Artplayer from "artplayer";
+import artplayerPluginHlsControl from "artplayer-plugin-hls-control";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,11 +15,60 @@ type VideoPlayerProps = {
     cfProxyUrl?: string;
 };
 
-type QualityLevel = {
-    height: number;
-    bitrate: number;
-    index: number;
-};
+// ─── Custom Player Icons (Zenime Style) ───────────────────────────────────────
+
+const backward10Icon = `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+<path d="M11.9199 45H7.20508V26.5391L2.60645 28.3154V24.3975L11.4219 20.7949H11.9199V45ZM30.1013 35.0059C30.1013 38.3483 29.4926 40.9049 28.2751 42.6758C27.0687 44.4466 25.3422 45.332 23.0954 45.332C20.8708 45.332 19.1498 44.4743 17.9323 42.7588C16.726 41.0322 16.1006 38.5641 16.0564 35.3545V30.7891C16.0564 27.4577 16.6596 24.9121 17.8659 23.1523C19.0723 21.3815 20.8044 20.4961 23.0622 20.4961C25.32 20.4961 27.0521 21.3704 28.2585 23.1191C29.4649 24.8678 30.0792 27.3636 30.1013 30.6064V35.0059ZM25.3864 30.1084C25.3864 28.2048 25.1983 26.777 24.822 25.8252C24.4457 24.8734 23.8591 24.3975 23.0622 24.3975C21.5681 24.3975 20.7933 26.1406 20.738 29.627V35.6533C20.738 37.6012 20.9262 39.0511 21.3025 40.0029C21.6898 40.9548 22.2875 41.4307 23.0954 41.4307C23.8591 41.4307 24.4236 40.988 24.7888 40.1025C25.1651 39.2061 25.3643 37.8392 25.3864 36.002V30.1084Z" fill="white"/>
+<path d="M11.9894 5.45398V0L2 7.79529L11.9894 15.5914V10.3033H47.0886V40.1506H33.2442V45H52V5.45398H11.9894Z" fill="white"/>
+</svg>`;
+
+const forward10Icon = `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+<path d="M29.9199 45H25.2051V26.5391L20.6064 28.3154V24.3975L29.4219 20.7949H29.9199V45ZM48.1013 35.0059C48.1013 38.3483 47.4926 40.9049 46.2751 42.6758C45.0687 44.4466 43.3422 45.332 41.0954 45.332C38.8708 45.332 37.1498 44.4743 35.9323 42.7588C34.726 41.0322 34.1006 38.5641 34.0564 35.3545V30.7891C34.0564 27.4577 34.6596 24.9121 35.8659 23.1523C37.0723 21.3815 38.8044 20.4961 41.0622 20.4961C43.32 20.4961 45.0521 21.3704 46.2585 23.1191C47.4649 24.8678 48.0792 27.3636 48.1013 30.6064V35.0059ZM43.3864 30.1084C43.3864 28.2048 43.1983 26.777 42.822 25.8252C42.4457 24.8734 41.8591 24.3975 41.0622 24.3975C39.5681 24.3975 38.7933 26.1406 38.738 29.627V35.6533C38.738 37.6012 38.9262 39.0511 39.3025 40.0029C39.6898 40.9548 40.2875 41.4307 41.0954 41.4307C41.8591 41.4307 42.4236 40.988 42.7888 40.1025C43.1651 39.2061 43.3643 37.8392 43.3864 36.002V30.1084Z" fill="white"/>
+<path d="M40.0106 5.45398V0L50 7.79529L40.0106 15.5914V10.3033H4.9114V40.1506H18.7558V45H2.01875e-06V5.45398H40.0106Z" fill="white"/>
+</svg>`;
+
+const volumeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path fill="#fff" d="M116.5,42.8v154.4c0,2.8-1.7,3.6-3.8,1.7l-54.1-48H29c-2.8,0-5.2-2.3-5.2-5.2V94.3c0-2.8,2.3-5.2,5.2-5.2h29.6l54.1-48C114.8,39.2,116.5,39.9,116.5,42.8z"/><path fill="#fff" d="M136.2,160v-20c11.1,0,20-8.9,20-20s-8.9-20-20-20V80c22.1,0,40,17.9,40,40S158.3,160,136.2,160z"/><path fill="#fff" d="M216.2,120c0-44.2-35.8-80-80-80v20c33.1,0,60,26.9,60,60s-26.9,60-60,60v20C180.4,199.9,216.1,164.1,216.2,120z"/></svg>`;
+
+const muteIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20">
+    <path fill="#fff" d="M116.4,42.8v154.5c0,2.8-1.7,3.6-3.8,1.7l-54.1-48.1H28.9c-2.8,0-5.2-2.3-5.2-5.2V94.2c0-2.8,2.3-5.2,5.2-5.2h29.6l54.1-48.1C114.6,39.1,116.4,39.9,116.4,42.8z M212.3,96.4l-14.6-14.6l-23.6,23.6l-23.6-23.6l-14.6,14.6l23.6,23.6l-23.6,23.6l14.6,14.6l23.6-23.6l23.6,23.6l-14.6,14.6-23.6-23.6L212.3,96.4z"/>
+</svg>`;
+
+const loadingIcon = `<svg width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_l9ve{animation:spinner_rcyq 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_cMYp{animation-delay:.4s}.spinner_gHR3{animation-delay:.8s}@keyframes spinner_rcyq{0%{transform:translate(12px,12px) scale(0);opacity:1}100%{transform:translate(0,0) scale(1);opacity:0}}</style><path class="spinner_l9ve" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/><path class="spinner_l9ve spinner_cMYp" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/><path class="spinner_l9ve spinner_gHR3" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/></svg>`;
+
+const pipIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M20 5.125V9.125H22V4.155C22 3.58616 21.5389 3.125 20.97 3.125H2.03C1.46116 3.125 1 3.58613 1 4.155V17.095C1 17.6639 1.46119 18.125 2.03 18.125H12V16.125H3V5.125H20ZM14 11.875C14 11.3227 14.4477 10.875 15 10.875H22C22.5523 10.875 23 11.3227 23 11.875V17.875C23 18.4273 22.5523 18.875 22 18.875H15C14.4477 18.875 14 18.4273 14 17.875V11.875ZM6 12.375L7.79289 10.5821L5.29288 8.0821L6.7071 6.66788L9.20711 9.16789L11 7.375V12.375H6Z" fill="white"/>
+</svg>`;
+
+const playIconLg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="60" height="60"><path d="M62.8,199.5c-1,0.8-2.4,0.6-3.3-0.4c-0.4-0.5-0.6-1.1-0.5-1.8V42.6c-0.2-1.3,0.7-2.4,1.9-2.6c0.7-0.1,1.3,0.1,1.9,0.4l154.7,77.7c2.1,1.1,2.1,2.8,0,3.8L62.8,199.5z" fill="white"/></svg>`;
+
+const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path fill="white" d="M62.8,199.5c-1,0.8-2.4,0.6-3.3-0.4c-0.4-0.5-0.6-1.1-0.5-1.8V42.6c-0.2-1.3,0.7-2.4,1.9-2.6c0.7-0.1,1.3,0.1,1.9,0.4l154.7,77.7c2.1,1.1,2.1,2.8,0,3.8L62.8,199.5z"/></svg>`;
+
+const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path fill="white" d="M100,194.9c0.2,2.6-1.8,4.8-4.4,5c-0.2,0-0.4,0-0.6,0H65c-2.6,0.2-4.8-1.8-5-4.4c0-0.2,0-0.4,0-0.6V45c-0.2-2.6,1.8-4.8,4.4-5c0.2,0,0.4,0,0.6,0h30c2.6-0.2,4.8,1.8,5,4.4c0,0.2,0,0.4,0,0.6V194.9z M180,45.1c0.2-2.6-1.8-4.8-4.4-5c-0.2,0-0.4,0-0.6,0h-30c-2.6-0.2-4.8,1.8-5,4.4c0,0.2,0,0.4,0,0.6V195c-0.2,2.6,1.8,4.8,4.4,5c0.2,0,0.4,0,0.6,0h30c2.6,0.2,4.8-1.8,5-4.4c0-0.2,0-0.4,0-0.6V45.1z"/></svg>`;
+
+const settingsIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path fill="white" d="M204,145l-25-14c0.8-3.6,1.2-7.3,1-11c0.2-3.7-0.2-7.4-1-11l25-14c2.2-1.6,3.1-4.5,2-7l-16-26c-1.2-2.1-3.8-2.9-6-2l-25,14c-6-4.2-12.3-7.9-19-11V35c0.2-2.6-1.8-4.8-4.4-5c-0.2,0-0.4,0-0.6,0h-30c-2.6-0.2-4.8,1.8-5,4.4c0,0.2,0,0.4,0,0.6v28c-6.7,3.1-13,6.7-19,11L56,60c-2.2-0.9-4.8-0.1-6,2L35,88c-1.6,2.2-1.3,5.3,0.9,6.9c0,0,0.1,0,0.1,0.1l25,14c-0.8,3.6-1.2,7.3-1,11c-0.2,3.7,0.2,7.4,1,11l-25,14c-2.2,1.6-3.1,4.5-2,7l16,26c1.2,2.1,3.8,2.9,6,2l25-14c5.7,4.6,12.2,8.3,19,11v28c-0.2,2.6,1.8,4.8,4.4,5c0.2,0,0.4,0,0.6,0h30c2.6,0.2,4.8-1.8,5-4.4c0-0.2,0-0.4,0-0.6v-28c7-2.3,13.5-6,19-11l25,14c2.5,1.3,5.6,0.4,7-2l15-26C206.7,149.4,206,146.7,204,145z M120,149.9c-16.5,0-30-13.4-30-30s13.4-30,30-30s30,13.4,30,30c0.3,16.3-12.6,29.7-28.9,30C120.7,149.9,120.4,149.9,120,149.9z"/></svg>`;
+
+const fullScreenOnIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path d="M96.3,186.1c1.9,1.9,1.3,4-1.4,4.4l-50.6,8.4c-1.8,0.5-3.7-0.6-4.2-2.4c-0.2-0.6-0.2-1.2,0-1.7l8.4-50.6c0.4-2.7,2.4-3.4,4.4-1.4l14.5,14.5l28.2-28.2l14.3,14.3l-28.2,28.2L96.3,186.1z M195.8,39.1l-50.6,8.4c-2.7,0.4-3.4,2.4-1.4,4.4l14.5,14.5l-28.2,28.2l14.3,14.3l28.2-28.2l14.5,14.5c1.9,1.9,4,1.3,4.4-1.4l8.4-50.6c0.5-1.8-0.6-3.6-2.4-4.2C197,39,196.4,39,195.8,39.1L195.8,39.1z" fill="#fff"/></svg>`;
+
+const fullScreenOffIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path d="M109.2,134.9l-8.4,50.1c-0.4,2.7-2.4,3.3-4.4,1.4L82,172l-27.9,27.9l-14.2-14.2l27.9-27.9l-14.4-14.4c-1.9-1.9-1.3-3.9,1.4-4.4l50.1-8.4c1.8-0.5,3.6,0.6,4.1,2.4C109.4,133.7,109.4,134.3,109.2,134.9L109.2,134.9z M172.1,82.1L200,54.2L185.8,40l-27.9,27.9l-14.4-14.4c-1.9-1.9-3.9-1.3-4.4,1.4l-8.4,50.1c-0.5,1.8,0.6,3.6,2.4,4.1c0.5,0.2,1.2,0.2,1.7,0l50.1-8.4c2.7-0.4,3.3-2.4,1.4-4.4L172.1,82.1z" fill="#fff"/></svg>`;
+
+const logo = `<p style="display: flex; gap: 7px; align-items: center; background-color: rgba(20, 20, 20, 0.7); backdrop-filter: blur(4px); padding: 5px 8px; border-radius: 6px; margin: 0; font-family: sans-serif;">
+    <b style="color: #3b82f6;">Powered by</b>
+    <span style="font-size: 14px; font-weight: bold; color: white;">
+        Aonime
+    </span>
+</p>`;
+
+// ─── Inline Settings Submenu Icons ──────────────────────────────────────────
+
+const clockIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+const sizeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`;
+
+const colorIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C5.35824 19.5085 5.25301 20.3541 4.70777 20.812C4.19502 21.2426 3.53504 21.4922 2.82772 21.4922C2.4936 21.4922 2.17646 21.3653 1.93333 21.1448C1.52044 20.7692 1 20.0898 1 19C1 14.5 4.5 11 9 11C10.1046 11 11 10.1046 11 9C11 7.89543 11.8954 7 13 7C14.1046 7 15 7.89543 15 9C15 10.1046 15.8954 11 17 11C18.1046 11 19 11.8954 19 13C19 14.1046 18.1046 15 17 15C15.8954 15 15 15.8954 15 17C15 18.1046 14.1046 19 13 19C12.4477 19 12 19.4477 12 20C12 20.5523 12.4477 21 13 21C13.5523 21 14 21.4477 14 22C14 22.5523 13.5523 23 13 23H12Z"/></svg>`;
+
+const styleIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>`;
+
+const captionsListIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 10h2v2H7zm0 4h10v2H7zm4-4h6v2h-6z"/></svg>`;
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
@@ -26,25 +77,19 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // CF Worker base URL (no trailing slash, always https://)
     const rawCfProxy = cfProxyUrl ?? '';
     const CF_PROXY = rawCfProxy
         ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
         : '';
-    const EXT_PROXY = 'https://anikoto-private-hosted.vercel.app';
 
     useEffect(() => {
         console.log("[VideoPlayer] source:", JSON.stringify(source, null, 2), "CF_PROXY:", CF_PROXY);
         if (source.proxyUrl) {
-            // source.proxyUrl is like "/api/proxy?url=...&referer=..."
-            // CF Worker reads ?url= and ?referer= at any path, so we just
-            // extract the query string and append to worker base URL
             const queryString = source.proxyUrl.includes('?')
-                ? source.proxyUrl.slice(source.proxyUrl.indexOf('?'))   // "?url=...&referer=..."
+                ? source.proxyUrl.slice(source.proxyUrl.indexOf('?'))
                 : `?url=${encodeURIComponent(source.proxyUrl)}`;
 
             if (CF_PROXY) {
-                // queryString starts with '?', so no '/' separator needed
                 const finalUrl = `${CF_PROXY}${queryString}`;
                 console.log("[VideoPlayer] final m3u8 URL (proxyUrl+CF):", finalUrl);
                 setPlayerUrl({ m3u8: finalUrl });
@@ -55,7 +100,6 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
         } else if (source.m3u8) {
             const base = CF_PROXY || '';
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            // qs starts with '?', so no '/' separator needed between base and qs
             const finalUrl = base ? `${base}${qs}` : `/api/proxy${qs}`;
             console.log("[VideoPlayer] final m3u8 URL (m3u8):", finalUrl);
             setPlayerUrl({ m3u8: finalUrl });
@@ -66,7 +110,7 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
             setError("No streaming source available");
         }
         setIsLoading(false);
-    }, [source]);
+    }, [source, CF_PROXY]);
 
     if (isLoading) {
         return (
@@ -92,7 +136,7 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
 
     if (playerUrl?.embed) {
         return (
-            <div className="w-full aspect-video">
+            <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/10 shadow-2xl">
                 <iframe
                     src={playerUrl.embed}
                     className="w-full h-full border-0"
@@ -105,7 +149,7 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
     }
 
     return (
-        <div className="w-full aspect-video flex items-center justify-center bg-black text-white">
+        <div className="w-full aspect-video flex items-center justify-center bg-black text-white rounded-xl">
             <AlertCircle className="w-10 h-10 text-yellow-500 mr-2" />
             No playable stream found.
         </div>
@@ -165,209 +209,595 @@ function shiftWebVTT(vttText: string, delay: number): string {
     return shiftedLines.join('\n');
 }
 
-// ─── HLS Player ──────────────────────────────────────────────────────────────
+// ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
 
 function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const hlsRef = useRef<HLS | null>(null);
+    const artRef = useRef<HTMLDivElement>(null);
+    const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
 
-    // Create a stable string representation of tracks to avoid infinite loops
-    // caused by tracks array reference changing on every render.
     const tracksKey = JSON.stringify(tracks || []);
 
-    const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
-    const [currentLevel, setCurrentLevel] = useState<number>(-1);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(-1);
-    const [activeTrack, setActiveTrack] = useState<Track | null>(null);
-    const [loadingSub, setLoadingSub] = useState(false);
-    const [showQualityMenu, setShowQualityMenu] = useState(false);
-    const [showSubMenu, setShowSubMenu] = useState(false);
-    const [showSubConfig, setShowSubConfig] = useState(false);
+    const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(
+        tracks.length > 0 ? 0 : -1
+    );
+    const [subDelay, setSubDelay] = useState<number>(0);
+    const [originalSubContents, setOriginalSubContents] = useState<Record<number, string>>({});
+    const [processedTrackUrls, setProcessedTrackUrls] = useState<Record<number, string>>({});
 
     const [subConfig, setSubConfig] = useState({
-        size: 1, // multiplier
+        size: 1.0,
         color: '#ffffff',
         background: 'rgba(0, 0, 0, 0)',
         showOutline: true,
         showShadow: true,
     });
 
-    const [subDelay, setSubDelay] = useState<number>(0);
-    const [originalSubContents, setOriginalSubContents] = useState<Record<number, string>>({});
-    const [processedTrackUrls, setProcessedTrackUrls] = useState<Record<number, string>>({});
+    // Refs to bypass stale closures in Artplayer settings click handlers
+    const subDelayRef = useRef(subDelay);
+    subDelayRef.current = subDelay;
 
-    const subBtnRef = useRef<HTMLDivElement>(null);
-    const qualityBtnRef = useRef<HTMLDivElement>(null);
+    const subConfigRef = useRef(subConfig);
+    subConfigRef.current = subConfig;
 
-    console.log("[HlsPlayer] manifest URL:", m3u8Url, "tracks:", tracks);
+    const adjustDelay = (delta: number, reset = false) => {
+        setSubDelay(current => {
+            const next = reset ? 0 : Math.min(5, Math.max(-5, parseFloat((current + delta).toFixed(1))));
+            return next;
+        });
+    };
 
-    // ── HLS setup ──
+    const selectedSubtitleIndexRef = useRef(selectedSubtitleIndex);
+    selectedSubtitleIndexRef.current = selectedSubtitleIndex;
+
+    const hlsRef = useRef<HLS | null>(null);
+    const isDestroyedRef = useRef(false);
+
+    // ── Setup Artplayer ──
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
+        isDestroyedRef.current = false;
+        if (!artRef.current) return;
+        artRef.current.innerHTML = "";
 
-        const handleNativeError = () => {
-            if (video.error) {
-                console.error("[HTML5 Video Native Error] Code:", video.error.code, "Message:", video.error.message);
+        const playM3u8 = (video: HTMLVideoElement, url: string, art: any) => {
+            if (isDestroyedRef.current) return;
+            if (HLS.isSupported()) {
+                if (hlsRef.current) hlsRef.current.destroy();
+                const hls = new HLS({
+                    debug: false,
+                    startLevel: -1,
+                    maxBufferLength: 20,
+                    maxMaxBufferLength: 40,
+                    maxBufferSize: 30 * 1000 * 1000,
+                    startFragPrefetch: false,
+                    abrBandWidthFactor: 0.8,
+                    abrBandWidthUpFactor: 0.6,
+                    enableWorker: false,
+                    stretchShortVideoTrack: true,
+                    xhrSetup: (xhr) => {
+                        xhr.withCredentials = false;
+                    },
+                });
+                hlsRef.current = hls;
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                art.hls = hls;
+
+                // Load saved preferred quality height
+                hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
+                    const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
+                    if (savedHeight > 0) {
+                        const matched = data.levels.findIndex(l => l.height === savedHeight);
+                        if (matched !== -1) {
+                            hls.currentLevel = matched;
+                        }
+                    }
+                });
+
+                hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => {
+                    if (data.level === -1) {
+                        localStorage.removeItem('preferred-quality-height');
+                    } else {
+                        const height = hls.levels[data.level]?.height;
+                        if (height) {
+                            localStorage.setItem('preferred-quality-height', String(height));
+                        }
+                    }
+                });
+
+                art.on("destroy", () => {
+                    if (hlsRef.current === hls) {
+                        hls.destroy();
+                        hlsRef.current = null;
+                    }
+                });
+            } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                video.src = url;
             }
         };
-        video.addEventListener('error', handleNativeError);
 
-        hlsRef.current?.destroy();
-        setQualityLevels([]);
-        setCurrentLevel(-1);
+        // Initialize Artplayer
+        const art = new Artplayer({
+            container: artRef.current,
+            url: m3u8Url,
+            type: "m3u8",
+            customType: { m3u8: playM3u8 },
+            autoplay: true,
+            volume: 0.8,
+            setting: true,
+            playbackRate: true,
+            pip: true,
+            hotkey: true,
+            fullscreen: true,
+            mutex: true,
+            playsInline: true,
+            lock: true,
+            airplay: true,
+            aspectRatio: true,
+            theme: "hsl(var(--primary))",
+            moreVideoAttr: {
+                crossOrigin: "anonymous",
+                preload: "auto",
+                playsInline: true,
+            },
+            icons: {
+                play: playIcon,
+                pause: pauseIcon,
+                setting: settingsIcon,
+                pip: pipIcon,
+                state: playIconLg,
+                loading: loadingIcon,
+                fullscreenOn: fullScreenOnIcon,
+                fullscreenOff: fullScreenOffIcon,
+            },
+            controls: [
+                {
+                    name: "volume-horizontal",
+                    position: "left",
+                    index: 15,
+                    html: `
+                        <div class="art-volume-horizontal" style="display: flex; align-items: center; gap: 4px; cursor: pointer; height: 100%; padding-inline: 4px;">
+                            <div class="art-volume-horizontal-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+                                ${volumeIcon}
+                            </div>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="1" 
+                                step="0.05" 
+                                value="0.8" 
+                                class="art-volume-horizontal-slider" 
+                                style="height: 4px; border-radius: 2px; outline: none; margin: 0; padding: 0; cursor: pointer;"
+                            />
+                        </div>
+                    `,
+                    mounted: function (element) {
+                        const art = this;
+                        const $el = element;
+                        const $icon = $el.querySelector(".art-volume-horizontal-icon") as HTMLElement;
+                        const $slider = $el.querySelector(".art-volume-horizontal-slider") as HTMLInputElement;
 
-        if (HLS.isSupported()) {
-            const hls = new HLS({
-                debug: true,
-                startLevel: -1,
-                maxBufferLength: 20,
-                maxMaxBufferLength: 40,
-                maxBufferSize: 30 * 1000 * 1000,
-                startFragPrefetch: false,
-                abrBandWidthFactor: 0.8,
-                abrBandWidthUpFactor: 0.6,
-                // Disable web worker — avoids codec negotiation issues with HE-AAC v2
-                // (mp4a.40.29) in MPEG-TS streams which Chrome MSE can't always buffer.
-                enableWorker: false,
-                // Don't let the manifest's declared codec string override what MSE reports.
-                // This prevents bufferAppendingError when the stream declares HE-AAC v2.
-                stretchShortVideoTrack: true,
-                xhrSetup: (xhr, url) => {
-                    xhr.withCredentials = false;
-                },
-            });
-            hlsRef.current = hls;
-            hls.loadSource(m3u8Url);
-            hls.attachMedia(video);
+                        const updateSliderBackground = (val: number) => {
+                            const pct = val * 100;
+                            $slider.style.background = `linear-gradient(to right, hsl(var(--primary)) ${pct}%, rgba(255, 255, 255, 0.2) ${pct}%)`;
+                        };
 
-            hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
-                console.log("[HLS] MANIFEST_PARSED — levels:", data.levels.map(l => `${l.height}p`));
-                const levels = data.levels
-                    .map((l, i) => ({ height: l.height || 0, bitrate: l.bitrate || 0, index: i }))
-                    .sort((a, b) => b.height - a.height);
-                setQualityLevels(levels);
+                        // Initial volume sync
+                        $slider.value = String(art.volume);
+                        updateSliderBackground(art.volume);
 
-                const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
-                if (savedHeight > 0) {
-                    const matched = data.levels.findIndex(l => l.height === savedHeight);
-                    if (matched !== -1) {
-                        hls.currentLevel = matched;
-                        setCurrentLevel(matched);
-                    }
-                }
+                        $slider.addEventListener("input", (e) => {
+                            const val = parseFloat((e.target as HTMLInputElement).value);
+                            art.volume = val;
+                            art.muted = val === 0;
+                            updateSliderBackground(val);
+                        });
 
-                video.play().catch((e) => { console.warn("[HLS] video.play() rejected:", e); });
-            });
+                        $icon.addEventListener("click", () => {
+                            art.muted = !art.muted;
+                        });
 
-            hls.on(HLS.Events.FRAG_LOADED, (_, data) => {
-                console.log("[HLS] FRAG_LOADED:", data.frag.url.substring(0, 120));
-            });
-
-            hls.on(HLS.Events.LEVEL_LOADED, (_, data) => {
-                console.log("[HLS] LEVEL_LOADED — fragments:", data.details.fragments.length);
-            });
-
-            hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => setCurrentLevel(data.level));
-            let mediaErrorRecoveryAttempts = 0;
-            hls.on(HLS.Events.ERROR, (_, data) => {
-                if (data.fatal) {
-                    console.error("[HLS] FATAL ERROR:", data.type, data.details, "url:", (data as any).url?.substring(0, 120));
-                    switch (data.type) {
-                        case HLS.ErrorTypes.MEDIA_ERROR:
-                            mediaErrorRecoveryAttempts++;
-                            console.warn(`[HLS] Fatal media error encountered (attempt ${mediaErrorRecoveryAttempts}/3)...`);
-                            if (mediaErrorRecoveryAttempts <= 3) {
-                                hls.recoverMediaError();
+                        art.on("video:volumechange", () => {
+                            const val = art.muted ? 0 : art.volume;
+                            $slider.value = String(val);
+                            updateSliderBackground(val);
+                            if (art.muted || art.volume === 0) {
+                                $icon.innerHTML = muteIcon;
                             } else {
-                                console.error("[HLS] Fatal media error recovery failed 3 times. Reloading source...");
-                                hls.loadSource(m3u8Url);
-                                mediaErrorRecoveryAttempts = 0;
+                                $icon.innerHTML = volumeIcon;
                             }
-                            break;
-                        case HLS.ErrorTypes.NETWORK_ERROR:
-                            console.warn("[HLS] Fatal network error encountered, retrying...");
-                            hls.startLoad();
-                            break;
-                        default:
-                            console.error("[HLS] Unrecoverable fatal error, destroying player.");
-                            hls.destroy();
-                            break;
-                    }
-                } else {
-                    console.warn("[HLS] Non-fatal error:", data.type, data.details, "url:", (data as any).url?.substring(0, 120));
-                    // Reset recovery counter on successful playback progress or non-fatal events
-                    const detailsStr = data.details as any;
-                    if (detailsStr === 'bufferSeekOverhole' || detailsStr === 'bufferNudgeOnStall') {
-                        mediaErrorRecoveryAttempts = 0;
+                        });
                     }
                 }
-            });
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-            video.src = m3u8Url;
-            video.play().catch(() => { });
-        }
+            ],
+            plugins: [
+                artplayerPluginHlsControl({
+                    quality: {
+                        setting: true,
+                        getName: (level: any) => level.height + "p",
+                        title: "Quality",
+                        auto: "Auto",
+                    },
+                }),
+            ],
+            subtitle: {
+                url: "",
+                style: {
+                    color: "#ffffff",
+                    fontSize: "20px",
+                },
+                escape: false,
+            },
+            layers: [
+                {
+                    name: "watermark",
+                    html: logo,
+                    style: {
+                        opacity: "0.8",
+                        position: "absolute",
+                        top: "12px",
+                        right: "12px",
+                        zIndex: "10",
+                        transition: "opacity 0.5s ease-out",
+                    },
+                }
+            ],
+        });
+
+        // Hide watermark after 3 seconds
+        const timer = setTimeout(() => {
+            const layer = art.layers.watermark;
+            if (layer) layer.style.opacity = "0";
+        }, 3000);
+
+        setArtInstance(art);
 
         return () => {
-            video.removeEventListener('error', handleNativeError);
-            hlsRef.current?.destroy();
-            hlsRef.current = null;
+            clearTimeout(timer);
+            isDestroyedRef.current = true;
+            if (hlsRef.current) {
+                try {
+                    hlsRef.current.destroy();
+                } catch (e) {
+                    console.warn("HLS cleanup warning:", e);
+                }
+                hlsRef.current = null;
+            }
+            if (art) {
+                try {
+                    if (art.video) {
+                        art.video.pause();
+                        art.video.src = "";
+                        art.video.load();
+                    }
+                } catch (e) {
+                    console.warn("Artplayer cleanup warning:", e);
+                }
+                if (art.destroy) {
+                    art.destroy(true);
+                }
+            }
         };
     }, [m3u8Url]);
 
-    // ── Handle subtitle selection ──
-    const handleSubtitleChange = (index: number) => {
-        const video = videoRef.current;
-        if (!video || !video.textTracks) return;
-
-        setLoadingSub(true);
-        // Hide all tracks
-        for (let i = 0; i < video.textTracks.length; i++) {
-            video.textTracks[i].mode = 'hidden';
+    // ── Load/Save Subtitle Config ──
+    useEffect(() => {
+        const saved = localStorage.getItem("subtitle-config");
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setSubConfig(prev => ({
+                    ...prev,
+                    ...parsed
+                }));
+            } catch (e) {
+                console.error("Failed to parse subtitle config", e);
+            }
         }
+    }, []);
 
-        // Show selected track if index >= 0
-        if (index >= 0 && index < video.textTracks.length) {
-            video.textTracks[index].mode = 'showing';
-            setSelectedSubtitleIndex(index);
-            setActiveTrack(tracks[index]);
-            console.log("[HlsPlayer] Subtitle switched to:", video.textTracks[index].label);
-        } else {
-            setSelectedSubtitleIndex(-1);
-            setActiveTrack(null);
-            console.log("[HlsPlayer] Subtitles disabled");
-        }
-        setLoadingSub(false);
+    const updateSubConfig = (newConfig: Partial<typeof subConfig>) => {
+        setSubConfig(prev => {
+            const updated = { ...prev, ...newConfig };
+            localStorage.setItem("subtitle-config", JSON.stringify(updated));
+            return updated;
+        });
     };
 
-    // ── Auto-enable first subtitle track on load ──
+    // ── Inject/Sync subtitle styling into Artplayer ──
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !tracks.length) return;
+        const styleId = 'artplayer-subtitle-styles';
+        let style = document.getElementById(styleId) as HTMLStyleElement;
+        if (!style) {
+            style = document.createElement('style');
+            style.id = styleId;
+            document.head.appendChild(style);
+        }
 
-        const enableSubtitle = () => {
-            if (video.textTracks && video.textTracks.length > 0) {
-                handleSubtitleChange(0);
+        const shadowOutline = subConfig.showOutline 
+            ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` 
+            : '';
+        const shadowText = subConfig.showShadow 
+            ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` 
+            : '';
+        const combinedShadow = [shadowOutline, shadowText].filter(Boolean).join(', ') || 'none';
+
+        style.textContent = `
+            .art-subtitle {
+                padding-inline: 0px !important;
+                gap: 2px !important;
+                font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
+                bottom: 30px !important;
             }
-        };
+            .art-subtitle-line {
+                min-width: fit-content;
+                padding: 4px 10px !important;
+                border-radius: 6px !important;
+                font-size: calc(var(--subtitle-font-size, 20px) * ${subConfig.size}) !important;
+                font-weight: 700 !important;
+                line-height: 1.4 !important;
+                color: ${subConfig.color} !important;
+                background-color: ${subConfig.background} !important;
+                text-shadow: ${combinedShadow} !important;
+                text-align: center !important;
+            }
+            .art-volume-panel {
+                padding-bottom: 20px !important;
+            }
+            .art-settings {
+                margin-bottom: 20px !important;
+            }
+            /* Hide the default vertical volume panel */
+            .art-control-volume {
+                display: none !important;
+            }
+            /* Match seekbar/settings accent to theme primary HSL */
+            .art-progress-played {
+                background: hsl(var(--primary)) !important;
+            }
+            .art-slider-bar {
+                background: hsl(var(--primary)) !important;
+            }
+            .art-setting-toggle input:checked + i {
+                background: hsl(var(--primary)) !important;
+            }
+            /* Style custom horizontal volume slider range input */
+            .art-volume-horizontal-slider {
+                -webkit-appearance: none;
+                width: 0px !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transition: width 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .art-volume-horizontal:hover .art-volume-horizontal-slider {
+                width: 60px !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                margin-left: 6px !important;
+                margin-right: 6px !important;
+            }
+            .art-volume-horizontal-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: white;
+                cursor: pointer;
+                border: none;
+                transition: transform 0.1s ease;
+            }
+            .art-volume-horizontal-slider::-webkit-slider-thumb:hover {
+                transform: scale(1.2);
+            }
+            .art-volume-horizontal-slider::-moz-range-thumb {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: white;
+                cursor: pointer;
+                border: none;
+                transition: transform 0.1s ease;
+            }
+            .art-volume-horizontal-slider::-moz-range-thumb:hover {
+                transform: scale(1.2);
+            }
+            :root {
+                --subtitle-font-size: clamp(14px, 3.5vw, 22px);
+            }
+            @media screen and (max-width: 370px) {
+                .art-progress {
+                    padding-bottom: 5px !important;
+                }
+                .art-controls-left .art-control {
+                    justify-content: flex-start !important;
+                }
+                .art-controls-right .art-control {
+                    justify-content: flex-end !important;
+                }
+                .art-controls-right .art-control svg {
+                    width: 22px;
+                    height: 22px;
+                }
+                .art-controls-left .art-control svg {
+                    width: 22px;
+                    height: 22px;
+                }
+                .art-state .art-icon svg {
+                    width: 50px;
+                    height: 50px;
+                }
+            }
+            @media screen and (max-width: 350px) {
+                .art-controls-right .art-control svg {
+                    width: 20px;
+                    height: 20px;
+                }
+                .art-controls-left .art-control svg {
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+        `;
+    }, [subConfig]);
 
-        enableSubtitle();
-        const timer = setTimeout(enableSubtitle, 500);
-        return () => clearTimeout(timer);
-    }, [tracksKey]);
-
-    // ── Handle tracks changing (episode change) ──
+    // ── Update Artplayer subtitles selector list menu dynamically when tracks change ──
     useEffect(() => {
-        setOriginalSubContents({});
-        setProcessedTrackUrls(prev => {
-            Object.values(prev).forEach(url => {
-                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        if (!artInstance) return;
+
+        try {
+            artInstance.setting.remove("subtitles-list");
+        } catch (e) {}
+
+        if (tracks.length > 0) {
+            artInstance.setting.add({
+                name: "subtitles-list",
+                html: "Subtitles",
+                icon: captionsListIcon,
+                tooltip: selectedSubtitleIndex >= 0 && tracks[selectedSubtitleIndex]
+                    ? (tracks[selectedSubtitleIndex].label || "default")
+                    : "Off",
+                position: "right",
+                selector: [
+                    {
+                        html: "Off",
+                        default: selectedSubtitleIndex === -1,
+                        onClick: () => {
+                            setSelectedSubtitleIndex(-1);
+                        }
+                    },
+                    ...tracks.map((track, i) => ({
+                        html: track.label || `Track ${i + 1}`,
+                        default: selectedSubtitleIndex === i,
+                        onClick: () => {
+                            setSelectedSubtitleIndex(i);
+                        }
+                    }))
+                ]
             });
-            return {};
+        }
+    }, [tracksKey, artInstance, selectedSubtitleIndex, tracks]);
+
+    // ── Update Subtitle settings selector menus dynamically when subConfig/subDelay change ──
+    useEffect(() => {
+        if (!artInstance) return;
+
+        // 1. Subtitle Sync
+        try {
+            artInstance.setting.remove("subtitle-sync");
+        } catch (e) {}
+        
+        const delayVal = subDelay || 0;
+        artInstance.setting.add({
+            name: "subtitle-sync",
+            html: "Subtitle Sync",
+            icon: clockIcon,
+            tooltip: delayVal === 0 ? "Synced" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`,
+            position: "right",
+            selector: [
+                { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
+                { html: "-0.5s", onClick: () => adjustDelay(-0.5) },
+                { html: "-0.1s", onClick: () => adjustDelay(-0.1) },
+                { html: "Synced (0.0s)", onClick: () => adjustDelay(0, true) },
+                { html: "+0.1s", onClick: () => adjustDelay(0.1) },
+                { html: "+0.5s", onClick: () => adjustDelay(0.5) },
+                { html: "+1.0s", onClick: () => adjustDelay(1.0) },
+            ]
         });
-        setSubDelay(0);
-    }, [tracksKey]);
+
+        // 2. Subtitle Size
+        try {
+            artInstance.setting.remove("subtitle-size");
+        } catch (e) {}
+        
+        const sizeVal = subConfig.size || 1.0;
+        artInstance.setting.add({
+            name: "subtitle-size",
+            html: "Subtitle Size",
+            icon: sizeIcon,
+            tooltip: `${Math.round(sizeVal * 100)}%`,
+            position: "right",
+            selector: [
+                { html: "75%", onClick: () => updateSubConfig({ size: 0.75 }) },
+                { html: "100%", onClick: () => updateSubConfig({ size: 1.0 }) },
+                { html: "125%", onClick: () => updateSubConfig({ size: 1.25 }) },
+                { html: "150%", onClick: () => updateSubConfig({ size: 1.5 }) },
+                { html: "200%", onClick: () => updateSubConfig({ size: 2.0 }) },
+            ]
+        });
+
+        // 3. Subtitle Color
+        try {
+            artInstance.setting.remove("subtitle-color");
+        } catch (e) {}
+        
+        const colorVal = subConfig.color || '#ffffff';
+        const getColorName = (c: string) => {
+            if (c === '#ffffff') return 'White';
+            if (c === '#ffff00') return 'Yellow';
+            if (c === '#00ffff') return 'Cyan';
+            if (c === '#00ff00') return 'Green';
+            return 'Custom';
+        };
+        artInstance.setting.add({
+            name: "subtitle-color",
+            html: "Subtitle Color",
+            icon: colorIcon,
+            tooltip: getColorName(colorVal),
+            position: "right",
+            selector: [
+                { html: "White", onClick: () => updateSubConfig({ color: '#ffffff' }) },
+                { html: "Yellow", onClick: () => updateSubConfig({ color: '#ffff00' }) },
+                { html: "Cyan", onClick: () => updateSubConfig({ color: '#00ffff' }) },
+                { html: "Green", onClick: () => updateSubConfig({ color: '#00ff00' }) },
+            ]
+        });
+    }, [subConfig, subDelay, artInstance]);
+
+    // ── Update Subtitle Style selector menu dynamically when subConfig changes ──
+    useEffect(() => {
+        if (!artInstance) return;
+
+        try {
+            artInstance.setting.remove("subtitle-style");
+        } catch (e) {}
+
+        const showOutline = subConfig.showOutline !== false;
+        const showShadow = subConfig.showShadow !== false;
+
+        artInstance.setting.add({
+            name: "subtitle-style",
+            html: "Subtitle Style",
+            icon: styleIcon,
+            tooltip: `O:${showOutline ? 'ON' : 'OFF'} S:${showShadow ? 'ON' : 'OFF'}`,
+            position: "right",
+            selector: [
+                {
+                    html: `Outline: ${showOutline ? 'ON' : 'OFF'}`,
+                    onClick: () => {
+                        updateSubConfig({ showOutline: !showOutline });
+                    }
+                },
+                {
+                    html: `Shadow: ${showShadow ? 'ON' : 'OFF'}`,
+                    onClick: () => {
+                        updateSubConfig({ showShadow: !showShadow });
+                    }
+                },
+                {
+                    html: `Background: ${subConfig.background !== 'rgba(0,0,0,0)' ? 'Ghost' : 'None'}`,
+                    onClick: () => {
+                        updateSubConfig({
+                            background: subConfig.background === 'rgba(0,0,0,0)' 
+                                ? 'rgba(0,0,0,0.5)' 
+                                : 'rgba(0,0,0,0)'
+                        });
+                    }
+                }
+            ]
+        });
+    }, [subConfig, artInstance]);
+
+
 
     // ── Cleanup Blob URLs on unmount ──
     useEffect(() => {
@@ -384,6 +814,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
     // ── Fetch original subtitle text on-demand ──
     useEffect(() => {
         if (selectedSubtitleIndex < 0 || !tracks[selectedSubtitleIndex]) {
+            if (artInstance) {
+                artInstance.subtitle.show = false;
+            }
             return;
         }
 
@@ -393,7 +826,6 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         if (!url) return;
 
         if (!originalSubContents[index]) {
-            setLoadingSub(true);
             fetch(url)
                 .then(res => {
                     if (!res.ok) throw new Error("Failed to fetch subtitle");
@@ -404,16 +836,19 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 })
                 .catch(err => {
                     console.error("Failed to load subtitle:", err);
-                })
-                .finally(() => {
-                    setLoadingSub(false);
                 });
         }
-    }, [selectedSubtitleIndex, tracksKey, originalSubContents]);
+    }, [selectedSubtitleIndex, tracksKey, originalSubContents, artInstance, tracks]);
 
-    // ── Apply timing shift to WebVTT content ──
+    // ── Apply timing shift to WebVTT content and load into Artplayer ──
     useEffect(() => {
-        if (selectedSubtitleIndex < 0) return;
+        if (selectedSubtitleIndex < 0) {
+            if (artInstance) {
+                artInstance.subtitle.show = false;
+            }
+            return;
+        }
+
         const text = originalSubContents[selectedSubtitleIndex];
         if (!text) return;
 
@@ -427,465 +862,36 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             const blob = new Blob([shiftedText], { type: 'text/vtt' });
             const newUrl = URL.createObjectURL(blob);
             setProcessedTrackUrls(prev => ({ ...prev, [selectedSubtitleIndex]: newUrl }));
+
+            if (artInstance) {
+                artInstance.subtitle.show = true;
+                artInstance.subtitle.switch(newUrl, {
+                    name: tracks[selectedSubtitleIndex].label || `Track ${selectedSubtitleIndex + 1}`,
+                    type: 'vtt',
+                });
+            }
         } catch (err) {
             console.error("Error processing subtitle shift:", err);
         }
-    }, [selectedSubtitleIndex, subDelay, originalSubContents]);
+    }, [selectedSubtitleIndex, subDelay, originalSubContents, artInstance, tracks]);
 
-    // ── Reinforce track showing mode when processed url changes ──
+    // Reset subtitle states when URL/episode changes
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !video.textTracks || selectedSubtitleIndex < 0) return;
-
-        const timer = setTimeout(() => {
-            if (video.textTracks && video.textTracks[selectedSubtitleIndex]) {
-                for (let i = 0; i < video.textTracks.length; i++) {
-                    video.textTracks[i].mode = 'hidden';
-                }
-                video.textTracks[selectedSubtitleIndex].mode = 'showing';
-            }
-        }, 50);
-        return () => clearTimeout(timer);
-    }, [processedTrackUrls, selectedSubtitleIndex]);
-
-    // ── Handle quality change ──
-    const handleQuality = (levelIndex: number) => {
-        if (hlsRef.current) {
-            hlsRef.current.currentLevel = levelIndex;
-            if (levelIndex === -1) {
-                localStorage.removeItem('preferred-quality-height');
-            } else {
-                localStorage.setItem('preferred-quality-height',
-                    String(hlsRef.current.levels[levelIndex]?.height || -1));
-            }
-            setCurrentLevel(levelIndex);
-            setShowQualityMenu(false);
-            console.log("[HlsPlayer] Quality changed to level", levelIndex);
-        }
-    };
-
-    const currentQualityLabel = () => {
-        if (currentLevel === -1) return 'Auto';
-        const level = qualityLevels.find(l => l.index === currentLevel);
-        if (!level) return 'Auto';
-        return level.height > 0 ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`;
-    };
-
-    // ── Click away listener ──
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (subBtnRef.current && !subBtnRef.current.contains(event.target as Node)) {
-                setShowSubMenu(false);
-                setShowSubConfig(false);
-            }
-            if (qualityBtnRef.current && !qualityBtnRef.current.contains(event.target as Node)) {
-                setShowQualityMenu(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    // ── Load/Save Subtitle Config ──
-    useEffect(() => {
-        const saved = localStorage.getItem("subtitle-config");
-        if (saved) {
-            try {
-                setSubConfig(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse subtitle config", e);
-            }
-        }
-    }, []);
-
-    const updateSubConfig = (newConfig: Partial<typeof subConfig>) => {
-        const updated = { ...subConfig, ...newConfig };
-        setSubConfig(updated);
-        localStorage.setItem("subtitle-config", JSON.stringify(updated));
-    };
-
-    const resetSubConfig = () => {
-        const def = { size: 1, color: '#ffffff', background: 'rgba(0, 0, 0, 0)', showOutline: true, showShadow: true };
-        setSubConfig(def);
+        setSelectedSubtitleIndex(tracks.length > 0 ? 0 : -1);
         setSubDelay(0);
-        localStorage.removeItem("subtitle-config");
-    };
-
-    // ── Track fullscreen changes ──
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            const fs = !!document.fullscreenElement;
-            setIsFullscreen(fs);
-            // Update CSS variable for responsive font sizing
-            document.documentElement.style.setProperty('--is-fullscreen', fs ? '1' : '0');
-        };
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    }, []);
-
-    // ── Inject subtitle styling ──
-    useEffect(() => {
-        const styleId = 'video-subtitle-styles';
-        let style = document.getElementById(styleId) as HTMLStyleElement;
-        if (!style) {
-            style = document.createElement('style');
-            style.id = styleId;
-            document.head.appendChild(style);
-        }
-        style.textContent = `
-                video::cue {
-                    font-family: "Outfit", "Inter", "Segoe UI", sans-serif !important;
-                    font-size: calc(var(--subtitle-font-size) * ${subConfig.size}) !important;
-                    font-weight: 700 !important;
-                    background: ${subConfig.background} !important;
-                    color: ${subConfig.color} !important;
-                    padding: 2px 8px !important;
-                    border-radius: 4px !important;
-                    line-height: 1.3 !important;
-                    white-space: pre-line !important;
-                    display: inline-block !important;
-                    max-width: 90% !important;
-                    text-align: center !important;
-                    text-shadow: ${[
-                subConfig.showOutline ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000` : '',
-                subConfig.showShadow ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)` : ''
-            ].filter(Boolean).join(', ') || 'none'} !important;
-                }
-                /* Prevent subtitles from jumping and move them higher */
-                video::-webkit-media-text-track-container {
-                    transform: translateY(-28px) !important;
-                }
-                /* Ensure native fullscreen button is visible */
-                video::-webkit-media-controls-fullscreen-button {
-                    display: flex !important;
-                }
-                :root {
-                    --subtitle-font-size: clamp(12px, 4vw, 20px);
-                }
-                :root[style*="--is-fullscreen: 1"] {
-                    --subtitle-font-size: clamp(16px, 5vw, 26px);
-                }
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 5px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.2);
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                }
-            `;
-    }, [isFullscreen, subConfig]);
+        setOriginalSubContents({});
+        setProcessedTrackUrls(prev => {
+            Object.values(prev).forEach(url => {
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+            });
+            return {};
+        });
+    }, [m3u8Url, tracksKey]);
 
     return (
-        <div className="w-full relative rounded-xl border border-white/10 bg-zinc-900 shadow-2xl" id="player-wrapper">
-            {/* Video Player Container */}
-            <div className="w-full aspect-video bg-black relative group overflow-hidden rounded-t-xl">
-                <video
-                    ref={videoRef}
-                    className="w-full h-full block"
-                    controls
-                    autoPlay
-                    crossOrigin="anonymous"
-                    playsInline
-                >
-                    {/* Native fallback tracks for iOS Safari and browsers without HLS.js */}
-                    {tracks.map((track, i) => (
-                        <track
-                            key={i}
-                            kind="subtitles"
-                            src={processedTrackUrls[i] || track.proxyUrl || track.file}
-                            srcLang={track.label?.substring(0, 2).toLowerCase() || 'en'}
-                            label={track.label || `Track ${i + 1}`}
-                            default={selectedSubtitleIndex === i}
-                        />
-                    ))}
-                </video>
-            </div>
-
-            {/* Controls toolbar — always visible */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border-t border-white/10 rounded-b-xl z-20">
-
-                {/* ── Subtitle button ── */}
-                {tracks.length > 0 ? (
-                    <div className="relative" ref={subBtnRef}>
-                        <button
-                            onClick={() => {
-                                if (showSubMenu) setShowSubConfig(false);
-                                setShowSubMenu(p => !p);
-                                setShowQualityMenu(false);
-                            }}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors cursor-pointer ${activeTrack
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                                }`}
-                        >
-                            <Subtitles className="w-3.5 h-3.5" />
-                            <span>{loadingSub ? "Loading…" : (activeTrack?.label ?? "Subtitle")}</span>
-                            <ChevronDown className="w-3 h-3" />
-                        </button>
-                        {showSubMenu && (
-                            <div className="fixed inset-x-0 bottom-0 z-[1000] sm:absolute sm:inset-x-auto sm:bottom-full sm:mb-3 sm:left-0 bg-zinc-900 border-t sm:border border-white/20 rounded-t-2xl sm:rounded-xl overflow-y-auto max-h-[70vh] sm:max-h-[400px] w-full sm:w-[280px] shadow-2xl custom-scrollbar animate-in fade-in slide-in-from-bottom-full sm:slide-in-from-bottom-2 duration-300">
-                                {showSubConfig ? (
-                                    <div className="flex flex-col h-full">
-                                        <div className="sticky top-0 bg-zinc-900 px-3 py-2 flex items-center justify-between border-b border-white/10 z-20">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setShowSubConfig(false); }}
-                                                className="text-[10px] font-semibold text-white/40 hover:text-white uppercase tracking-wider flex items-center gap-1 p-1"
-                                            >
-                                                <ChevronDown className="w-3 h-3 rotate-90" />
-                                                Back
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); resetSubConfig(); }}
-                                                className="text-[10px] font-semibold text-red-400 hover:text-red-300 uppercase tracking-wider flex items-center gap-1 p-1"
-                                            >
-                                                <RotateCcw className="w-3 h-3" />
-                                                Reset
-                                            </button>
-                                        </div>
-                                        <div className="p-3 space-y-4 overflow-y-auto">
-
-                                            {/* Size */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
-                                                    <div className="flex items-center gap-2">
-                                                        <Type className="w-3 h-3" /> Size
-                                                    </div>
-                                                    <span className="text-primary font-bold">{Math.round(subConfig.size * 100)}%</span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <input
-                                                        type="range"
-                                                        min="0.5"
-                                                        max="2.5"
-                                                        step="0.05"
-                                                        value={subConfig.size}
-                                                        onChange={(e) => updateSubConfig({ size: parseFloat(e.target.value) })}
-                                                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-4 gap-1">
-                                                    {[0.75, 1, 1.25, 1.5].map(s => (
-                                                        <button
-                                                            key={s}
-                                                            onClick={() => updateSubConfig({ size: s })}
-                                                            className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.size === s ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
-                                                        >
-                                                            {s * 100}%
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Subtitle Sync (Delay) */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-[10px] font-medium text-white/60">
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock className="w-3.5 h-3.5" /> Subtitle Sync
-                                                    </div>
-                                                    <span className={`font-bold ${subDelay === 0 ? 'text-white/60' : subDelay < 0 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                                        {subDelay === 0 ? "Synced" : `${subDelay > 0 ? '+' : ''}${subDelay.toFixed(1)}s`}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => setSubDelay(d => Math.max(-5, parseFloat((d - 0.1).toFixed(1))))}
-                                                        className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
-                                                        title="Muncul lebih cepat (-0.1s)"
-                                                    >
-                                                        -0.1s
-                                                    </button>
-
-                                                    <input
-                                                        type="range"
-                                                        min="-5"
-                                                        max="5"
-                                                        step="0.1"
-                                                        value={subDelay}
-                                                        onChange={(e) => setSubDelay(parseFloat(parseFloat(e.target.value).toFixed(1)))}
-                                                        className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                                                    />
-
-                                                    <button
-                                                        onClick={() => setSubDelay(d => Math.min(5, parseFloat((d + 0.1).toFixed(1))))}
-                                                        className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors font-bold cursor-pointer"
-                                                        title="Muncul lebih lambat (+0.1s)"
-                                                    >
-                                                        +0.1s
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-5 gap-1">
-                                                    {[-1.0, -0.5, 0, 0.5, 1.0].map(s => (
-                                                        <button
-                                                            key={s}
-                                                            onClick={() => setSubDelay(s)}
-                                                            className={`py-1 text-[10px] rounded border transition-all cursor-pointer ${subDelay === s ? 'bg-primary border-primary text-white font-bold' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
-                                                        >
-                                                            {s === 0 ? 'Reset' : `${s > 0 ? '+' : ''}${s}s`}
-                                                        </button>
-                                                    ))}
-                                                </div>
-
-                                                {subDelay !== 0 && (
-                                                    <p className="text-[9px] text-white/40 text-center italic">
-                                                        {subDelay < 0
-                                                            ? "Subtitle dipercepat agar muncul lebih awal."
-                                                            : "Subtitle diperlambat agar muncul lebih lambat."}
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {/* Color */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                    <Palette className="w-3 h-3" /> Text Color
-                                                </div>
-                                                <div className="flex gap-3">
-                                                    {['#ffffff', '#ffff00', '#00ffff', '#00ff00'].map(c => (
-                                                        <button
-                                                            key={c}
-                                                            onClick={() => updateSubConfig({ color: c })}
-                                                            className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${subConfig.color === c ? 'border-primary scale-110' : 'border-transparent hover:scale-105'}`}
-                                                            style={{ backgroundColor: c }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Edge Options */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                    <div className="w-3 h-3 border-2 border-white/40 rounded-full" /> Edge Style
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button
-                                                        onClick={() => updateSubConfig({ showOutline: !subConfig.showOutline })}
-                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showOutline ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
-                                                    >
-                                                        Outline
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updateSubConfig({ showShadow: !subConfig.showShadow })}
-                                                        className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.showShadow ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
-                                                    >
-                                                        Shadow
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Background */}
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 text-[10px] font-medium text-white/60">
-                                                    <div className="w-3 h-3 border border-white/40 rounded-sm" /> Background
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {[
-                                                        { l: 'None', v: 'rgba(0,0,0,0)' },
-                                                        { l: 'Ghost', v: 'rgba(0,0,0,0.5)' }
-                                                    ].map(b => (
-                                                        <button
-                                                            key={b.v}
-                                                            onClick={() => updateSubConfig({ background: b.v })}
-                                                            className={`py-2 text-[10px] rounded border transition-all cursor-pointer ${subConfig.background === b.v ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
-                                                        >
-                                                            {b.l}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 flex items-center justify-between border-b border-white/10 z-10">
-                                            <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Subtitles</span>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setShowSubConfig(true); }}
-                                                className="p-1 hover:bg-white/10 rounded transition-colors text-white/60 hover:text-white group"
-                                                title="Subtitle Settings"
-                                            >
-                                                <Settings className="w-3 h-3 transition-transform group-hover:rotate-45" />
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={() => { handleSubtitleChange(-1); setShowSubMenu(false); }}
-                                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                        >
-                                            {!activeTrack ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
-                                            Off
-                                        </button>
-                                        {tracks.map((track, i) => (
-                                            <button
-                                                key={i}
-                                                onClick={() => { handleSubtitleChange(i); setShowSubMenu(false); }}
-                                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                            >
-                                                {activeTrack === track
-                                                    ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                                                    : <span className="w-3.5" />
-                                                }
-                                                {track.label ?? `Track ${i + 1}`}
-                                            </button>
-                                        ))}
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <span className="text-xs text-white/30 px-2">No subtitle</span>
-                )}
-
-                {/* ── Quality button ── */}
-                {qualityLevels.length > 1 && (
-                    <div className="relative" ref={qualityBtnRef}>
-                        <button
-                            onClick={() => { setShowQualityMenu(p => !p); setShowSubMenu(false); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors cursor-pointer"
-                        >
-                            <Settings className="w-3.5 h-3.5" />
-                            <span>{currentQualityLabel()}</span>
-                            <ChevronDown className="w-3 h-3" />
-                        </button>
-                        {showQualityMenu && (
-                            <div className="absolute bottom-full mb-1.5 left-0 bg-zinc-900 border border-white/20 rounded-lg overflow-y-auto max-h-[350px] min-w-[120px] shadow-2xl z-50 custom-scrollbar">
-                                <div className="sticky top-0 bg-zinc-900 px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10 z-10">
-                                    Quality
-                                </div>
-                                <button
-                                    onClick={() => handleQuality(-1)}
-                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                >
-                                    {currentLevel === -1 ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
-                                    Auto
-                                </button>
-                                {qualityLevels.map(level => (
-                                    <button
-                                        key={level.index}
-                                        onClick={() => handleQuality(level.index)}
-                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-white/10 text-left"
-                                    >
-                                        {currentLevel === level.index ? <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" /> : <span className="w-3.5" />}
-                                        {level.height > 0 ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Status indicator */}
-                <div className="ml-auto text-xs text-white/30 flex items-center gap-2">
-                    {activeTrack && !loadingSub && <span className="text-green-400">● {activeTrack.label}</span>}
-                    {loadingSub && <span className="text-yellow-400">● Loading subtitle…</span>}
-                </div>
+        <div className="w-full flex flex-col">
+            <div className="w-full aspect-video bg-black relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
+                <div ref={artRef} className="w-full h-full" />
             </div>
         </div>
     );
