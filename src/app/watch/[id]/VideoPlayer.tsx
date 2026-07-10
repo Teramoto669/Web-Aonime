@@ -603,6 +603,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             :root {
                 --subtitle-font-size: clamp(14px, 3.5vw, 22px);
             }
+            .art-fullscreen, :fullscreen {
+                --subtitle-font-size: clamp(20px, 3.5vw, 36px) !important;
+            }
             @media screen and (max-width: 370px) {
                 .art-progress {
                     padding-bottom: 5px !important;
