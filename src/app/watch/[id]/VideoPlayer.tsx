@@ -442,51 +442,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             ],
         });
 
-        // Register custom settings in fixed order to lock their position
-        art.setting.add({
-            name: "subtitles-list",
-            html: "Subtitles",
-            icon: captionsListIcon,
-            tooltip: "Off",
-            position: "right",
-            selector: []
-        });
 
-        art.setting.add({
-            name: "subtitle-sync",
-            html: "Subtitle Sync",
-            icon: clockIcon,
-            tooltip: "Synced",
-            position: "right",
-            selector: []
-        });
-
-        art.setting.add({
-            name: "subtitle-size",
-            html: "Subtitle Size",
-            icon: sizeIcon,
-            tooltip: "100%",
-            position: "right",
-            selector: []
-        });
-
-        art.setting.add({
-            name: "subtitle-color",
-            html: "Subtitle Color",
-            icon: colorIcon,
-            tooltip: "White",
-            position: "right",
-            selector: []
-        });
-
-        art.setting.add({
-            name: "subtitle-style",
-            html: "Subtitle Style",
-            icon: styleIcon,
-            tooltip: "O:ON S:ON",
-            position: "right",
-            selector: []
-        });
 
         // Hide watermark after 3 seconds
         const timer = setTimeout(() => {
@@ -688,65 +644,52 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         `;
     }, [subConfig]);
 
-    // ── Update Artplayer subtitles selector list menu dynamically when tracks change ──
+    // ── Update Artplayer subtitles settings menus dynamically when tracks/subConfig/subDelay change ──
     useEffect(() => {
         if (!artInstance) return;
 
-        const hasTracks = tracks.length > 0;
-        const tooltipVal = hasTracks
-            ? (selectedSubtitleIndex >= 0 && tracks[selectedSubtitleIndex]
-                ? (tracks[selectedSubtitleIndex].label || "default")
-                : "Off")
-            : "Not Available";
-
-        const selectorItems = hasTracks
-            ? [
-                {
-                    html: "Off",
-                    default: selectedSubtitleIndex === -1,
-                    onClick: () => {
-                        setSelectedSubtitleIndex(-1);
-                    }
-                },
-                ...tracks.map((track, i) => ({
-                    html: track.label || `Track ${i + 1}`,
-                    default: selectedSubtitleIndex === i,
-                    onClick: () => {
-                        setSelectedSubtitleIndex(i);
-                    }
-                }))
-              ]
-            : [];
-
+        // Remove all first to ensure clean state and correct ordering
         try {
-            artInstance.setting.update({
+            artInstance.setting.remove("subtitles-list");
+            artInstance.setting.remove("subtitle-sync");
+            artInstance.setting.remove("subtitle-size");
+            artInstance.setting.remove("subtitle-color");
+            artInstance.setting.remove("subtitle-style");
+        } catch (e) {}
+
+        if (tracks.length > 0) {
+            // 1. Subtitles list
+            const tooltipVal = selectedSubtitleIndex >= 0 && tracks[selectedSubtitleIndex]
+                ? (tracks[selectedSubtitleIndex].label || "default")
+                : "Off";
+
+            artInstance.setting.add({
                 name: "subtitles-list",
                 html: "Subtitles",
                 icon: captionsListIcon,
                 position: "right",
                 tooltip: tooltipVal,
-                selector: selectorItems,
+                selector: [
+                    {
+                        html: "Off",
+                        default: selectedSubtitleIndex === -1,
+                        onClick: () => {
+                            setSelectedSubtitleIndex(-1);
+                        }
+                    },
+                    ...tracks.map((track, i) => ({
+                        html: track.label || `Track ${i + 1}`,
+                        default: selectedSubtitleIndex === i,
+                        onClick: () => {
+                            setSelectedSubtitleIndex(i);
+                        }
+                    }))
+                ]
             });
-        } catch (e) {}
-    }, [tracksKey, artInstance, selectedSubtitleIndex, tracks]);
 
-    // ── Update Subtitle settings selector menus dynamically when subConfig/subDelay change ──
-    useEffect(() => {
-        if (!artInstance) return;
-
-        const delayVal = subDelay || 0;
-        const sizeVal = subConfig.size || 1.0;
-        const colorVal = subConfig.color || '#ffffff';
-        const getColorName = (c: string) => {
-            if (c === '#ffffff') return 'White';
-            if (c === '#ffff00') return 'Yellow';
-            if (c === '#00ffff') return 'Cyan';
-            if (c === '#00ff00') return 'Green';
-            return 'Custom';
-        };
-
-        try {
-            artInstance.setting.update({
+            // 2. Subtitle Sync
+            const delayVal = subDelay || 0;
+            artInstance.setting.add({
                 name: "subtitle-sync",
                 html: "Subtitle Sync",
                 icon: clockIcon,
@@ -763,7 +706,9 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 ]
             });
 
-            artInstance.setting.update({
+            // 3. Subtitle Size
+            const sizeVal = subConfig.size || 1.0;
+            artInstance.setting.add({
                 name: "subtitle-size",
                 html: "Subtitle Size",
                 icon: sizeIcon,
@@ -778,7 +723,16 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                 ]
             });
 
-            artInstance.setting.update({
+            // 4. Subtitle Color
+            const colorVal = subConfig.color || '#ffffff';
+            const getColorName = (c: string) => {
+                if (c === '#ffffff') return 'White';
+                if (c === '#ffff00') return 'Yellow';
+                if (c === '#00ffff') return 'Cyan';
+                if (c === '#00ff00') return 'Green';
+                return 'Custom';
+            };
+            artInstance.setting.add({
                 name: "subtitle-color",
                 html: "Subtitle Color",
                 icon: colorIcon,
@@ -791,18 +745,11 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     { html: "Green", onClick: () => updateSubConfig({ color: '#00ff00' }) },
                 ]
             });
-        } catch (e) {}
-    }, [subConfig, subDelay, artInstance]);
 
-    // ── Update Subtitle Style selector menu dynamically when subConfig changes ──
-    useEffect(() => {
-        if (!artInstance) return;
-
-        const showOutline = subConfig.showOutline !== false;
-        const showShadow = subConfig.showShadow !== false;
-
-        try {
-            artInstance.setting.update({
+            // 5. Subtitle Style
+            const showOutline = subConfig.showOutline !== false;
+            const showShadow = subConfig.showShadow !== false;
+            artInstance.setting.add({
                 name: "subtitle-style",
                 html: "Subtitle Style",
                 icon: styleIcon,
@@ -833,8 +780,8 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     }
                 ]
             });
-        } catch (e) {}
-    }, [subConfig, artInstance]);
+        }
+    }, [tracksKey, artInstance, selectedSubtitleIndex, tracks, subConfig, subDelay]);
 
 
 
