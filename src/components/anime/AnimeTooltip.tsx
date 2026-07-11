@@ -79,19 +79,7 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
     };
   }, []);
 
-  // Close open tooltip immediately on scroll
-  useEffect(() => {
-    if (!open) return;
 
-    const handleScroll = () => {
-      setOpen(false);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll, { capture: true });
-    };
-  }, [open]);
 
   // If there's no ID, we fall back to a simple, title-only tooltip
   if (!id) {
