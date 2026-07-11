@@ -830,9 +830,11 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
             /* Match seekbar/settings accent to theme primary HSL */
             .art-progress-played {
                 background: hsl(var(--primary)) !important;
+                z-index: 10 !important;
             }
             .art-slider-bar {
                 background: hsl(var(--primary)) !important;
+                z-index: 10 !important;
             }
             .art-setting-toggle input:checked + i {
                 background: hsl(var(--primary)) !important;
@@ -965,7 +967,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 background: #facc15 !important;
                 opacity: 0.85 !important;
                 pointer-events: none !important;
-                z-index: 5 !important;
+                z-index: 20 !important;
                 border-radius: 2px !important;
             }
         `;
