@@ -170,6 +170,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                 source={currentSource}
                                 tracks={currentSource.tracks || []}
                                 cfProxyUrl={cfProxyUrl}
+                                skipData={watchData.skip_data}
                             />
                         ) : (
                             <div className="aspect-video flex items-center justify-center text-muted-foreground">

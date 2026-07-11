@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import HLS from "hls.js";
-import type { Source, Track } from "@/lib/types";
+import type { Source, Track, SkipData } from "@/lib/types";
 import Artplayer from "artplayer";
 import artplayerPluginHlsControl from "artplayer-plugin-hls-control";
 
@@ -13,6 +13,7 @@ type VideoPlayerProps = {
     source: Source;
     tracks: Track[];
     cfProxyUrl?: string;
+    skipData?: SkipData;
 };
 
 // ─── Custom Player Icons (Zenime Style) ───────────────────────────────────────
@@ -71,7 +72,7 @@ const captionsListIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
+export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlayerProps) {
     const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export function VideoPlayer({ source, tracks, cfProxyUrl }: VideoPlayerProps) {
     }
 
     if (playerUrl?.m3u8) {
-        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} />;
+        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} skipData={skipData} />;
     }
 
     if (playerUrl?.embed) {
@@ -210,7 +211,7 @@ function shiftWebVTT(vttText: string, delay: number): string {
 
 // ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
 
-function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
+function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Track[]; skipData?: SkipData }) {
     const artRef = useRef<HTMLDivElement>(null);
     const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
 
@@ -250,6 +251,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
 
     const hlsRef = useRef<HLS | null>(null);
     const isDestroyedRef = useRef(false);
+    const skipTargetTimeRef = useRef<number | null>(null);
 
     // ── Setup Artplayer ──
     useEffect(() => {
@@ -438,6 +440,34 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                         zIndex: "10",
                         transition: "opacity 0.5s ease-out",
                     },
+                },
+                {
+                    name: "skipButton",
+                    html: `
+                        <button class="art-skip-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle;"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                            <span class="art-skip-btn-text">Skip Intro</span>
+                        </button>
+                    `,
+                    style: {
+                        position: "absolute",
+                        bottom: "80px",
+                        right: "24px",
+                        zIndex: "20",
+                    },
+                    mounted: function(element) {
+                        const art = this;
+                        const $btn = element.querySelector('.art-skip-btn') as HTMLButtonElement;
+                        if (!$btn) return;
+                        
+                        $btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (skipTargetTimeRef.current !== null) {
+                                art.seek = skipTargetTimeRef.current;
+                                $btn.classList.remove("show");
+                            }
+                        });
+                    }
                 }
             ],
         });
@@ -472,6 +502,48 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             const layer = art.layers.watermark;
             if (layer) layer.style.opacity = "0";
         }, 3000);
+
+        // Timeupdate listener for Skip Intro / Outro button
+        art.on("video:timeupdate", () => {
+            const currentTime = art.currentTime;
+            const skipButtonLayer = art.layers.skipButton;
+            if (!skipButtonLayer) return;
+            const $btn = skipButtonLayer.querySelector('.art-skip-btn') as HTMLButtonElement;
+            const $btnText = skipButtonLayer.querySelector('.art-skip-btn-text') as HTMLElement;
+            if (!$btn || !$btnText) return;
+
+            let showBtn = false;
+            let btnText = "";
+            let targetTime: number | null = null;
+
+            if (skipData) {
+                const intro = skipData.intro;
+                const outro = skipData.outro;
+
+                if (intro && currentTime >= intro.start && currentTime <= intro.end) {
+                    showBtn = true;
+                    btnText = "Skip Intro";
+                    targetTime = intro.end;
+                } else if (outro && currentTime >= outro.start && currentTime <= outro.end) {
+                    showBtn = true;
+                    btnText = "Skip Outro";
+                    targetTime = outro.end;
+                }
+            }
+
+            if (showBtn && targetTime !== null) {
+                skipTargetTimeRef.current = targetTime;
+                $btnText.textContent = btnText;
+                if (!$btn.classList.contains("show")) {
+                    $btn.classList.add("show");
+                }
+            } else {
+                skipTargetTimeRef.current = null;
+                if ($btn.classList.contains("show")) {
+                    $btn.classList.remove("show");
+                }
+            }
+        });
 
         // Mobile Double Tap to Skip 5s Gesture (Left/Right side)
         let lastTouchTime = 0;
@@ -845,6 +917,57 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
                     height: 20px;
                 }
             }
+            .art-skip-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(15, 15, 15, 0.8) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
+                border: 1px solid rgba(255, 255, 255, 0.15) !important;
+                color: #ffffff !important;
+                padding: 10px 18px !important;
+                font-family: "Outfit", "Inter", sans-serif !important;
+                font-weight: 600 !important;
+                font-size: 14px !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(10px) scale(0.95);
+                pointer-events: none;
+            }
+            .art-skip-btn.show {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+            .art-skip-btn:hover {
+                background: rgba(255, 255, 255, 0.1) !important;
+                border-color: hsl(var(--primary)) !important;
+                box-shadow: 0 0 15px hsl(var(--primary) / 0.5) !important;
+                transform: translateY(-2px) scale(1.02) !important;
+            }
+            .art-skip-btn:active {
+                transform: translateY(0) scale(0.98) !important;
+            }
+            .art-skip-btn svg {
+                stroke: currentColor;
+                fill: currentColor;
+            }
+            .art-skip-marker {
+                position: absolute !important;
+                height: 100% !important;
+                top: 0 !important;
+                background: #facc15 !important;
+                opacity: 0.85 !important;
+                pointer-events: none !important;
+                z-index: 5 !important;
+                border-radius: 2px !important;
+            }
         `;
     }, [subConfig]);
 
@@ -1096,6 +1219,7 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
         setSelectedSubtitleIndex(tracks.length > 0 ? 0 : -1);
         setSubDelay(0);
         setOriginalSubContents({});
+        skipTargetTimeRef.current = null;
         setProcessedTrackUrls(prev => {
             Object.values(prev).forEach(url => {
                 if (url.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -1103,6 +1227,65 @@ function HlsPlayer({ m3u8Url, tracks }: { m3u8Url: string; tracks: Track[] }) {
             return {};
         });
     }, [m3u8Url, tracksKey]);
+
+    // ── Draw skip marker lines on progress bar ──
+    useEffect(() => {
+        if (!artInstance || !skipData) return;
+
+        const drawSkipMarkers = () => {
+            const duration = artInstance.duration;
+            const $progress = artInstance.template.$progress;
+            if (!duration || !$progress) return;
+
+            // Remove existing skip markers
+            $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
+
+            // Find visual track container (parent of the played progress bar)
+            const $playedBar = $progress.querySelector('.art-progress-played');
+            const $trackContainer = $playedBar ? $playedBar.parentElement : $progress;
+            if (!$trackContainer) return;
+
+            const createMarker = (start: number, end: number) => {
+                const left = (start / duration) * 100;
+                const width = ((end - start) / duration) * 100;
+
+                const marker = document.createElement('div');
+                marker.className = 'art-skip-marker';
+                marker.style.left = `${left}%`;
+                marker.style.width = `${width}%`;
+                
+                // Prepend to the visual track container so it aligns with height expansion
+                $trackContainer.prepend(marker);
+            };
+
+            if (skipData.intro) {
+                createMarker(skipData.intro.start, skipData.intro.end);
+            }
+            if (skipData.outro) {
+                createMarker(skipData.outro.start, skipData.outro.end);
+            }
+        };
+
+        // Draw initially if metadata is already loaded
+        if (artInstance.duration > 0) {
+            drawSkipMarkers();
+        }
+
+        artInstance.on('video:loadedmetadata', drawSkipMarkers);
+        artInstance.on('video:durationchange', drawSkipMarkers);
+
+        return () => {
+            if (artInstance) {
+                artInstance.off('video:loadedmetadata', drawSkipMarkers);
+                artInstance.off('video:durationchange', drawSkipMarkers);
+                
+                const $progress = artInstance.template?.$progress;
+                if ($progress) {
+                    $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
+                }
+            }
+        };
+    }, [artInstance, skipData]);
 
     return (
         <div className="w-full flex flex-col">

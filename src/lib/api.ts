@@ -235,6 +235,8 @@ export const getWatchData = async (slug: string, ep: string | number): Promise<W
         result.servers = chunk.servers;
       } else if (chunk.type === 'source') {
         result.sources!.push(chunk.source);
+      } else if (chunk.type === 'skip_data' || chunk.skip_data) {
+        result.skip_data = chunk.skip_data;
       } else if (chunk.type === 'error') {
         throw new Error(`API stream error from ${url}: ${chunk.message ?? 'Unknown error'}`);
       }

@@ -163,10 +163,21 @@ export type Server = {
   svId?: string;
 };
 
+export type SkipInterval = {
+  start: number;
+  end: number;
+};
+
+export type SkipData = {
+  intro?: SkipInterval;
+  outro?: SkipInterval;
+};
+
 export type WatchData = {
   episode?: Episode;
   servers?: Server[];
   sources?: Source[];
+  skip_data?: SkipData;
 };
 
 // ─── Browse / Search ──────────────────────────────────────────────────────────
