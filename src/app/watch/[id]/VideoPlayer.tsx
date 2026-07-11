@@ -252,6 +252,8 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
     const hlsRef = useRef<HLS | null>(null);
     const isDestroyedRef = useRef(false);
     const skipTargetTimeRef = useRef<number | null>(null);
+    const skipDataRef = useRef(skipData);
+    skipDataRef.current = skipData;
 
     // ── Setup Artplayer ──
     useEffect(() => {
@@ -516,9 +518,10 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
             let btnText = "";
             let targetTime: number | null = null;
 
-            if (skipData) {
-                const intro = skipData.intro;
-                const outro = skipData.outro;
+            const currentSkipData = skipDataRef.current;
+            if (currentSkipData) {
+                const intro = currentSkipData.intro;
+                const outro = currentSkipData.outro;
 
                 if (intro && currentTime >= intro.start && currentTime <= intro.end) {
                     showBtn = true;
@@ -544,6 +547,55 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 }
             }
         });
+
+        // Draw skip marker lines on progress bar track
+        const drawSkipMarkers = () => {
+            const duration = art.duration;
+            const $progress = art.template.$progress;
+            const currentSkipData = skipDataRef.current;
+            if (!duration || !$progress || !currentSkipData) return;
+
+            // Remove existing skip markers
+            $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
+
+            // Find visual track container (parent of the played progress bar)
+            const $playedBar = $progress.querySelector('.art-progress-played');
+            const $trackContainer = $playedBar ? $playedBar.parentElement : $progress;
+            if (!$trackContainer) return;
+
+            const createMarker = (start: number, end: number) => {
+                const left = (start / duration) * 100;
+                const width = ((end - start) / duration) * 100;
+
+                const marker = document.createElement('div');
+                marker.className = 'art-skip-marker';
+                marker.style.left = `${left}%`;
+                marker.style.width = `${width}%`;
+                
+                // Prepend to the visual track container so it aligns with height expansion
+                $trackContainer.prepend(marker);
+            };
+
+            if (currentSkipData.intro) {
+                createMarker(currentSkipData.intro.start, currentSkipData.intro.end);
+            }
+            if (currentSkipData.outro) {
+                createMarker(currentSkipData.outro.start, currentSkipData.outro.end);
+            }
+        };
+
+        // Draw initially if metadata is already loaded
+        if (art.duration > 0) {
+            drawSkipMarkers();
+        }
+
+        art.on('ready', () => {
+            if (art.duration > 0) {
+                drawSkipMarkers();
+            }
+        });
+        art.on('video:loadedmetadata', drawSkipMarkers);
+        art.on('video:durationchange', drawSkipMarkers);
 
         // Mobile Double Tap to Skip 5s Gesture (Left/Right side)
         let lastTouchTime = 0;
@@ -1244,64 +1296,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
         });
     }, [m3u8Url, tracksKey]);
 
-    // ── Draw skip marker lines on progress bar ──
-    useEffect(() => {
-        if (!artInstance || !skipData) return;
 
-        const drawSkipMarkers = () => {
-            const duration = artInstance.duration;
-            const $progress = artInstance.template.$progress;
-            if (!duration || !$progress) return;
-
-            // Remove existing skip markers
-            $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
-
-            // Find visual track container (parent of the played progress bar)
-            const $playedBar = $progress.querySelector('.art-progress-played');
-            const $trackContainer = $playedBar ? $playedBar.parentElement : $progress;
-            if (!$trackContainer) return;
-
-            const createMarker = (start: number, end: number) => {
-                const left = (start / duration) * 100;
-                const width = ((end - start) / duration) * 100;
-
-                const marker = document.createElement('div');
-                marker.className = 'art-skip-marker';
-                marker.style.left = `${left}%`;
-                marker.style.width = `${width}%`;
-                
-                // Prepend to the visual track container so it aligns with height expansion
-                $trackContainer.prepend(marker);
-            };
-
-            if (skipData.intro) {
-                createMarker(skipData.intro.start, skipData.intro.end);
-            }
-            if (skipData.outro) {
-                createMarker(skipData.outro.start, skipData.outro.end);
-            }
-        };
-
-        // Draw initially if metadata is already loaded
-        if (artInstance.duration > 0) {
-            drawSkipMarkers();
-        }
-
-        artInstance.on('video:loadedmetadata', drawSkipMarkers);
-        artInstance.on('video:durationchange', drawSkipMarkers);
-
-        return () => {
-            if (artInstance) {
-                artInstance.off('video:loadedmetadata', drawSkipMarkers);
-                artInstance.off('video:durationchange', drawSkipMarkers);
-                
-                const $progress = artInstance.template?.$progress;
-                if ($progress) {
-                    $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
-                }
-            }
-        };
-    }, [artInstance, skipData]);
 
     return (
         <div className="w-full flex flex-col">
