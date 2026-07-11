@@ -960,6 +960,20 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 stroke: currentColor;
                 fill: currentColor;
             }
+            @media screen and (max-width: 640px) {
+                .art-layer-skipButton {
+                    bottom: 60px !important;
+                    right: 16px !important;
+                }
+                .art-skip-btn {
+                    padding: 8px 14px !important;
+                    font-size: 12px !important;
+                }
+                .art-skip-btn svg {
+                    width: 14px !important;
+                    height: 14px !important;
+                }
+            }
             .art-skip-marker {
                 position: absolute !important;
                 height: 100% !important;
