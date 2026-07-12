@@ -129,10 +129,20 @@ const Carousel = React.forwardRef<
 
       const handleScrollStart = () => {
         setIsScrolling(true)
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("carousel-scroll", { detail: { scrolling: true } })
+          )
+        }
       }
 
       const handleScrollEnd = () => {
         setIsScrolling(false)
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("carousel-scroll", { detail: { scrolling: false } })
+          )
+        }
       }
 
       api.on("scroll", handleScrollStart)
@@ -179,7 +189,7 @@ const CarouselContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
-  const { carouselRef, orientation, isScrolling } = useCarousel()
+  const { carouselRef, orientation } = useCarousel()
 
   return (
     <div ref={carouselRef} className="overflow-hidden">
@@ -188,7 +198,6 @@ const CarouselContent = React.forwardRef<
         className={cn(
           "flex",
           orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
-          isScrolling && "pointer-events-none select-none",
           className
         )}
         {...props}

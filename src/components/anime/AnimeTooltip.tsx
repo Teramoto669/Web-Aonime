@@ -32,6 +32,15 @@ if (typeof window !== "undefined") {
     }, 150); // 150ms after scroll stops
   };
   window.addEventListener("scroll", handleGlobalScroll, { passive: true, capture: true });
+
+  const handleCarouselScroll = (e: Event) => {
+    const customEvent = e as CustomEvent;
+    isGlobalScrolling = customEvent.detail?.scrolling ?? false;
+    if (!isGlobalScrolling && globalScrollTimeout) {
+      clearTimeout(globalScrollTimeout);
+    }
+  };
+  window.addEventListener("carousel-scroll", handleCarouselScroll, { capture: true });
 }
 
 function prefetchTooltip(id: string): Promise<AnimeTooltipData> {
