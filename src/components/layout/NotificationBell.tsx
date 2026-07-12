@@ -149,10 +149,7 @@ export function NotificationBell() {
           );
 
           if (matchedLib) {
-            const sub = apiAnime.episodes?.sub || 0;
-            const dub = apiAnime.episodes?.dub || 0;
-            const total = apiAnime.episodes?.total || 0;
-            const latestEpNum = Math.max(sub, dub, total);
+            const latestEpNum = apiAnime.episodes?.sub || 0;
 
             if (latestEpNum > 0) {
               // Use deterministic notifId — getDoc is faster & more reliable than a query
