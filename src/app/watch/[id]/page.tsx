@@ -13,7 +13,7 @@ function isRedirectError(error: unknown): boolean {
 
 function LoadingSkeleton() {
     return (
-        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
+        <div className="container mx-auto px-4 py-8 max-w-screen-5xl">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <div className="lg:col-span-3 space-y-6">
                     <Skeleton className="aspect-video w-full rounded-lg bg-muted/20" />

@@ -72,7 +72,7 @@ export default function VerificationBanner() {
 
   return (
     <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-200 py-3 px-4 backdrop-blur-md sticky top-14 z-40 transition-all duration-300">
-      <div className="container max-w-screen-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left text-xs md:text-sm font-medium">
+      <div className="container max-w-screen-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left text-xs md:text-sm font-medium">
         <div className="flex items-center gap-2.5">
           <MailWarning className="h-5 w-5 text-amber-400 flex-shrink-0 animate-pulse" />
           <span>

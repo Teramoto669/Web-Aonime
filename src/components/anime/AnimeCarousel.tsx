@@ -26,7 +26,7 @@ export function AnimeCarousel({ title, animes }: AnimeCarouselProps) {
       >
         <CarouselContent>
           {animes.map((anime) => (
-            <CarouselItem key={anime.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
+            <CarouselItem key={anime.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6 2xl:basis-[14.285%] 3xl:basis-[12.5%] 4xl:basis-[10%] 5xl:basis-[7.142%]">
               <AnimeCard anime={anime} />
             </CarouselItem>
           ))}

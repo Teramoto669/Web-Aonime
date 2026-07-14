@@ -88,7 +88,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-14 max-w-screen-2xl items-center px-4 sm:px-6 lg:px-8">
+      <div className="container mx-auto flex h-14 max-w-screen-5xl items-center px-4 sm:px-6 lg:px-8">
         <div className={cn("mr-4 flex items-center h-full transition-all overflow-hidden md:opacity-100 md:max-w-full md:pointer-events-auto", isSearchExpanded ? "opacity-0 max-w-0 pointer-events-none duration-300" : "opacity-100 max-w-full pointer-events-auto duration-700")}>
           {/* Mobile Navigation Trigger */}
           <Sheet>

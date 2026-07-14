@@ -164,7 +164,7 @@ export function EpisodeListClient({
       {/* Episodes List */}
       {filteredEpisodes.length > 0 ? (
         <ScrollArea className="h-96 rounded-md border">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4 5xl:grid-cols-6 gap-2 p-4">
             {filteredEpisodes.map((ep) => (
               <Button
                 key={ep.id ?? ep.number}

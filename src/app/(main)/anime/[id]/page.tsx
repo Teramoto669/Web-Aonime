@@ -49,8 +49,8 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
 
         return (
             <div className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <div className="md:col-span-1">
+                <div className="flex flex-col md:flex-row gap-8">
+                    <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] flex-shrink-0">
                         <div className="relative aspect-[2/3] w-full">
                             <Image
                                 src={detailsData.image || '/placeholder.jpg'}
@@ -62,7 +62,7 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
                             />
                         </div>
                     </div>
-                    <div className="md:col-span-3 space-y-4">
+                    <div className="flex-1 space-y-4">
                         <h1 className="text-4xl font-black">{detailsData.title ?? id}</h1>
                         {genresList.length > 0 && (
                             <div className="flex flex-wrap gap-2">
@@ -137,11 +137,11 @@ async function AnimeDetailsPageContent({ id }: { id: string }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="md:col-span-1">
+        <div className="flex flex-col md:flex-row gap-8">
+            <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] flex-shrink-0">
                 <Skeleton className="w-full aspect-[2/3] rounded-lg" />
             </div>
-            <div className="md:col-span-3 space-y-4">
+            <div className="flex-1 space-y-4">
                 <Skeleton className="h-12 w-3/4" />
                 <div className="flex flex-wrap gap-2">
                     {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-6 w-20" />)}

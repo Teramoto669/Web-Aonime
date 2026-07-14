@@ -159,7 +159,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     }, [user, detailsData.id, animeId, episodeNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
 
     return (
-        <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <div className="lg:col-span-3 space-y-4">
                     {/* Video Player */}
