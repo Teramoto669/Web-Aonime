@@ -10,6 +10,7 @@ import {
   where,
   onSnapshot,
   doc,
+  getDoc,
   setDoc,
   writeBatch,
   getDocs,
@@ -18,6 +19,7 @@ import {
   limit,
   type Timestamp,
 } from "firebase/firestore";
+import { getAnimeSlug, type AnimeListItem } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import {
   Bell,
@@ -133,19 +135,15 @@ export function NotificationBell() {
         const latestJson = await latestRes.json();
         if (!latestJson.ok || !latestJson.data?.results) return;
 
-        const latestEpisodes: Array<{
-          id: string;
-          slug: string;
-          title: string;
-          episodes?: { sub?: number; dub?: number; total?: number };
-        }> = latestJson.data.results;
+        const latestEpisodes: AnimeListItem[] = latestJson.data.results;
 
         // Compare and write notifications for new episodes
         for (const apiAnime of latestEpisodes) {
+          const apiSlug = getAnimeSlug(apiAnime);
           const matchedLib = watchingAnimes.find(
             (la) =>
               la.animeId === apiAnime.id ||
-              la.slug === apiAnime.slug
+              (apiSlug && la.slug === apiSlug)
           );
 
           if (matchedLib) {
@@ -155,17 +153,9 @@ export function NotificationBell() {
               // Use deterministic notifId — getDoc is faster & more reliable than a query
               const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
               const notifRef = doc(db, "notifications", notifId);
-              const notifSnap = await getDocs(
-                query(
-                  collection(db, "notifications"),
-                  where("userId", "==", user.uid),
-                  where("type", "==", "library_update"),
-                  where("animeId", "==", matchedLib.animeId),
-                  where("episodeNum", "==", latestEpNum)
-                )
-              );
+              const notifSnap = await getDoc(notifRef);
 
-              if (notifSnap.empty) {
+              if (!notifSnap.exists()) {
                 await setDoc(notifRef, {
                   userId: user.uid,
                   type: "library_update",

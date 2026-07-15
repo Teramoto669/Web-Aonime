@@ -1,4 +1,4 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -12,7 +12,16 @@ const nextConfig: NextConfig = {
   headers: async () => {
     return [
       {
-        source: '/api/:path*',
+        source: '/api/home',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/anime/tooltip/:path*',
         headers: [
           {
             key: 'Cache-Control',
