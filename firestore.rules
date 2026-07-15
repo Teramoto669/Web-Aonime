@@ -68,7 +68,7 @@ service cloud.firestore {
     // Strict rules for the "notifications" collection
     match /notifications/{notificationId} {
       // User can only read their own notifications
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
       
       // Anyone logged in can create a notification (to allow sending replies or writing library updates)
       allow create: if request.auth != null;
