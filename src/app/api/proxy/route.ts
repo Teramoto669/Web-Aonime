@@ -16,21 +16,21 @@ export async function GET(req: NextRequest) {
   const secFetchDest = req.headers.get('Sec-Fetch-Dest');
 
   if (secFetchDest === 'document' || secFetchDest === 'iframe') {
-    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+    return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
   }
 
   if (!refererHeader) {
-    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+    return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
   }
 
   try {
     const refUrl = new URL(refererHeader);
     const requestHost = new URL(req.url).host;
     if (refUrl.host !== requestHost) {
-      return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+      return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
     }
   } catch (_) {
-    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+    return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
   }
 
   const corsHeaders = {
