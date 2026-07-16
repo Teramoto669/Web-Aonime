@@ -42,13 +42,15 @@ export async function GET(req: NextRequest) {
     forwarded['Range'] = rangeHeader;
   }
 
-  const CF_PROXY = process.env.CF_PROXY_URL;
+  let CF_PROXY = process.env.CF_PROXY_URL ? process.env.CF_PROXY_URL.trim() : '';
+  if (CF_PROXY) {
+    CF_PROXY = (CF_PROXY.startsWith('http') ? CF_PROXY : `https://${CF_PROXY}`).replace(/\/$/, '');
+  }
 
   try {
     let upstreamRes;
     if (CF_PROXY) {
-      const baseWorker = CF_PROXY.replace(/\/$/, '');
-      const workerUrl = `${baseWorker}/?url=${encodeURIComponent(target)}${refererParam ? `&referer=${encodeURIComponent(refererParam)}` : ''}`;
+      const workerUrl = `${CF_PROXY}/?url=${encodeURIComponent(target)}${refererParam ? `&referer=${encodeURIComponent(refererParam)}` : ''}`;
       upstreamRes = await fetch(workerUrl, {
         headers: forwarded,
         cache: 'no-store',

@@ -75,7 +75,8 @@ function cleanProxyUrl(url: string | undefined): string {
     if (!url) return '';
     try {
         if (url.includes('?url=')) {
-            const parsed = new URL(url);
+            const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+            const parsed = new URL(url, baseOrigin);
             const targetUrl = parsed.searchParams.get('url');
             if (targetUrl) {
                 const referer = parsed.searchParams.get('referer') || '';
