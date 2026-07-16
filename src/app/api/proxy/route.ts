@@ -11,6 +11,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
+  // Security check: Block direct access (copy-pasting URL in browser tab or cross-origin requests)
+  const refererHeader = req.headers.get('Referer');
+  const secFetchDest = req.headers.get('Sec-Fetch-Dest');
+
+  if (secFetchDest === 'document' || secFetchDest === 'iframe') {
+    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+  }
+
+  if (!refererHeader) {
+    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+  }
+
+  try {
+    const refUrl = new URL(refererHeader);
+    const requestHost = new URL(req.url).host;
+    if (refUrl.host !== requestHost) {
+      return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+    }
+  } catch (_) {
+    return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+  }
+
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
