@@ -42,11 +42,23 @@ export async function GET(req: NextRequest) {
     forwarded['Range'] = rangeHeader;
   }
 
+  const CF_PROXY = process.env.CF_PROXY_URL;
+
   try {
-    const upstreamRes = await fetch(target, {
-      headers: forwarded,
-      cache: 'no-store',
-    });
+    let upstreamRes;
+    if (CF_PROXY) {
+      const baseWorker = CF_PROXY.replace(/\/$/, '');
+      const workerUrl = `${baseWorker}/?url=${encodeURIComponent(target)}${refererParam ? `&referer=${encodeURIComponent(refererParam)}` : ''}`;
+      upstreamRes = await fetch(workerUrl, {
+        headers: forwarded,
+        cache: 'no-store',
+      });
+    } else {
+      upstreamRes = await fetch(target, {
+        headers: forwarded,
+        cache: 'no-store',
+      });
+    }
 
     if (!upstreamRes.ok) {
       return NextResponse.json(
@@ -68,7 +80,18 @@ export async function GET(req: NextRequest) {
 
     // ── Manifest (m3u8) — rewrite ALL URLs through this proxy ───────────────
     if (isManifest) {
-      const text = await upstreamRes.text();
+      let text = await upstreamRes.text();
+
+      // If a Cloudflare Worker was used, replace its URL with the local proxy path
+      if (CF_PROXY) {
+        try {
+          const workerOrigin = new URL(CF_PROXY).origin;
+          const escapedOrigin = workerOrigin.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const regex = new RegExp(escapedOrigin + '/?', 'g');
+          text = text.replace(regex, '/api/proxy');
+        } catch (_) {}
+      }
+
       const rewritten = text.split('\n').map((line) => {
         // Rewrite codecs to prevent bufferAppendError with HE-AAC v2 in Chrome MSE
         if (line.includes('CODECS=')) {
@@ -78,6 +101,7 @@ export async function GET(req: NextRequest) {
         // Rewrite URI= attributes (#EXT-X-KEY, #EXT-X-MAP, etc.)
         if (line.includes('URI=')) {
           line = line.replace(/URI=["']([^"']+)["']/g, (match, uri) => {
+            if (uri.startsWith('/api/proxy')) return match;
             try {
               const absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
               let proxied = `/api/proxy?url=${encodeURIComponent(absolute)}`;
@@ -91,6 +115,7 @@ export async function GET(req: NextRequest) {
 
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return line;
+        if (trimmed.startsWith('/api/proxy')) return line;
 
         try {
           const resolved = new URL(trimmed, target).toString();

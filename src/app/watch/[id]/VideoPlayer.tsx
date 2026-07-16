@@ -70,6 +70,22 @@ const styleIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 
 const captionsListIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 10h2v2H7zm0 4h10v2H7zm4-4h6v2h-6z"/></svg>`;
 
+// Helper to rewrite any client-visible Cloudflare Worker proxy URLs to route through the local /api/proxy
+function cleanProxyUrl(url: string | undefined): string {
+    if (!url) return '';
+    try {
+        if (url.includes('?url=')) {
+            const parsed = new URL(url);
+            const targetUrl = parsed.searchParams.get('url');
+            if (targetUrl) {
+                const referer = parsed.searchParams.get('referer') || '';
+                return `/api/proxy?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+            }
+        }
+    } catch (_) {}
+    return url;
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlayerProps) {
@@ -77,40 +93,19 @@ export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlaye
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const rawCfProxy = cfProxyUrl ?? '';
-    const CF_PROXY = rawCfProxy
-        ? (rawCfProxy.startsWith('http') ? rawCfProxy : `https://${rawCfProxy}`).replace(/\/$/, '')
-        : '';
-
     useEffect(() => {
-        console.log("[VideoPlayer] source:", JSON.stringify(source, null, 2), "CF_PROXY:", CF_PROXY);
         if (source.proxyUrl) {
-            const queryString = source.proxyUrl.includes('?')
-                ? source.proxyUrl.slice(source.proxyUrl.indexOf('?'))
-                : `?url=${encodeURIComponent(source.proxyUrl)}`;
-
-            if (CF_PROXY) {
-                const finalUrl = `${CF_PROXY}${queryString}`;
-                console.log("[VideoPlayer] final m3u8 URL (proxyUrl+CF):", finalUrl);
-                setPlayerUrl({ m3u8: finalUrl });
-            } else {
-                console.log("[VideoPlayer] final m3u8 URL (proxyUrl local):", source.proxyUrl);
-                setPlayerUrl({ m3u8: source.proxyUrl });
-            }
+            setPlayerUrl({ m3u8: cleanProxyUrl(source.proxyUrl) });
         } else if (source.m3u8) {
-            const base = CF_PROXY || '';
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            const finalUrl = base ? `${base}${qs}` : `/api/proxy${qs}`;
-            console.log("[VideoPlayer] final m3u8 URL (m3u8):", finalUrl);
-            setPlayerUrl({ m3u8: finalUrl });
+            setPlayerUrl({ m3u8: `/api/proxy${qs}` });
         } else if (source.url) {
-            console.log("[VideoPlayer] embed URL:", source.url);
             setPlayerUrl({ embed: source.url });
         } else {
             setError("No streaming source available");
         }
         setIsLoading(false);
-    }, [source, CF_PROXY]);
+    }, [source]);
 
     if (isLoading) {
         return (
@@ -1229,7 +1224,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
 
         const index = selectedSubtitleIndex;
         const track = tracks[index];
-        const url = track.proxyUrl || track.file;
+        const url = cleanProxyUrl(track.proxyUrl || track.file);
         if (!url) return;
 
         if (!originalSubContents[index]) {
