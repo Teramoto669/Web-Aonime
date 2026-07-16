@@ -105,7 +105,17 @@ export async function GET(req: NextRequest) {
           line = line.replace(/URI=["']([^"']+)["']/g, (match, uri) => {
             if (uri.startsWith('/api/proxy')) return match;
             try {
-              const absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
+              let absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
+              
+              // Rewrite .buzz hosts to match the target host
+              try {
+                const parsedUri = new URL(absolute);
+                if (parsedUri.hostname.endsWith('.buzz')) {
+                  parsedUri.host = new URL(target).host;
+                  absolute = parsedUri.toString();
+                }
+              } catch (_) {}
+
               let proxied = `/api/proxy?url=${encodeURIComponent(absolute)}`;
               if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;
               return `URI="${proxied}"`;
@@ -120,7 +130,17 @@ export async function GET(req: NextRequest) {
         if (trimmed.startsWith('/api/proxy')) return line;
 
         try {
-          const resolved = new URL(trimmed, target).toString();
+          let resolved = new URL(trimmed, target).toString();
+          
+          // Rewrite .buzz hosts to match the target host
+          try {
+            const parsedUri = new URL(resolved);
+            if (parsedUri.hostname.endsWith('.buzz')) {
+              parsedUri.host = new URL(target).host;
+              resolved = parsedUri.toString();
+            }
+          } catch (_) {}
+
           // All segment/sub-manifest URLs → through this proxy (with Referer)
           let proxied = `/api/proxy?url=${encodeURIComponent(resolved)}`;
           if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;

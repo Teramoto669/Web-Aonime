@@ -89,6 +89,16 @@ export default {
               if (!keyUrl.startsWith('http')) {
                 keyUrl = new URL(keyUrl, target).toString();
               }
+              
+              // Rewrite .buzz hosts to match target host
+              try {
+                const parsedUri = new URL(keyUrl);
+                if (parsedUri.hostname.endsWith('.buzz')) {
+                  parsedUri.host = new URL(target).host;
+                  keyUrl = parsedUri.toString();
+                }
+              } catch (_) {}
+
               let url = `${workerBase}/?url=${encodeURIComponent(keyUrl)}`;
               if (referer) url += `&referer=${encodeURIComponent(referer)}`;
               return `URI="${url}"`;
@@ -101,7 +111,17 @@ export default {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return line;
         try {
-          const resolved = new URL(trimmed, target).toString();
+          let resolved = new URL(trimmed, target).toString();
+          
+          // Rewrite .buzz hosts to match target host
+          try {
+            const parsedUri = new URL(resolved);
+            if (parsedUri.hostname.endsWith('.buzz')) {
+              parsedUri.host = new URL(target).host;
+              resolved = parsedUri.toString();
+            }
+          } catch (_) {}
+
           // ALL segment and sub-manifest URLs → through this worker
           let url = `${workerBase}/?url=${encodeURIComponent(resolved)}`;
           if (referer) url += `&referer=${encodeURIComponent(referer)}`;
