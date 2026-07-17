@@ -129,10 +129,10 @@ export async function GET(req: NextRequest) {
             try {
               let absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
               
-              // Rewrite .buzz hosts to match the target host
+              // Rewrite .buzz and .click hosts to match the target host
               try {
                 const parsedUri = new URL(absolute);
-                if (parsedUri.hostname.endsWith('.buzz')) {
+                if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
                   parsedUri.host = new URL(target).host;
                   absolute = parsedUri.toString();
                 }
@@ -154,10 +154,10 @@ export async function GET(req: NextRequest) {
         try {
           let resolved = new URL(trimmed, target).toString();
           
-          // Rewrite .buzz hosts to match the target host
+          // Rewrite .buzz and .click hosts to match the target host
           try {
             const parsedUri = new URL(resolved);
-            if (parsedUri.hostname.endsWith('.buzz')) {
+            if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
               parsedUri.host = new URL(target).host;
               resolved = parsedUri.toString();
             }

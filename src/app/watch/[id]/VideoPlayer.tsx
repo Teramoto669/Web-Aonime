@@ -395,6 +395,15 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                             art.muted = !art.muted;
                         });
 
+                        // Prevent slider interactions from bubbling up to player controls/gestures
+                        const stopPropagation = (e: Event) => {
+                            e.stopPropagation();
+                        };
+                        $slider.addEventListener("click", stopPropagation);
+                        $slider.addEventListener("touchstart", stopPropagation, { passive: true });
+                        $slider.addEventListener("touchmove", stopPropagation, { passive: true });
+                        $slider.addEventListener("touchend", stopPropagation, { passive: true });
+
                         art.on("video:volumechange", () => {
                             const val = art.muted ? 0 : art.volume;
                             $slider.value = String(val);
@@ -902,6 +911,17 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 visibility: visible !important;
                 margin-left: 6px !important;
                 margin-right: 6px !important;
+            }
+            @media (hover: none) {
+                /* Always show the volume slider on mobile/touch screens when controls are active */
+                .art-volume-horizontal-slider {
+                    width: 60px !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    margin-left: 6px !important;
+                    margin-right: 6px !important;
+                    touch-action: none;
+                }
             }
             .art-volume-horizontal-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;

@@ -90,10 +90,10 @@ export default {
                 keyUrl = new URL(keyUrl, target).toString();
               }
               
-              // Rewrite .buzz hosts to match target host
+              // Rewrite .buzz and .click hosts to match target host
               try {
                 const parsedUri = new URL(keyUrl);
-                if (parsedUri.hostname.endsWith('.buzz')) {
+                if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
                   parsedUri.host = new URL(target).host;
                   keyUrl = parsedUri.toString();
                 }
@@ -113,10 +113,10 @@ export default {
         try {
           let resolved = new URL(trimmed, target).toString();
           
-          // Rewrite .buzz hosts to match target host
+          // Rewrite .buzz and .click hosts to match target host
           try {
             const parsedUri = new URL(resolved);
-            if (parsedUri.hostname.endsWith('.buzz')) {
+            if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
               parsedUri.host = new URL(target).host;
               resolved = parsedUri.toString();
             }
