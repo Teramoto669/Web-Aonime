@@ -31,7 +31,8 @@ const forward10Icon = `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000
 const volumeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20"><path fill="#fff" d="M116.5,42.8v154.4c0,2.8-1.7,3.6-3.8,1.7l-54.1-48H29c-2.8,0-5.2-2.3-5.2-5.2V94.3c0-2.8,2.3-5.2,5.2-5.2h29.6l54.1-48C114.8,39.2,116.5,39.9,116.5,42.8z"/><path fill="#fff" d="M136.2,160v-20c11.1,0,20-8.9,20-20s-8.9-20-20-20V80c22.1,0,40,17.9,40,40S158.3,160,136.2,160z"/><path fill="#fff" d="M216.2,120c0-44.2-35.8-80-80-80v20c33.1,0,60,26.9,60,60s-26.9,60-60,60v20C180.4,199.9,216.1,164.1,216.2,120z"/></svg>`;
 
 const muteIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="20" height="20">
-    <path fill="#fff" d="M116.4,42.8v154.5c0,2.8-1.7,3.6-3.8,1.7l-54.1-48.1H28.9c-2.8,0-5.2-2.3-5.2-5.2V94.2c0-2.8,2.3-5.2,5.2-5.2h29.6l54.1-48.1C114.6,39.1,116.4,39.9,116.4,42.8z M212.3,96.4l-14.6-14.6l-23.6,23.6l-23.6-23.6l-14.6,14.6l23.6,23.6l-23.6,23.6l14.6,14.6l23.6-23.6l23.6,23.6l-14.6,14.6-23.6-23.6L212.3,96.4z"/>
+    <path fill="#fff" d="M116.4,42.8v154.5c0,2.8-1.7,3.6-3.8,1.7l-54.1-48.1H28.9c-2.8,0-5.2-2.3-5.2-5.2V94.2c0-2.8,2.3-5.2,5.2-5.2h29.6l54.1-48.1C114.6,39.1,116.4,39.9,116.4,42.8z"/>
+    <path fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" d="M150,90 L210,150 M210,90 L150,150"/>
 </svg>`;
 
 const loadingIcon = `<svg width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_l9ve{animation:spinner_rcyq 1.2s cubic-bezier(0.52,.6,.25,.99) infinite}.spinner_cMYp{animation-delay:.4s}.spinner_gHR3{animation-delay:.8s}@keyframes spinner_rcyq{0%{transform:translate(12px,12px) scale(0);opacity:1}100%{transform:translate(0,0) scale(1);opacity:0}}</style><path class="spinner_l9ve" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/><path class="spinner_l9ve spinner_cMYp" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/><path class="spinner_l9ve spinner_gHR3" fill="white" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z" transform="translate(12, 12) scale(0)"/></svg>`;
@@ -83,7 +84,7 @@ function cleanProxyUrl(url: string | undefined): string {
                 return `/api/proxy?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
             }
         }
-    } catch (_) {}
+    } catch (_) { }
     return url;
 }
 
@@ -511,11 +512,11 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                         right: "24px",
                         zIndex: "20",
                     },
-                    mounted: function(element) {
+                    mounted: function (element) {
                         const art = this;
                         const $btn = element.querySelector('.art-skip-btn') as HTMLButtonElement;
                         if (!$btn) return;
-                        
+
                         $btn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             if (skipTargetTimeRef.current !== null) {
@@ -625,7 +626,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 marker.className = 'art-skip-marker';
                 marker.style.left = `${left}%`;
                 marker.style.width = `${width}%`;
-                
+
                 // Prepend to the visual track container so it aligns with height expansion
                 $trackContainer.prepend(marker);
             };
@@ -661,15 +662,15 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
         const showDoubleTapOverlay = (direction: 'forward' | 'backward') => {
             const overlay = document.createElement('div');
             overlay.className = `art-double-tap-overlay art-double-tap-${direction}`;
-            
+
             const isFwd = direction === 'forward';
             overlay.innerHTML = `
                 <div class="art-double-tap-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
                     <div class="art-double-tap-icon" style="display: flex; gap: 2px;">
-                        ${isFwd 
-                            ? '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M6 18l8.5-6L6 6v12zm8.5 0L23 12l-8.5-6v12z"/></svg>' 
-                            : '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M18 6l-8.5 6L18 18V6zm-8.5 0L1 12l8.5 6V6z"/></svg>'
-                        }
+                        ${isFwd
+                    ? '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M6 18l8.5-6L6 6v12zm8.5 0L23 12l-8.5-6v12z"/></svg>'
+                    : '<svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M18 6l-8.5 6L18 18V6zm-8.5 0L1 12l8.5 6V6z"/></svg>'
+                }
                     </div>
                     <span style="color: white; font-weight: bold; font-size: 14px;">${isFwd ? '+5s' : '-5s'}</span>
                 </div>
@@ -687,7 +688,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
             overlay.style.background = 'rgba(255, 255, 255, 0.1)';
             overlay.style.backdropFilter = 'blur(2px)';
             overlay.style.borderRadius = isFwd ? '100% 0 0 100% / 50% 0 0 50%' : '0 100% 100% 0 / 0 50% 50% 0';
-            
+
             if (isFwd) {
                 overlay.style.right = '0';
             } else {
@@ -714,8 +715,8 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
 
             const target = e.target as HTMLElement;
             // Ignore touches on settings, controls, selectors, control bar, volume bar, etc.
-            if (target.closest('.art-controls') || 
-                target.closest('.art-settings') || 
+            if (target.closest('.art-controls') ||
+                target.closest('.art-settings') ||
                 target.closest('.art-volume-panel') ||
                 target.closest('.art-control')) {
                 return;
@@ -730,9 +731,9 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
             const width = rect.width;
 
             // Check if it is a double tap (within 300ms and close to the last touch position)
-            const isDoubleTap = timeDiff < 300 && 
-                                Math.abs(x - lastTouchX) < 50 && 
-                                Math.abs(y - lastTouchY) < 50;
+            const isDoubleTap = timeDiff < 300 &&
+                Math.abs(x - lastTouchX) < 50 &&
+                Math.abs(y - lastTouchY) < 50;
 
             if (isDoubleTap) {
                 if (x < width * 0.35) {
@@ -1106,7 +1107,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
             artInstance.setting.remove("subtitle-size");
             artInstance.setting.remove("subtitle-color");
             artInstance.setting.remove("subtitle-style");
-        } catch (e) {}
+        } catch (e) { }
 
         if (tracks.length > 0) {
             // 1. Subtitles list
