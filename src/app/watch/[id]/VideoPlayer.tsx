@@ -384,7 +384,22 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                         $slider.value = String(art.volume);
                         updateSliderBackground(art.volume);
 
+                        let hideTimer: any = null;
+                        const showSlider = () => {
+                            $el.classList.add("art-volume-show");
+                            if (hideTimer) clearTimeout(hideTimer);
+                            hideTimer = setTimeout(() => {
+                                $el.classList.remove("art-volume-show");
+                            }, 3000);
+                        };
+
+                        // Show slider on container touch/interaction on mobile
+                        $el.addEventListener("touchstart", () => {
+                            showSlider();
+                        }, { passive: true });
+
                         $slider.addEventListener("input", (e) => {
+                            showSlider();
                             const val = parseFloat((e.target as HTMLInputElement).value);
                             art.volume = val;
                             art.muted = val === 0;
@@ -396,13 +411,21 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                         });
 
                         // Prevent slider interactions from bubbling up to player controls/gestures
-                        const stopPropagation = (e: Event) => {
+                        $slider.addEventListener("click", (e) => {
                             e.stopPropagation();
-                        };
-                        $slider.addEventListener("click", stopPropagation);
-                        $slider.addEventListener("touchstart", stopPropagation, { passive: true });
-                        $slider.addEventListener("touchmove", stopPropagation, { passive: true });
-                        $slider.addEventListener("touchend", stopPropagation, { passive: true });
+                        });
+                        $slider.addEventListener("touchstart", (e) => {
+                            e.stopPropagation();
+                            showSlider();
+                        }, { passive: true });
+                        $slider.addEventListener("touchmove", (e) => {
+                            e.stopPropagation();
+                            showSlider();
+                        }, { passive: true });
+                        $slider.addEventListener("touchend", (e) => {
+                            e.stopPropagation();
+                            showSlider();
+                        }, { passive: true });
 
                         art.on("video:volumechange", () => {
                             const val = art.muted ? 0 : art.volume;
@@ -904,24 +927,15 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                 visibility: hidden !important;
                 transition: width 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
                 background: rgba(255, 255, 255, 0.2);
+                touch-action: none;
             }
-            .art-volume-horizontal:hover .art-volume-horizontal-slider {
+            .art-volume-horizontal:hover .art-volume-horizontal-slider,
+            .art-volume-horizontal.art-volume-show .art-volume-horizontal-slider {
                 width: 60px !important;
                 opacity: 1 !important;
                 visibility: visible !important;
                 margin-left: 6px !important;
                 margin-right: 6px !important;
-            }
-            @media (hover: none) {
-                /* Always show the volume slider on mobile/touch screens when controls are active */
-                .art-volume-horizontal-slider {
-                    width: 60px !important;
-                    opacity: 1 !important;
-                    visibility: visible !important;
-                    margin-left: 6px !important;
-                    margin-right: 6px !important;
-                    touch-action: none;
-                }
             }
             .art-volume-horizontal-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;
