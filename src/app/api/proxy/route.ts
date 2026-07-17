@@ -77,6 +77,29 @@ export async function GET(req: NextRequest) {
         headers: forwarded,
         cache: 'no-store',
       });
+
+      if (!upstreamRes.ok) {
+        return NextResponse.json(
+          { error: `Upstream ${upstreamRes.status}` },
+          { status: upstreamRes.status },
+        );
+      }
+
+      // Return the Cloudflare Worker's response directly to the browser.
+      // The Cloudflare Worker has already performed all necessary manifest rewriting (pointing to the worker's URL)
+      // and has set all appropriate CORS and Range headers.
+      const responseHeaders = new Headers();
+      upstreamRes.headers.forEach((value, key) => {
+        responseHeaders.set(key, value);
+      });
+      responseHeaders.set('Access-Control-Allow-Origin', '*');
+      responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      responseHeaders.set('Access-Control-Allow-Headers', '*');
+
+      return new Response(upstreamRes.body, {
+        status: upstreamRes.status,
+        headers: responseHeaders,
+      });
     } else {
       upstreamRes = await fetch(target, {
         headers: forwarded,

@@ -72,7 +72,7 @@ const styleIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 const captionsListIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 10h2v2H7zm0 4h10v2H7zm4-4h6v2h-6z"/></svg>`;
 
 // Helper to rewrite any client-visible Cloudflare Worker proxy URLs to route through the local /api/proxy
-function cleanProxyUrl(url: string | undefined): string {
+function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
     if (!url) return '';
     try {
         if (url.includes('?url=')) {
@@ -81,6 +81,9 @@ function cleanProxyUrl(url: string | undefined): string {
             const targetUrl = parsed.searchParams.get('url');
             if (targetUrl) {
                 const referer = parsed.searchParams.get('referer') || '';
+                if (proxyBase) {
+                    return `${proxyBase}/?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+                }
                 return `/api/proxy?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
             }
         }
@@ -96,18 +99,23 @@ export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlaye
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        const proxyBase = cfProxyUrl ? (cfProxyUrl.startsWith('http') ? cfProxyUrl : `https://${cfProxyUrl}`).replace(/\/$/, '') : '';
         if (source.proxyUrl) {
-            setPlayerUrl({ m3u8: cleanProxyUrl(source.proxyUrl) });
+            setPlayerUrl({ m3u8: cleanProxyUrl(source.proxyUrl, proxyBase) });
         } else if (source.m3u8) {
             const qs = `?url=${encodeURIComponent(source.m3u8)}${source.referer ? `&referer=${encodeURIComponent(source.referer)}` : ''}`;
-            setPlayerUrl({ m3u8: `/api/proxy${qs}` });
+            if (proxyBase) {
+                setPlayerUrl({ m3u8: `${proxyBase}/${qs}` });
+            } else {
+                setPlayerUrl({ m3u8: `/api/proxy${qs}` });
+            }
         } else if (source.url) {
             setPlayerUrl({ embed: source.url });
         } else {
             setError("No streaming source available");
         }
         setIsLoading(false);
-    }, [source]);
+    }, [source, cfProxyUrl]);
 
     if (isLoading) {
         return (
@@ -128,7 +136,7 @@ export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlaye
     }
 
     if (playerUrl?.m3u8) {
-        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} skipData={skipData} />;
+        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} skipData={skipData} cfProxyUrl={cfProxyUrl} />;
     }
 
     if (playerUrl?.embed) {
@@ -208,7 +216,7 @@ function shiftWebVTT(vttText: string, delay: number): string {
 
 // ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
 
-function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Track[]; skipData?: SkipData }) {
+function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string; tracks: Track[]; skipData?: SkipData; cfProxyUrl?: string }) {
     const artRef = useRef<HTMLDivElement>(null);
     const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
 
@@ -1286,7 +1294,8 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
 
         const index = selectedSubtitleIndex;
         const track = tracks[index];
-        const url = cleanProxyUrl(track.proxyUrl || track.file);
+        const proxyBase = cfProxyUrl ? (cfProxyUrl.startsWith('http') ? cfProxyUrl : `https://${cfProxyUrl}`).replace(/\/$/, '') : '';
+        const url = cleanProxyUrl(track.proxyUrl || track.file, proxyBase);
         if (!url) return;
 
         if (!originalSubContents[index]) {
