@@ -195,7 +195,7 @@ export const getSchedule = (tz?: number | string, refresh?: boolean): Promise<Sc
 
 export const getWatchData = async (slug: string, ep: string | number): Promise<WatchData> => {
   const url = `${BASE_URL}/watch/${encodeURIComponent(slug)}?ep=${ep}`;
-  const res = await fetch(url, { next: { revalidate: 3600 } });
+  const res = await fetch(url, { cache: 'no-store' });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
