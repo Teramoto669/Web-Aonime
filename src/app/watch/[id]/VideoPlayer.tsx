@@ -390,8 +390,24 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                             if (hideTimer) clearTimeout(hideTimer);
                             hideTimer = setTimeout(() => {
                                 $el.classList.remove("art-volume-show");
-                            }, 3000);
+                            }, 2000);
                         };
+
+                        // Collapse slider when clicking/touching outside
+                        const handleOutsideTouch = (e: Event) => {
+                            const target = e.target as HTMLElement;
+                            if (!target.closest(".art-volume-horizontal")) {
+                                $el.classList.remove("art-volume-show");
+                                if (hideTimer) clearTimeout(hideTimer);
+                            }
+                        };
+                        document.addEventListener("touchstart", handleOutsideTouch, { passive: true });
+                        document.addEventListener("click", handleOutsideTouch);
+
+                        art.on("destroy", () => {
+                            document.removeEventListener("touchstart", handleOutsideTouch);
+                            document.removeEventListener("click", handleOutsideTouch);
+                        });
 
                         // Show slider on container touch/interaction on mobile
                         $el.addEventListener("touchstart", () => {
@@ -406,8 +422,18 @@ function HlsPlayer({ m3u8Url, tracks, skipData }: { m3u8Url: string; tracks: Tra
                             updateSliderBackground(val);
                         });
 
-                        $icon.addEventListener("click", () => {
-                            art.muted = !art.muted;
+                        $icon.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            // Check if the slider is currently visible (either via hover or active class)
+                            const isExpanded = $slider.offsetWidth > 0;
+                            if (!isExpanded) {
+                                // First click on mobile/touch: just expand, don't mute
+                                showSlider();
+                            } else {
+                                // Subsequent click: mute/unmute
+                                art.muted = !art.muted;
+                                showSlider();
+                            }
                         });
 
                         // Prevent slider interactions from bubbling up to player controls/gestures
