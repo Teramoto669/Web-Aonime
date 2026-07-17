@@ -203,20 +203,32 @@ export const getWatchData = async (slug: string, ep: string | number): Promise<W
   }
 
   const contentType = res.headers.get('content-type') || '';
+  const text = await res.text();
+  const trimmed = text.trim();
 
-  // Cache hit → standard JSON response
-  if (contentType.includes('application/json')) {
-    const json = await res.json();
-    if (json.ok === false) {
-      throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
+  // Try to parse the entire text as a single standard JSON response if it looks like one
+  // or if the content-type is application/json.
+  if (contentType.includes('application/json') || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+    try {
+      const json = JSON.parse(trimmed);
+      if (json && typeof json === 'object' && 'ok' in json) {
+        if (json.ok === false) {
+          throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
+        }
+        if (json.data) {
+          return json.data as WatchData;
+        }
+      }
+    } catch (e) {
+      if (contentType.includes('application/json') || (e instanceof Error && e.message.startsWith('API error from'))) {
+        throw e;
+      }
     }
-    return json.data as WatchData;
   }
 
-  // Cache miss → NDJSON streaming response
+  // Cache miss / NDJSON streaming response fallback
   // Each line is a JSON object: { type: "episode"|"servers"|"source"|"done"|"error", ... }
-  const text = await res.text();
-  const lines = text.split('\n').filter(line => line.trim());
+  const lines = trimmed.split('\n').filter(line => line.trim());
 
   const result: WatchData = { sources: [] };
 
