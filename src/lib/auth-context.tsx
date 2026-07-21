@@ -14,6 +14,9 @@ import {
   reauthenticateWithPopup,
   updatePassword,
   deleteUser,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   User as FirebaseUser
 } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
@@ -33,7 +36,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
@@ -180,7 +183,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--accent-foreground", currentTheme.accentForeground);
   }, [user?.themeColor]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = true) => {
+    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+    await setPersistence(auth, persistence);
     await signInWithEmailAndPassword(auth, email, password);
   };
 

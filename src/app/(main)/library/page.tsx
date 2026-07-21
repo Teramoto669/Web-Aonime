@@ -47,6 +47,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import type { AnimeListItem } from "@/lib/types";
+import { Pagination } from "@/components/Pagination";
+
+const ITEMS_PER_PAGE = 24;
 
 interface LibraryItem {
   id: string;
@@ -133,6 +136,8 @@ function LibraryPageContent() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [libraryPage, setLibraryPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   
   // Viewed user state (for loading other users' libraries)
   const [viewedUser, setViewedUser] = useState<{
@@ -590,6 +595,48 @@ function LibraryPageContent() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalLibraryPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const currentLibraryPage = Math.min(Math.max(1, libraryPage), Math.max(1, totalLibraryPages));
+  const paginatedLibraryItems = filteredItems.slice(
+    (currentLibraryPage - 1) * ITEMS_PER_PAGE,
+    currentLibraryPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (libraryPage > totalLibraryPages && totalLibraryPages > 0) {
+      setLibraryPage(totalLibraryPages);
+    }
+  }, [filteredItems.length, totalLibraryPages, libraryPage]);
+
+  const handleLibraryPageChange = (newPage: number) => {
+    setLibraryPage(newPage);
+    const element = document.getElementById("library-content-top");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const totalHistoryPages = Math.ceil(historyItems.length / ITEMS_PER_PAGE);
+  const currentHistoryPage = Math.min(Math.max(1, historyPage), Math.max(1, totalHistoryPages));
+  const paginatedHistoryItems = historyItems.slice(
+    (currentHistoryPage - 1) * ITEMS_PER_PAGE,
+    currentHistoryPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages && totalHistoryPages > 0) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyItems.length, totalHistoryPages, historyPage]);
+
+  const handleHistoryPageChange = (newPage: number) => {
+    setHistoryPage(newPage);
+    const element = document.getElementById("history-content-top");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   const getThemeAccentClass = () => {
     switch (viewedUser?.themeColor) {
       case "rose": return "text-rose-500 border-rose-500 hover:text-rose-400";
@@ -655,7 +702,7 @@ function LibraryPageContent() {
   }
 
   const libraryListContent = (
-    <div className="space-y-6">
+    <div id="library-content-top" className="space-y-6">
       {/* Controls: Search and Filters */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
         {/* Search */}
@@ -664,14 +711,20 @@ function LibraryPageContent() {
           <Input
             placeholder="Search anime..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setLibraryPage(1);
+            }}
             className="pl-9 bg-background/50 border-border/60 focus-visible:ring-primary"
           />
         </div>
         {/* Status pills filters */}
         <div className="flex flex-wrap gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           <button
-            onClick={() => setSelectedStatus("all")}
+            onClick={() => {
+              setSelectedStatus("all");
+              setLibraryPage(1);
+            }}
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
               selectedStatus === "all"
@@ -684,7 +737,10 @@ function LibraryPageContent() {
           {Object.entries(statusLabels).map(([key, label]) => (
             <button
               key={key}
-              onClick={() => setSelectedStatus(key)}
+              onClick={() => {
+                setSelectedStatus(key);
+                setLibraryPage(1);
+              }}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border whitespace-nowrap",
                 selectedStatus === key
@@ -714,82 +770,96 @@ function LibraryPageContent() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
-          {filteredItems.map((item) => {
-            const mockListItem: AnimeListItem = {
-              id: item.animeId,
-              slug: item.slug,
-              title: item.title,
-              image: item.image,
-              type: item.type,
-              episodes: {},
-            };
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
+            {paginatedLibraryItems.map((item) => {
+              const mockListItem: AnimeListItem = {
+                id: item.animeId,
+                slug: item.slug,
+                title: item.title,
+                image: item.image,
+                type: item.type,
+                episodes: {},
+              };
 
-            return (
-              <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
-                <div className="flex-1">
-                  <AnimeCard anime={mockListItem} />
-                </div>
-                
-                {isOwnLibrary && item.lastEpisodeWatched && (
-                  <Link
-                    href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
-                    className="mt-2 flex items-center justify-center gap-1.5 w-full h-8 text-[11px] font-black uppercase tracking-wider bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary rounded-md transition-all duration-300 shadow-sm"
-                  >
-                    <Play className="h-3 w-3 fill-current" />
-                    <span>Resume Ep {item.lastEpisodeWatched}</span>
-                  </Link>
-                )}
-
-                {isOwnLibrary ? (
-                  <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
-                    <Select
-                      value={item.status}
-                      onValueChange={(val) => handleUpdateStatus(item.id, val, item.title)}
-                    >
-                      <SelectTrigger className="h-7 w-[72%] text-[11px] font-bold bg-muted/60 border-border/40 hover:border-border/80 focus:ring-0 focus:ring-offset-0 px-2 py-1 gap-1 text-foreground transition-all duration-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background/95 border-border/60 backdrop-blur-md z-[60] shadow-xl">
-                        {Object.entries(statusLabels).map(([k, lbl]) => (
-                          <SelectItem key={k} value={k} className="text-xs font-semibold cursor-pointer">
-                            {lbl}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveItem(item.id, item.title)}
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                      title="Remove from library"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+              return (
+                <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
+                  <div className="flex-1">
+                    <AnimeCard anime={mockListItem} />
                   </div>
-                ) : (
-                  <div className="mt-3 pt-2.5 border-t border-border/30 flex flex-col items-center gap-1.5">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider",
-                      item.status === "watching" && "bg-violet-500/10 text-violet-400 border border-violet-500/20",
-                      item.status === "plan_to_watch" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-                      item.status === "completed" && "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-                      item.status === "on_hold" && "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20",
-                      item.status === "dropped" && "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                    )}>
-                      {statusLabels[item.status]}
-                    </span>
-                    {item.lastEpisodeWatched && (
-                      <span className="text-[10px] text-muted-foreground font-semibold">
-                        Ep {item.lastEpisodeWatched} watched
+                  
+                  {isOwnLibrary && item.lastEpisodeWatched && (
+                    <Link
+                      href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
+                      className="mt-2 flex items-center justify-center gap-1.5 w-full h-8 text-[11px] font-black uppercase tracking-wider bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary rounded-md transition-all duration-300 shadow-sm"
+                    >
+                      <Play className="h-3 w-3 fill-current" />
+                      <span>Resume Ep {item.lastEpisodeWatched}</span>
+                    </Link>
+                  )}
+
+                  {isOwnLibrary ? (
+                    <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
+                      <Select
+                        value={item.status}
+                        onValueChange={(val) => handleUpdateStatus(item.id, val, item.title)}
+                      >
+                        <SelectTrigger className="h-7 w-[72%] text-[11px] font-bold bg-muted/60 border-border/40 hover:border-border/80 focus:ring-0 focus:ring-offset-0 px-2 py-1 gap-1 text-foreground transition-all duration-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background/95 border-border/60 backdrop-blur-md z-[60] shadow-xl">
+                          {Object.entries(statusLabels).map(([k, lbl]) => (
+                            <SelectItem key={k} value={k} className="text-xs font-semibold cursor-pointer">
+                              {lbl}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveItem(item.id, item.title)}
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                        title="Remove from library"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-2.5 border-t border-border/30 flex flex-col items-center gap-1.5">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider",
+                        item.status === "watching" && "bg-violet-500/10 text-violet-400 border border-violet-500/20",
+                        item.status === "plan_to_watch" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+                        item.status === "completed" && "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+                        item.status === "on_hold" && "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20",
+                        item.status === "dropped" && "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                      )}>
+                        {statusLabels[item.status]}
                       </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      {item.lastEpisodeWatched && (
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          Ep {item.lastEpisodeWatched} watched
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {totalLibraryPages > 1 && (
+            <div className="pt-6">
+              <Pagination
+                currentPage={currentLibraryPage}
+                totalPages={totalLibraryPages}
+                hasNextPage={currentLibraryPage < totalLibraryPages}
+                hasPreviousPage={currentLibraryPage > 1}
+                onPageChange={handleLibraryPageChange}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -906,7 +976,7 @@ function LibraryPageContent() {
           </TabsContent>
 
           {/* --- WATCH HISTORY TAB --- */}
-          <TabsContent value="history" className="space-y-6 focus-visible:outline-none">
+          <TabsContent value="history" id="history-content-top" className="space-y-6 focus-visible:outline-none">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-primary" />
@@ -937,49 +1007,63 @@ function LibraryPageContent() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
-                {historyItems.map((item) => {
-                  const mockListItem: AnimeListItem = {
-                    id: item.animeId,
-                    slug: item.slug,
-                    title: item.title,
-                    image: item.image,
-                    type: item.type,
-                    episodes: {},
-                  };
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
+                  {paginatedHistoryItems.map((item) => {
+                    const mockListItem: AnimeListItem = {
+                      id: item.animeId,
+                      slug: item.slug,
+                      title: item.title,
+                      image: item.image,
+                      type: item.type,
+                      episodes: {},
+                    };
 
-                  return (
-                    <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
-                      <div className="flex-1">
-                        <AnimeCard anime={mockListItem} />
-                      </div>
-                      
-                      <div className="mt-2 text-[10px] font-semibold text-muted-foreground flex flex-col items-center justify-center text-center bg-muted/20 py-1 rounded">
-                        <span className="font-bold text-foreground">Ep {item.episodeNum} watched</span>
-                        <span className="text-[9px] opacity-75">{formatRelativeTime(item.watchedAt)}</span>
-                      </div>
+                    return (
+                      <div key={item.id} className="group relative flex flex-col bg-card/25 border border-border/30 rounded-lg p-2.5 transition-all hover:shadow-lg hover:border-primary/20">
+                        <div className="flex-1">
+                          <AnimeCard anime={mockListItem} />
+                        </div>
+                        
+                        <div className="mt-2 text-[10px] font-semibold text-muted-foreground flex flex-col items-center justify-center text-center bg-muted/20 py-1 rounded">
+                          <span className="font-bold text-foreground">Ep {item.episodeNum} watched</span>
+                          <span className="text-[9px] opacity-75">{formatRelativeTime(item.watchedAt)}</span>
+                        </div>
 
-                      <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
-                        <Link
-                          href={`/watch/${item.slug}?ep=${item.episodeNum}`}
-                          className="flex items-center justify-center gap-1 h-7 w-[72%] text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all uppercase tracking-wider text-center"
-                        >
-                          <Play className="h-2.5 w-2.5 fill-current" />
-                          Resume
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveHistoryItem(item.id, item.title)}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                          title="Remove from history"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
+                          <Link
+                            href={`/watch/${item.slug}?ep=${item.episodeNum}`}
+                            className="flex items-center justify-center gap-1 h-7 w-[72%] text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all uppercase tracking-wider text-center"
+                          >
+                            <Play className="h-2.5 w-2.5 fill-current" />
+                            Resume
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveHistoryItem(item.id, item.title)}
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                            title="Remove from history"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {totalHistoryPages > 1 && (
+                  <div className="pt-6">
+                    <Pagination
+                      currentPage={currentHistoryPage}
+                      totalPages={totalHistoryPages}
+                      hasNextPage={currentHistoryPage < totalHistoryPages}
+                      hasPreviousPage={currentHistoryPage > 1}
+                      onPageChange={handleHistoryPageChange}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>

@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ReCaptcha, IS_RECAPTCHA_ENABLED } from "@/components/auth/ReCaptcha";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
@@ -36,6 +38,8 @@ export default function AuthModal() {
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
   // Login Form Hook
   const {
@@ -61,15 +65,25 @@ export default function AuthModal() {
 
   // Submit Login
   const onLogin = async (data: LoginFormValues) => {
+    if (IS_RECAPTCHA_ENABLED && !recaptchaToken) {
+      toast({
+        variant: "destructive",
+        title: "CAPTCHA Verification Required",
+        description: "Please complete the reCAPTCHA verification.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await login(data.email, data.password);
+      await login(data.email, data.password, rememberMe);
       toast({
         title: "Login Successful",
         description: "Welcome back to Aonime!",
       });
       closeAuthModal();
       resetLoginForm();
+      setRecaptchaToken(null);
     } catch (error: any) {
       console.error(error);
       let desc = "Please check your email and password.";
@@ -88,6 +102,15 @@ export default function AuthModal() {
 
   // Submit Register
   const onRegister = async (data: RegisterFormValues) => {
+    if (IS_RECAPTCHA_ENABLED && !recaptchaToken) {
+      toast({
+        variant: "destructive",
+        title: "CAPTCHA Verification Required",
+        description: "Please complete the reCAPTCHA verification.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await register(data.email, data.password);
@@ -97,6 +120,7 @@ export default function AuthModal() {
       });
       closeAuthModal();
       resetRegisterForm();
+      setRecaptchaToken(null);
     } catch (error: any) {
       console.error(error);
       let desc = "Failed to create account. Please try again.";
@@ -127,6 +151,7 @@ export default function AuthModal() {
         description: "Welcome to Aonime!",
       });
       closeAuthModal();
+      setRecaptchaToken(null);
     } catch (error: any) {
       console.error(error);
       toast({
@@ -140,6 +165,7 @@ export default function AuthModal() {
   };
 
   const handleTabChange = (val: string) => {
+    setRecaptchaToken(null);
     openAuthModal(val as 'login' | 'register');
   };
 
@@ -203,6 +229,30 @@ export default function AuthModal() {
                   <p className="text-xs text-destructive font-medium mt-1">{loginErrors.password.message}</p>
                 )}
               </div>
+
+              <div className="flex items-center justify-between py-1">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(!!checked)}
+                    disabled={isSubmitting}
+                  />
+                  <Label
+                    htmlFor="remember-me"
+                    className="text-xs font-semibold cursor-pointer select-none text-muted-foreground hover:text-foreground"
+                  >
+                    Remember me
+                  </Label>
+                </div>
+              </div>
+
+              {IS_RECAPTCHA_ENABLED && (
+                <ReCaptcha
+                  onVerify={(token) => setRecaptchaToken(token)}
+                  onExpire={() => setRecaptchaToken(null)}
+                />
+              )}
 
               <Button type="submit" disabled={isSubmitting} className="w-full font-bold">
                 {isSubmitting ? (
@@ -273,6 +323,13 @@ export default function AuthModal() {
                   <p className="text-xs text-destructive font-medium mt-1">{registerErrors.confirmPassword.message}</p>
                 )}
               </div>
+
+              {IS_RECAPTCHA_ENABLED && (
+                <ReCaptcha
+                  onVerify={(token) => setRecaptchaToken(token)}
+                  onExpire={() => setRecaptchaToken(null)}
+                />
+              )}
 
               <Button type="submit" disabled={isSubmitting} className="w-full font-bold">
                 {isSubmitting ? (

@@ -18,11 +18,12 @@ type PaginationProps = {
   hasNextPage: boolean;
   hasPreviousPage?: boolean;
   minPage?: number;
+  onPageChange?: (page: number) => void;
 }
 
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPage, minPage = 1 }: PaginationProps) {
+export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPage, minPage = 1, onPageChange }: PaginationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -36,7 +37,11 @@ export function Pagination({ totalPages, currentPage, hasNextPage, hasPreviousPa
 
   const handlePageChange = (page: number) => {
     if (page < minPage || page > totalPages) return;
-    router.push(createPageURL(page));
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      router.push(createPageURL(page));
+    }
   }
 
   const renderPageNumbers = () => {
