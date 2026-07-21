@@ -23,11 +23,12 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-async function fetcher<T>(path: string): Promise<T> {
+async function fetcher<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 3600, ...options?.next },
+      ...options,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -51,8 +52,11 @@ export const getHomeData = (): Promise<HomeData> =>
 
 // ─── Anime Detail ────────────────────────────────────────────────────────────
 
-export const getAnimeDetails = (slug: string): Promise<AnimeDetail> =>
-  fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}`);
+export const getAnimeDetails = (slug: string, refresh = true): Promise<AnimeDetail> => {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  return fetcher<AnimeDetail>(`/anime/${encodeURIComponent(slug)}?${params.toString()}`);
+};
 
 export const getAnimeRelated = (slug: string, refresh?: boolean): Promise<RelatedAnime[]> => {
   const params = new URLSearchParams();
@@ -80,12 +84,14 @@ export const getAnimeTooltip = (id: string, refresh?: boolean): Promise<AnimeToo
 export const getAnimeEpisodes = (
   slug: string,
   start?: number,
-  end?: number
+  end?: number,
+  refresh = true
 ): Promise<AnimeEpisodes> => {
   let path = `/anime/${encodeURIComponent(slug)}/episodes`;
   const params = new URLSearchParams();
   if (start !== undefined) params.set('start', String(start));
   if (end !== undefined) params.set('end', String(end));
+  if (refresh) params.set('refresh', '1');
 
   if (params.toString()) {
     path += `?${params.toString()}`;
@@ -129,11 +135,11 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
     Boolean(params.keyword);
 
   if (params.sort === 'latest-updated' && !hasExtraFilters) {
-    return getLatestAnime({
+    return getUpdatedAnime({
       type: 'Latest Updated',
       sort: 'latest-updated',
       page: params.page,
-      refresh: params.refresh,
+      refresh: true,
     });
   }
 
@@ -143,9 +149,9 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
   qs.set('keyword', params.keyword ?? '');
   qs.set('type', params.sort === 'latest-updated' ? 'Latest Updated' : '');
   qs.set('sort', params.sort ?? 'default');
+  qs.set('refresh', '1'); // Always refresh=1 for browse
 
   if (params.page) qs.set('page', String(params.page));
-  if (params.refresh) qs.set('refresh', '1');
 
   params.genre?.forEach(g => qs.append('genre[]', g));
   params.term_type?.forEach(t => qs.append('term_type[]', t));
@@ -159,7 +165,7 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
 };
 
 
-// ─── Latest Episodes ──────────────────────────────────────────────────────────
+// ─── Updated Anime ───────────────────────────────────────────────────────────
 
 export type LatestParams = {
   type?: string;
@@ -168,13 +174,25 @@ export type LatestParams = {
   refresh?: boolean;
 };
 
-export const getLatestAnime = (params: LatestParams = {}): Promise<BrowseResponse> => {
+export const getUpdatedAnime = (params: LatestParams = {}): Promise<BrowseResponse> => {
   const qs = new URLSearchParams();
   qs.set('type', params.type ?? 'Latest Updated');
   qs.set('sort', params.sort ?? 'latest-updated');
   if (params.page) qs.set('page', String(params.page));
-  if (params.refresh) qs.set('refresh', '1');
-  return fetcher<BrowseResponse>(`/latest?${qs.toString()}`);
+  if (params.refresh !== false) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/updated?${qs.toString()}`);
+};
+
+export const getLatestAnime = getUpdatedAnime;
+
+// ─── Widget Anime ────────────────────────────────────────────────────────────
+
+export const getWidgetAnime = (name = 'updated-all', page = 1, refresh = true): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams();
+  qs.set('name', name);
+  qs.set('page', String(page));
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/widget?${qs.toString()}`);
 };
 
 // ─── Status ────────────────────────────────────────────────────────────────────
@@ -321,6 +339,6 @@ export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> 
 
 
 export const getFilters = async (): Promise<any> => {
-  const response = await fetcher<any>('/filter');
+  const response = await fetcher<any>('/filter?refresh=1');
   return response.options;
 };

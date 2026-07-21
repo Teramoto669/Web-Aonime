@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const res = await fetch(`${baseUrl}/latest?type=Latest+Updated&sort=latest-updated`, {
+    const res = await fetch(`${baseUrl}/widget?name=updated-all&page=1&refresh=1`, {
       cache: 'no-store',
     });
 
@@ -50,7 +50,9 @@ export async function GET(request: Request) {
     }
 
     const latestJson = await res.json();
-    const latestEpisodes: AnimeListItem[] = latestJson.data?.results || [];
+    const latestEpisodes: AnimeListItem[] = Array.isArray(latestJson.data)
+      ? latestJson.data
+      : latestJson.data?.results || [];
 
     if (latestEpisodes.length === 0) {
       return NextResponse.json({

@@ -130,12 +130,13 @@ export function NotificationBell() {
         if (watchingAnimes.length === 0) return;
 
         // Fetch latest updated episodes via internal proxy (avoids CORS)
-        const latestRes = await fetch("/api/latest?type=Latest+Updated&sort=latest-updated");
+        const latestRes = await fetch("/api/widget?name=updated-all&page=1&refresh=1");
         if (!latestRes.ok) throw new Error("Failed to fetch latest episodes");
         const latestJson = await latestRes.json();
-        if (!latestJson.ok || !latestJson.data?.results) return;
-
-        const latestEpisodes: AnimeListItem[] = latestJson.data.results;
+        const latestEpisodes: AnimeListItem[] = Array.isArray(latestJson.data)
+          ? latestJson.data
+          : latestJson.data?.results || [];
+        if (!latestEpisodes || latestEpisodes.length === 0) return;
 
         // Compare and write notifications for new episodes
         for (const apiAnime of latestEpisodes) {

@@ -13,19 +13,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type') || 'Latest Updated';
-    const sort = searchParams.get('sort') || 'latest-updated';
-    const page = searchParams.get('page');
+    const name = searchParams.get('name') || 'updated-all';
+    const page = searchParams.get('page') || '1';
     const refresh = searchParams.get('refresh');
 
     const upstreamParams = new URLSearchParams();
-    upstreamParams.set('type', type);
-    upstreamParams.set('sort', sort);
-    if (page) upstreamParams.set('page', page);
+    upstreamParams.set('name', name);
+    upstreamParams.set('page', page);
     if (refresh !== '0') upstreamParams.set('refresh', '1');
 
-    const res = await fetch(`${baseUrl}/updated?${upstreamParams.toString()}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${baseUrl}/widget?${upstreamParams.toString()}`, {
+      cache: 'no-store',
     });
 
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
