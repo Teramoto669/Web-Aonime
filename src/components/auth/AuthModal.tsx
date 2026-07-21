@@ -171,7 +171,24 @@ export default function AuthModal() {
 
   return (
     <Dialog open={isAuthModalOpen} onOpenChange={(open) => !open && closeAuthModal()}>
-      <DialogContent className="sm:max-w-[420px] bg-background/95 border-border/80 backdrop-blur-md rounded-xl shadow-2xl p-6">
+      <DialogContent
+        className="sm:max-w-[420px] bg-background/95 border-border/80 backdrop-blur-md rounded-xl shadow-2xl p-6"
+        onFocusOutside={(e) => {
+          // Prevent Radix FocusScope from trapping focus away from reCAPTCHA challenge popup
+          e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          // Prevent dialog from closing or intercepting events when clicking reCAPTCHA challenge iframe outside the dialog
+          const target = e.target as HTMLElement | null;
+          if (
+            target?.closest?.('iframe') ||
+            target?.closest?.('div[style*="2000000000"]') ||
+            (target?.tagName && target.tagName.toLowerCase() === 'iframe')
+          ) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-2xl font-black tracking-tight text-center text-primary">
             Aonime Account

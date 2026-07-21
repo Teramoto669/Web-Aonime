@@ -92,3 +92,11 @@ video::-webkit-media-controls-fullscreen-button {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
 }
+
+/* Ensure Google reCAPTCHA challenge popup is clickable above Radix modals */
+div[style*="2000000000"],
+iframe[title*="recaptcha"],
+iframe[src*="recaptcha"] {
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
+}
