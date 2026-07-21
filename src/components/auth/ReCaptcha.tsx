@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 
 export const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 export const IS_RECAPTCHA_ENABLED = Boolean(RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY.trim() !== "" && RECAPTCHA_SITE_KEY !== "your-recaptcha-site-key");
@@ -27,6 +27,7 @@ declare global {
       ) => number;
       reset: (widgetId?: number) => void;
       ready: (callback: () => void) => void;
+      getResponse: (widgetId?: number) => string;
     };
     onRecaptchaLoad?: () => void;
   }
@@ -35,54 +36,51 @@ declare global {
 export function ReCaptcha({ onVerify, onExpire, className = "" }: ReCaptchaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<number | null>(null);
+  // Stable callback refs to avoid re-running the effect when parent re-renders
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => { onVerifyRef.current = onVerify; }, [onVerify]);
+  useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
+
+  const renderWidget = useCallback(() => {
+    if (!containerRef.current || !window.grecaptcha) return;
+    // Only render once — if widgetId is already set, just reset the widget
+    if (widgetIdRef.current !== null) {
+      try {
+        window.grecaptcha.reset(widgetIdRef.current);
+      } catch (_) {}
+      return;
+    }
+    try {
+      const id = window.grecaptcha.render(containerRef.current, {
+        sitekey: RECAPTCHA_SITE_KEY!,
+        callback: (token: string) => { onVerifyRef.current(token); },
+        "expired-callback": () => {
+          if (onExpireRef.current) onExpireRef.current();
+          onVerifyRef.current(null);
+        },
+        "error-callback": () => { onVerifyRef.current(null); },
+        theme: "dark",
+      });
+      widgetIdRef.current = id;
+    } catch (err) {
+      console.error("reCAPTCHA render error:", err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!IS_RECAPTCHA_ENABLED || !RECAPTCHA_SITE_KEY) return;
 
-    let isMounted = true;
-
-    const renderWidget = () => {
-      if (!isMounted || !containerRef.current || !window.grecaptcha) return;
-
-      // Clear previous content if any
-      containerRef.current.innerHTML = "";
-
-      try {
-        const id = window.grecaptcha.render(containerRef.current, {
-          sitekey: RECAPTCHA_SITE_KEY,
-          callback: (token: string) => {
-            if (isMounted) onVerify(token);
-          },
-          "expired-callback": () => {
-            if (isMounted) {
-              if (onExpire) onExpire();
-              onVerify(null);
-            }
-          },
-          "error-callback": () => {
-            if (isMounted) onVerify(null);
-          },
-          theme: "dark",
-        });
-        widgetIdRef.current = id;
-      } catch (err) {
-        console.error("reCAPTCHA render error:", err);
-      }
-    };
-
     if (window.grecaptcha && typeof window.grecaptcha.render === "function") {
-      renderWidget();
+      window.grecaptcha.ready(renderWidget);
     } else {
-      // Define global load callback
+      // Script not loaded yet — set up the global load callback
       window.onRecaptchaLoad = () => {
-        if (window.grecaptcha) {
-          window.grecaptcha.ready(renderWidget);
-        }
+        window.grecaptcha?.ready(renderWidget);
       };
 
-      // Inject script if not already added
-      const existingScript = document.getElementById("recaptcha-v2-script");
-      if (!existingScript) {
+      // Inject script only once
+      if (!document.getElementById("recaptcha-v2-script")) {
         const script = document.createElement("script");
         script.id = "recaptcha-v2-script";
         script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit";
@@ -93,14 +91,15 @@ export function ReCaptcha({ onVerify, onExpire, className = "" }: ReCaptchaProps
     }
 
     return () => {
-      isMounted = false;
+      // On unmount: reset (not destroy) so the widget can be re-rendered next open
       if (widgetIdRef.current !== null && window.grecaptcha) {
         try {
           window.grecaptcha.reset(widgetIdRef.current);
         } catch (_) {}
       }
+      widgetIdRef.current = null;
     };
-  }, [onVerify, onExpire]);
+  }, [renderWidget]);
 
   if (!IS_RECAPTCHA_ENABLED) return null;
 
