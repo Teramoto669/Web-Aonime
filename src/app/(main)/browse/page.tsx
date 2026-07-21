@@ -128,8 +128,8 @@ function LoadingSkeleton() {
 export default async function BrowsePage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await props.searchParams;
   const page = typeof params.page === 'string' ? Number(params.page) : 1;
-  const rawSort = typeof params.sort === 'string' ? params.sort : 'latest-updated';
-  const sort = SORT_OPTIONS.some((o) => o.value === rawSort) ? rawSort : 'latest-updated';
+  const rawSort = typeof params.sort === 'string' ? params.sort : 'default';
+  const sort = SORT_OPTIONS.some((o) => o.value === rawSort) ? rawSort : 'default';
   const keyword = typeof params.keyword === 'string' ? params.keyword : undefined;
 
   // Filter keys matching the API URL param names
