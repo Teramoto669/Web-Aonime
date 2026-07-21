@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const res = await fetch(`${baseUrl}/filter?sort=latest-updated`, {
+    const res = await fetch(`${baseUrl}/latest?type=Latest+Updated&sort=latest-updated`, {
       cache: 'no-store',
     });
 

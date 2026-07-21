@@ -7,16 +7,14 @@ import { FilterMenu } from "@/components/FilterMenu";
 import { SortClient } from "./SortClient";
 
 const SORT_OPTIONS = [
-	{ value: 'most_relevance', label: 'Most Relevance' },
-	{ value: 'most_viewed', label: 'Most Viewed' },
-	{ value: 'most_followed', label: 'Most Followed' },
-	{ value: 'trending', label: 'Trending' },
-	{ value: 'updated_date', label: 'Recently Updated' },
-	{ value: 'added_date', label: 'Recently Added' },
-	{ value: 'avg_score', label: 'Average Score' },
-	{ value: 'mal_score', label: 'MAL Score' },
-	{ value: 'release_date', label: 'Release Date' },
-	{ value: 'title_az', label: 'Alphabetical (A-Z)' },
+	{ value: "default", label: "Default" },
+	{ value: "latest-updated", label: "Recently Updated" },
+	{ value: "latest-added", label: "Recently Added" },
+	{ value: "score", label: "Score" },
+	{ value: "most-viewed", label: "Most Viewed" },
+	{ value: "name-az", label: "Name A-Z" },
+	{ value: "release-date", label: "Release Date" },
+	{ value: "number_of_episodes", label: "Episode Count" },
 ];
 
 async function SearchResults({ query, page, sort, filters }: { query: string; page: number; sort: string; filters: Record<string, string[]> }) {
@@ -78,10 +76,11 @@ export default async function SearchPage(props: { searchParams: Promise<{ [key: 
 		typeof resolvedSearchParams.page === "string"
 			? Number(resolvedSearchParams.page)
 			: 1;
-	const sort =
+	const rawSort =
 		typeof resolvedSearchParams.sort === "string"
 			? resolvedSearchParams.sort
-			: "most_relevance";
+			: "default";
+	const sort = SORT_OPTIONS.some((o) => o.value === rawSort) ? rawSort : "default";
 
 	if (!query) {
 		return (

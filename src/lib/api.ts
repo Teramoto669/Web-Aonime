@@ -118,11 +118,30 @@ export type FilterParams = {
 };
 
 export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> => {
+  const hasExtraFilters =
+    Boolean(params.genre?.length) ||
+    Boolean(params.term_type?.length) ||
+    Boolean(params.season?.length) ||
+    Boolean(params.year?.length) ||
+    Boolean(params.status?.length) ||
+    Boolean(params.language?.length) ||
+    Boolean(params.rating?.length) ||
+    Boolean(params.keyword);
+
+  if (params.sort === 'latest-updated' && !hasExtraFilters) {
+    return getLatestAnime({
+      type: 'Latest Updated',
+      sort: 'latest-updated',
+      page: params.page,
+      refresh: params.refresh,
+    });
+  }
+
   const qs = new URLSearchParams();
 
   // Always set keyword, type, and sort to avoid backend 500 errors
   qs.set('keyword', params.keyword ?? '');
-  qs.set('type', '');
+  qs.set('type', params.sort === 'latest-updated' ? 'Latest Updated' : '');
   qs.set('sort', params.sort ?? 'default');
 
   if (params.page) qs.set('page', String(params.page));
@@ -143,14 +162,16 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
 // ─── Latest Episodes ──────────────────────────────────────────────────────────
 
 export type LatestParams = {
-  type?: 'latest-updated' | 'new-release' | 'most-viewed';
+  type?: string;
+  sort?: string;
   page?: number;
   refresh?: boolean;
 };
 
 export const getLatestAnime = (params: LatestParams = {}): Promise<BrowseResponse> => {
   const qs = new URLSearchParams();
-  if (params.type) qs.set('type', params.type);
+  qs.set('type', params.type ?? 'Latest Updated');
+  qs.set('sort', params.sort ?? 'latest-updated');
   if (params.page) qs.set('page', String(params.page));
   if (params.refresh) qs.set('refresh', '1');
   return fetcher<BrowseResponse>(`/latest?${qs.toString()}`);

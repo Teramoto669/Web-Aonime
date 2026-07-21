@@ -12,7 +12,7 @@ export async function GET() {
       );
     }
     const res = await fetch(
-      `${baseUrl}/filter?sort=latest-updated`,
+      `${baseUrl}/latest?type=Latest+Updated&sort=latest-updated`,
       { next: { revalidate: 60 } } // cache 60s on the server
     );
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
