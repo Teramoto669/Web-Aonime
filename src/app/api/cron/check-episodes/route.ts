@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const res = await fetch(`${baseUrl}/widget?name=updated-all&page=1&refresh=1`, {
+    const res = await fetch(`${baseUrl}/updated?refresh=1`, {
       cache: 'no-store',
     });
 

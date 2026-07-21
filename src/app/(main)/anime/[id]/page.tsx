@@ -12,6 +12,9 @@ import { RelatedSection } from "@/components/anime/RelatedSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CommentSection } from "@/components/anime/CommentSection";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 async function AnimeDetailsPageContent({ id }: { id: string }) {
     try {
         const detailsData = await getAnimeDetails(id);

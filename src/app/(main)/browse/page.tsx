@@ -7,6 +7,9 @@ import { SortClient } from "./SortClient";
 import { FilterMenu } from "@/components/FilterMenu";
 import type { FilterOptions } from "@/lib/types";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 // Static filter options from /api/filter — no API call needed
 const STATIC_FILTERS: FilterOptions = {
     genres: [

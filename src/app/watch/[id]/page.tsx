@@ -6,6 +6,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
 import { WatchClient } from "./WatchClient";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 function isRedirectError(error: unknown): boolean {
     if (typeof error !== 'object' || error === null) return false;
     return 'digest' in error && typeof (error as any).digest === 'string' && (error as any).digest.startsWith('NEXT_REDIRECT;');

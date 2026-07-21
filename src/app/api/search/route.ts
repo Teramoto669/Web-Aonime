@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
   const backendUrl = new URL(`${process.env.API_BASE_URL}/search`);
   backendUrl.searchParams.set('keyword', keyword);
   backendUrl.searchParams.set('page', page);
-  if (refresh) backendUrl.searchParams.set('refresh', '1');
+  if (refresh !== '0') backendUrl.searchParams.set('refresh', '1');
 
   try {
     const res = await fetch(backendUrl.toString(), {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     
     if (!res.ok) {

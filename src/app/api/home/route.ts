@@ -1,11 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getHomeData } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const data = await getHomeData();
+    const { searchParams } = new URL(req.url);
+    const refresh = searchParams.get('refresh') !== '0';
+    const data = await getHomeData(refresh);
     return NextResponse.json({ ok: true, data });
   } catch (err: any) {
     return NextResponse.json(

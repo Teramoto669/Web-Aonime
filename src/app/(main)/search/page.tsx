@@ -6,6 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FilterMenu } from "@/components/FilterMenu";
 import { SortClient } from "./SortClient";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 const SORT_OPTIONS = [
 	{ value: "default", label: "Default" },
 	{ value: "latest-updated", label: "Recently Updated" },

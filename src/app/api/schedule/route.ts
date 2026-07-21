@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const tz = searchParams.get('tz') || '0';
-  const refresh = searchParams.get('refresh') === '1';
+  const refresh = searchParams.get('refresh') !== '0';
 
   try {
     const data = await getSchedule(tz, refresh);

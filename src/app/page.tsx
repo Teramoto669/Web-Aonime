@@ -5,6 +5,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { type AnimeListItem, getAnimeSlug } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 60;
+
 async function HomePageContent() {
   try {
     const homeData = await getHomeData();
