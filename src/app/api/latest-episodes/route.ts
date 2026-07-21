@@ -4,8 +4,15 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    const baseUrl = process.env.API_BASE_URL;
+    if (!baseUrl) {
+      return NextResponse.json(
+        { ok: false, message: 'API_BASE_URL environment variable is missing' },
+        { status: 500 }
+      );
+    }
     const res = await fetch(
-      'https://anikoto-private-hosted.vercel.app/api/latest?type=latest-updated',
+      `${baseUrl}/filter?sort=latest-updated`,
       { next: { revalidate: 60 } } // cache 60s on the server
     );
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);
