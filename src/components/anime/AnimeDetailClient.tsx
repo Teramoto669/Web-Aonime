@@ -95,7 +95,7 @@ export function AnimeDetailClient({
       )}
 
       {/* Main Details Section */}
-      <div className={`flex flex-col md:flex-row gap-8 ${isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none transition-all duration-300" : ""}`}>
+      <div className={`flex flex-col md:flex-row gap-8 ${isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none transition-all duration-300 transform-gpu [will-change:filter]" : ""}`}>
         <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] flex-shrink-0">
           <div className="relative aspect-[2/3] w-full">
             <Image

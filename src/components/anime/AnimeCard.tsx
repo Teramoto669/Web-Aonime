@@ -78,10 +78,12 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                 alt={anime.title}
                 fill
                 sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
-                className={`object-cover transition-all duration-300 ${shouldBlur ? 'blur-xl scale-110 opacity-40' : ''}`}
+                className={`object-cover transition-all duration-300 ${
+                  shouldBlur ? 'blur-md scale-105 opacity-30 transform-gpu [will-change:filter]' : ''
+                }`}
               />
               {shouldBlur ? (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2 text-center z-10 space-y-2">
+                <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center p-2 text-center z-10 space-y-2 transform-gpu">
                   <ShieldAlert className="w-8 h-8 text-destructive animate-pulse" />
                   <Badge variant="destructive" className="text-[10px] uppercase font-bold py-0.5 px-2">
                     Blocked

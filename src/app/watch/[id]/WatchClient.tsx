@@ -204,7 +204,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                 </div>
             )}
 
-            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
+            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300 transform-gpu [will-change:filter]" : ""}`}>
                 <div className="lg:col-span-3 space-y-4">
                     {/* Video Player */}
                     <div className="w-full bg-black rounded-lg shadow-lg">
