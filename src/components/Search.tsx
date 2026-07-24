@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
 import Image from "next/image";
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
 
 interface SearchResult {
   id: string;
@@ -25,6 +26,7 @@ interface SearchResult {
 
 export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpanded: boolean; setIsSearchExpanded: (expanded: boolean) => void }) {
   const router = useRouter();
+  const { filterAnimeList } = useBlockedFilters();
   const [query, setQuery] = useState("");
   const [mounted, setMounted] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -185,9 +187,9 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
               <Loader2 className="h-4 w-4 animate-spin" />
               Searching...
             </div>
-          ) : results.length > 0 ? (
+          ) : filterAnimeList(results).length > 0 ? (
             <div className="flex flex-col max-h-[70vh] overflow-y-auto">
-              {results.map((anime) => (
+              {filterAnimeList(results).map((anime) => (
                 <Link
                   key={anime.id}
                   href={`/anime/${anime.slug}`}

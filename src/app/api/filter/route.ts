@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const keyword = searchParams.get('keyword') || undefined;
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
-    const sort = searchParams.get('sort') || undefined;
+    const sort = searchParams.get('sort') || 'default';
     const refresh = searchParams.get('refresh') !== '0';
 
     const getArrayParam = (paramName: string) => {

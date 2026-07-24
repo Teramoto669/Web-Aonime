@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider, CustomProvider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider, CustomProvider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,25 +21,34 @@ export const db = getFirestore(app);
 if (typeof window !== "undefined") {
   const debugToken = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN;
   const recaptchaKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_RECAPTCHA_KEY;
+  const useEnterprise = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_USE_ENTERPRISE === "true";
 
-  if (debugToken) {
-    // Use debug token for local development
-    (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
-    initializeAppCheck(app, {
-      provider: new CustomProvider({
-        getToken: async () => ({
-          token: debugToken,
-          expireTimeMillis: Date.now() + 3600 * 1000,
+  try {
+    if (debugToken) {
+      // Use debug token for local development
+      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      initializeAppCheck(app, {
+        provider: new CustomProvider({
+          getToken: async () => ({
+            token: debugToken,
+            expireTimeMillis: Date.now() + 3600 * 1000,
+          }),
         }),
-      }),
-      isTokenAutoRefreshEnabled: true,
-    });
-  } else if (recaptchaKey) {
-    // Use reCAPTCHA v3 for production
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(recaptchaKey),
-      isTokenAutoRefreshEnabled: true,
-    });
+        isTokenAutoRefreshEnabled: true,
+      });
+    } else if (recaptchaKey) {
+      // Use reCAPTCHA Enterprise or v3 based on flag
+      const provider = useEnterprise
+        ? new ReCaptchaEnterpriseProvider(recaptchaKey)
+        : new ReCaptchaV3Provider(recaptchaKey);
+
+      initializeAppCheck(app, {
+        provider,
+        isTokenAutoRefreshEnabled: true,
+      });
+    }
+  } catch (err) {
+    console.warn("App Check initialization skipped/failed:", err);
   }
-  // If neither key is set, App Check is not initialized (dev without enforcement)
 }
+

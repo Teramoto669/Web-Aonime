@@ -11,6 +11,9 @@ import LibraryButton from "@/components/anime/LibraryButton";
 import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 import { useAuth } from "@/lib/auth-context";
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
+import { ShieldAlert, Eye, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
@@ -27,6 +30,11 @@ interface WatchClientProps {
 }
 
 export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData, relatedData = [], recommendationsData = [], cfProxyUrl }: WatchClientProps) {
+    const { isAnimeBlocked, getBlockedReason, openModal } = useBlockedFilters();
+    const isBlocked = isAnimeBlocked(detailsData);
+    const blockedReason = getBlockedReason(detailsData);
+    const [revealed, setRevealed] = useState(false);
+
     const allSources = watchData.sources || [];
     const servers = watchData.servers || [];
 
@@ -159,8 +167,44 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     }, [user, detailsData.id, animeId, episodeNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
 
     return (
-        <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+            {/* Blocked Filter Warning Banner */}
+            {isBlocked && !revealed && (
+                <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+                    <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-destructive/20 rounded-lg text-destructive flex-shrink-0">
+                            <ShieldAlert className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-destructive">
+                                Content Filter Warning
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                This anime matches your active Content Blocklist ({blockedReason}).
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={openModal}
+                            className="text-xs h-8 gap-1.5 border-destructive/40 hover:bg-destructive/10"
+                        >
+                            <Settings className="w-3.5 h-3.5" /> Adjust Filters
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={() => setRevealed(true)}
+                            className="text-xs h-8 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
+                        >
+                            <Eye className="w-3.5 h-3.5" /> Unblock & Watch
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
                 <div className="lg:col-span-3 space-y-4">
                     {/* Video Player */}
                     <div className="w-full bg-black rounded-lg shadow-lg">

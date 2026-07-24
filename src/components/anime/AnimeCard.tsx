@@ -1,11 +1,16 @@
+"use client";
+
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlayIcon, Tv, Clapperboard } from 'lucide-react';
-import type { AnimeListItem } from '@/lib/types';
+import { PlayIcon, Tv, Clapperboard, ShieldAlert, Eye } from 'lucide-react';
+import type { AnimeListItem, AnimeTooltipData } from '@/lib/types';
 import { getAnimeSlug } from '@/lib/types';
 import { AnimeTooltip } from './AnimeTooltip';
+import { useBlockedFilters } from '@/lib/blocked-filters-context';
+import { getCachedAnimeTooltip, fetchAnimeTooltip } from '@/lib/anime-details-cache';
 
 type AnimeCardProps = {
   anime: AnimeListItem;
@@ -13,9 +18,53 @@ type AnimeCardProps = {
 };
 
 export function AnimeCard({ anime, className }: AnimeCardProps) {
+  const { isAnimeBlocked, getBlockedReason, blockedFilters } = useBlockedFilters();
+  const [tooltipData, setTooltipData] = useState<AnimeTooltipData | null>(() =>
+    getCachedAnimeTooltip(anime.id)
+  );
+
+  useEffect(() => {
+    if (!anime.id) return;
+    if (!blockedFilters.enabled) return;
+
+    // Check if we need deeper metadata (rating / genres)
+    const hasDetailedInfo = (anime as any).rating || ((anime as any).genres && (anime as any).genres.length > 0);
+    if (hasDetailedInfo) return;
+
+    const cached = getCachedAnimeTooltip(anime.id);
+    if (cached) {
+      setTooltipData(cached);
+      return;
+    }
+
+    if (blockedFilters.ratings.length > 0 || blockedFilters.genres.length > 0) {
+      let isMounted = true;
+      fetchAnimeTooltip(anime.id).then((data) => {
+        if (isMounted && data) {
+          setTooltipData(data);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [anime.id, blockedFilters.enabled, blockedFilters.ratings.length, blockedFilters.genres.length, (anime as any).rating]);
+
+  const mergedAnime = tooltipData ? { ...tooltipData, ...anime } : anime;
+  const isBlocked = isAnimeBlocked(mergedAnime);
+  const blockedReason = getBlockedReason(mergedAnime);
+  const [unblur, setUnblur] = useState(false);
+
   const subCount = Number(anime.episodes?.sub) || 0;
   const dubCount = Number(anime.episodes?.dub) || 0;
   const hasEpisodes = subCount > 0 || dubCount > 0;
+
+  // If in 'hide' mode and item is blocked, hide completely
+  if (isBlocked && blockedFilters.mode === 'hide') {
+    return null;
+  }
+
+  const shouldBlur = isBlocked && blockedFilters.mode === 'blur' && !unblur;
 
   return (
     <AnimeTooltip id={anime.id} fallbackTitle={anime.title}>
@@ -29,13 +78,39 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                 alt={anime.title}
                 fill
                 sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
-                className="object-cover"
+                className={`object-cover transition-all duration-300 ${shouldBlur ? 'blur-xl scale-110 opacity-40' : ''}`}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <PlayIcon className="h-12 w-12 text-white" />
+              {shouldBlur ? (
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2 text-center z-10 space-y-2">
+                  <ShieldAlert className="w-8 h-8 text-destructive animate-pulse" />
+                  <Badge variant="destructive" className="text-[10px] uppercase font-bold py-0.5 px-2">
+                    Blocked
+                  </Badge>
+                  {blockedReason && (
+                    <p className="text-[10px] text-muted-foreground line-clamp-2 px-1">
+                      {blockedReason}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    data-no-nav="true"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setUnblur(true);
+                    }}
+                    className="mt-1 text-[10px] bg-background/80 hover:bg-background text-foreground px-2 py-1 rounded flex items-center gap-1 border border-border"
+                  >
+                    <Eye className="w-3 h-3" /> Reveal
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <PlayIcon className="h-12 w-12 text-white" />
+                  </div>
+                </div>
+              )}
             </div>
             {anime.rank && (
               <Badge

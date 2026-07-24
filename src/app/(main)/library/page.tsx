@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import type { AnimeListItem } from "@/lib/types";
 import { Pagination } from "@/components/Pagination";
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
 
 const ITEMS_PER_PAGE = 24;
 
@@ -119,6 +120,7 @@ function LibraryPageContent() {
     changeUserPassword,
     deleteUserAccount
   } = useAuth();
+  const { isAnimeBlocked, blockedFilters } = useBlockedFilters();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   
@@ -616,9 +618,11 @@ function LibraryPageContent() {
     }
   };
 
-  const totalHistoryPages = Math.ceil(historyItems.length / ITEMS_PER_PAGE);
+  const filteredHistoryItems = historyItems;
+
+  const totalHistoryPages = Math.ceil(filteredHistoryItems.length / ITEMS_PER_PAGE);
   const currentHistoryPage = Math.min(Math.max(1, historyPage), Math.max(1, totalHistoryPages));
-  const paginatedHistoryItems = historyItems.slice(
+  const paginatedHistoryItems = filteredHistoryItems.slice(
     (currentHistoryPage - 1) * ITEMS_PER_PAGE,
     currentHistoryPage * ITEMS_PER_PAGE
   );

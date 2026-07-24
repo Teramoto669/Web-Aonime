@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Carousel,
   CarouselContent,
@@ -7,6 +9,7 @@ import {
 } from "@/components/ui/carousel";
 import { AnimeCard } from "./AnimeCard";
 import type { AnimeListItem } from "@/lib/types";
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
 
 type AnimeCarouselProps = {
   title: string;
@@ -14,6 +17,11 @@ type AnimeCarouselProps = {
 };
 
 export function AnimeCarousel({ title, animes }: AnimeCarouselProps) {
+  const { filterAnimeList } = useBlockedFilters();
+  const visibleAnimes = filterAnimeList(animes);
+
+  if (!visibleAnimes || visibleAnimes.length === 0) return null;
+
   return (
     <section>
       <h2 className="text-2xl font-bold mb-4">{title}</h2>
@@ -25,7 +33,7 @@ export function AnimeCarousel({ title, animes }: AnimeCarouselProps) {
         className="w-full"
       >
         <CarouselContent>
-          {animes.map((anime) => (
+          {visibleAnimes.map((anime) => (
             <CarouselItem key={anime.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6 2xl:basis-[14.285%] 3xl:basis-[12.5%] 4xl:basis-[10%] 5xl:basis-[7.142%]">
               <AnimeCard anime={anime} />
             </CarouselItem>

@@ -83,7 +83,7 @@ const SORT_OPTIONS = [
 
 async function BrowsePageContent({ page, sort, keyword, filters }: { page: number; sort: string; keyword?: string; filters: Record<string, string[]> }) {
   try {
-    const data = await browseAnime({ page, limit: 24, sort, keyword, ...filters });
+    const data = await browseAnime({ page, limit: 24, sort: sort || 'default', keyword, refresh: true, ...filters });
     const animes = data.results ?? [];
     return (
       <div className="space-y-8">

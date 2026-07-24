@@ -16,11 +16,18 @@ import type { AnimeListItem } from "@/lib/types";
 import { getAnimeSlug } from "@/lib/types";
 import Autoplay from "embla-carousel-autoplay";
 
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
+
 type SpotlightCarouselProps = {
   animes: AnimeListItem[];
 };
 
 export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
+  const { filterAnimeList } = useBlockedFilters();
+  const filteredAnimes = filterAnimeList(animes);
+
+  if (!filteredAnimes || filteredAnimes.length === 0) return null;
+
   return (
     <div className="w-full relative">
       <Carousel
@@ -36,7 +43,7 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
         }}
       >
         <CarouselContent>
-          {animes.map((anime, index) => (
+          {filteredAnimes.map((anime, index) => (
             <CarouselItem key={getAnimeSlug(anime)}>
               <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
                 <div className="absolute inset-0">

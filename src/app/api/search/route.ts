@@ -4,6 +4,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const keyword = searchParams.get('keyword');
   const page = searchParams.get('page') || '1';
+  const sort = searchParams.get('sort') || 'default';
   const refresh = searchParams.get('refresh');
 
   if (!keyword) {
@@ -13,11 +14,12 @@ export async function GET(req: NextRequest) {
   const backendUrl = new URL(`${process.env.API_BASE_URL}/search`);
   backendUrl.searchParams.set('keyword', keyword);
   backendUrl.searchParams.set('page', page);
+  backendUrl.searchParams.set('sort', sort);
   if (refresh !== '0') backendUrl.searchParams.set('refresh', '1');
 
   try {
     const res = await fetch(backendUrl.toString(), {
-      next: { revalidate: 60 },
+      ...(refresh !== '0' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
     });
     
     if (!res.ok) {

@@ -43,29 +43,16 @@ if (typeof window !== "undefined") {
   window.addEventListener("carousel-scroll", handleCarouselScroll, { capture: true });
 }
 
+import { fetchAnimeTooltip, getCachedAnimeTooltip } from "@/lib/anime-details-cache";
+
 function prefetchTooltip(id: string): Promise<AnimeTooltipData> {
-  if (tooltipCache.has(id)) {
-    return Promise.resolve(tooltipCache.get(id)!);
-  }
-  if (tooltipPromises.has(id)) {
-    return tooltipPromises.get(id)!;
-  }
+  const cached = getCachedAnimeTooltip(id);
+  if (cached) return Promise.resolve(cached);
 
-  const promise = fetch(`/api/anime/tooltip/${id}`)
-    .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    })
-    .then((json) => {
-      if (json.ok && json.data) {
-        tooltipCache.set(id, json.data);
-        return json.data;
-      }
-      throw new Error(json.message || "Failed to load data");
-    });
-
-  tooltipPromises.set(id, promise);
-  return promise;
+  return fetchAnimeTooltip(id).then((data) => {
+    if (!data) throw new Error("Failed to load tooltip data");
+    return data;
+  });
 }
 
 interface AnimeTooltipProps {

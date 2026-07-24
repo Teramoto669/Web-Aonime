@@ -92,7 +92,19 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const anchor = (e.target as HTMLElement).closest("a");
+      const targetEl = e.target as HTMLElement;
+      if (!targetEl) return;
+
+      // Do not trigger page navigation loader if clicking a button inside or near an anchor
+      if (
+        targetEl.closest("button") ||
+        targetEl.getAttribute("role") === "button" ||
+        targetEl.closest("[data-no-nav]")
+      ) {
+        return;
+      }
+
+      const anchor = targetEl.closest("a");
       if (!anchor) return;
 
       const href = anchor.getAttribute("href");

@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     if (refresh !== '0') upstreamParams.set('refresh', '1');
 
     const res = await fetch(`${baseUrl}/updated?${upstreamParams.toString()}`, {
-      next: { revalidate: 60 },
+      ...(refresh !== '0' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
     });
 
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);

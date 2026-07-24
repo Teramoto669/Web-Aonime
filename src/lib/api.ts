@@ -25,11 +25,15 @@ interface ApiResponse<T> {
 
 async function fetcher<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
+  const isRefresh = path.includes('refresh=1') || options?.cache === 'no-store';
   try {
-    const res = await fetch(url, {
-      next: { revalidate: 60, ...options?.next },
+    const fetchOptions: RequestInit = {
       ...options,
-    });
+      ...(isRefresh
+        ? { cache: 'no-store' }
+        : { next: { revalidate: 60, ...options?.next } }),
+    };
+    const res = await fetch(url, fetchOptions);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`HTTP ${res.status} from ${url}: ${text}`);
@@ -137,12 +141,14 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
     Boolean(params.rating?.length) ||
     Boolean(params.keyword);
 
-  if (params.sort === 'latest-updated' && !hasExtraFilters) {
+  const sortValue = params.sort || 'default';
+
+  if (sortValue === 'latest-updated' && !hasExtraFilters) {
     return getUpdatedAnime({
       type: 'Latest Updated',
       sort: 'latest-updated',
       page: params.page,
-      refresh: true,
+      refresh: params.refresh ?? true,
     });
   }
 
@@ -150,9 +156,11 @@ export const filterAnime = (params: FilterParams = {}): Promise<BrowseResponse> 
 
   // Always set keyword, type, and sort to avoid backend 500 errors
   qs.set('keyword', params.keyword ?? '');
-  qs.set('type', params.sort === 'latest-updated' ? 'Latest Updated' : '');
-  qs.set('sort', params.sort ?? 'default');
-  qs.set('refresh', '1'); // Always refresh=1 for browse
+  qs.set('type', sortValue === 'latest-updated' ? 'Latest Updated' : '');
+  qs.set('sort', sortValue);
+  if (params.refresh !== false) {
+    qs.set('refresh', '1'); // Always refresh=1 for browse unless refresh: false
+  }
 
   if (params.page) qs.set('page', String(params.page));
 
@@ -333,7 +341,7 @@ export type BrowseParams = {
 export const browseAnime = (params: BrowseParams = {}): Promise<BrowseResponse> => {
   return filterAnime({
     page: params.page,
-    sort: params.sort,
+    sort: params.sort || 'default',
     keyword: params.keyword,
     genre: params.genre,
     term_type: params.term_type,

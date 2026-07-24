@@ -17,8 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Bookmark, Menu } from "lucide-react";
+import { User, LogOut, Bookmark, Menu, ShieldAlert } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { useBlockedFilters } from "@/lib/blocked-filters-context";
 import {
   Sheet,
   SheetContent,
@@ -31,6 +32,7 @@ import {
 export default function Header() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const { user, loading, logout, openAuthModal } = useAuth();
+  const { openModal: openBlockedFiltersModal, blockedFilters } = useBlockedFilters();
   const pathname = usePathname();
 
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({
@@ -130,6 +132,15 @@ export default function Header() {
                     </SheetClose>
                   );
                 })}
+                <SheetClose asChild>
+                  <button
+                    onClick={openBlockedFiltersModal}
+                    className="flex items-center px-3 py-2.5 rounded-md transition-all text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-left w-full mt-2 border-t border-border/40 pt-3"
+                  >
+                    <ShieldAlert className="mr-2.5 h-4 w-4 text-destructive" />
+                    Content Blocklist
+                  </button>
+                </SheetClose>
               </nav>
             </SheetContent>
           </Sheet>
@@ -183,6 +194,25 @@ export default function Header() {
           </div>
           
           <div className={cn("items-center gap-2", isSearchExpanded ? "hidden md:flex" : "flex")}>
+            {/* Filter Blocklist Button accessible by EVERYONE */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={openBlockedFiltersModal}
+              className="relative h-9 w-9 text-foreground/70 hover:text-foreground hover:bg-muted/50 rounded-full"
+              title="Content Filter Blocklist"
+            >
+              <ShieldAlert className="h-5 w-5 text-foreground/80" />
+              {blockedFilters.enabled &&
+                (blockedFilters.genres.length > 0 ||
+                  blockedFilters.keywords.length > 0 ||
+                  blockedFilters.types.length > 0 ||
+                  blockedFilters.ratings.length > 0) && (
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+                )}
+              <span className="sr-only">Content Filters</span>
+            </Button>
+
             {loading ? (
               <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />
             ) : user ? (
@@ -190,50 +220,54 @@ export default function Header() {
                 <NotificationBell />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0">
-                    <Avatar className={cn(
-                      "h-9 w-9 transition-transform duration-200 hover:scale-105 border-2",
-                      user.themeColor === "violet" && "border-violet-500",
-                      user.themeColor === "rose" && "border-rose-500",
-                      user.themeColor === "amber" && "border-amber-500",
-                      user.themeColor === "emerald" && "border-emerald-500",
-                      user.themeColor === "indigo" && "border-indigo-500"
-                    )}>
-                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
-                      <AvatarFallback className="text-xs bg-muted text-foreground">
-                        {user.displayName?.substring(0, 2).toUpperCase() || "US"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-background/95 border-border/85 backdrop-blur-md" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-semibold leading-none">{user.displayName}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/library" className="cursor-pointer flex items-center">
-                      <Bookmark className="mr-2 h-4 w-4" />
-                      <span>My Library</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/library?tab=profile" className="cursor-pointer flex items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Edit Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0">
+                      <Avatar className={cn(
+                        "h-9 w-9 transition-transform duration-200 hover:scale-105 border-2",
+                        user.themeColor === "violet" && "border-violet-500",
+                        user.themeColor === "rose" && "border-rose-500",
+                        user.themeColor === "amber" && "border-amber-500",
+                        user.themeColor === "emerald" && "border-emerald-500",
+                        user.themeColor === "indigo" && "border-indigo-500"
+                      )}>
+                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
+                        <AvatarFallback className="text-xs bg-muted text-foreground">
+                          {user.displayName?.substring(0, 2).toUpperCase() || "US"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-background/95 border-border/85 backdrop-blur-md" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-semibold leading-none">{user.displayName}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/library" className="cursor-pointer flex items-center">
+                        <Bookmark className="mr-2 h-4 w-4" />
+                        <span>My Library</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/library?tab=profile" className="cursor-pointer flex items-center">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Edit Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openBlockedFiltersModal} className="cursor-pointer flex items-center">
+                      <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />
+                      <span>Content Blocklist</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <Button onClick={() => openAuthModal('login')} size="sm" className="font-semibold px-4 h-9">
                 Sign In
