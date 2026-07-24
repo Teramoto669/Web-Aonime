@@ -15,14 +15,18 @@ const STATIC_FILTERS: FilterOptions = {
     genres: [
         { id: "1",   name: "Action",       slug: "action" },
         { id: "2",   name: "Adventure",    slug: "adventure" },
+        { id: "2330",name: "Boys Love",    slug: "boys-love" },
         { id: "538", name: "Cars",         slug: "cars" },
         { id: "8",   name: "Comedy",       slug: "comedy" },
         { id: "453", name: "Dementia",     slug: "dementia" },
         { id: "119", name: "Demons",       slug: "demons" },
         { id: "62",  name: "Drama",        slug: "drama" },
         { id: "214", name: "Ecchi",        slug: "ecchi" },
+        { id: "2322",name: "Erotica",      slug: "erotica" },
         { id: "3",   name: "Fantasy",      slug: "fantasy" },
         { id: "180", name: "Game",         slug: "game" },
+        { id: "2328",name: "Girls Love",    slug: "girls-love" },
+        { id: "2326",name: "Gourmet",       slug: "gourmet" },
         { id: "215", name: "Harem",        slug: "harem" },
         { id: "70",  name: "Historical",   slug: "historical" },
         { id: "222", name: "Horror",       slug: "horror" },
@@ -30,6 +34,7 @@ const STATIC_FILTERS: FilterOptions = {
         { id: "404", name: "Josei",        slug: "josei" },
         { id: "46",  name: "Kids",         slug: "kids" },
         { id: "203", name: "Magic",        slug: "magic" },
+        { id: "2310",name: "Mahou Shoujo", slug: "mahou-shoujo" },
         { id: "114", name: "Martial Arts", slug: "martial-arts" },
         { id: "123", name: "Mecha",        slug: "mecha" },
         { id: "125", name: "Military",     slug: "military" },
@@ -52,6 +57,7 @@ const STATIC_FILTERS: FilterOptions = {
         { id: "29",  name: "Sports",       slug: "sports" },
         { id: "16",  name: "Super Power",  slug: "super-power" },
         { id: "9",   name: "Supernatural", slug: "supernatural" },
+        { id: "2316",name: "Suspense",     slug: "suspense" },
         { id: "54",  name: "Thriller",     slug: "thriller" },
         { id: "32",  name: "unknown",      slug: "unknown" },
         { id: "58",  name: "Vampire",      slug: "vampire" },
@@ -95,7 +101,7 @@ async function SearchResults({ query, page, sort, filters }: { query: string; pa
 
 		return (
 			<div className="space-y-8">
-				<AnimeGrid animes={data.results} />
+				<AnimeGrid animes={data.results} currentPage={page} />
                 {(data.maxPage && data.maxPage > 1) || (!data.maxPage && (data.results.length >= 24 || page > 1)) ? (
                     <Pagination
                         currentPage={page}
