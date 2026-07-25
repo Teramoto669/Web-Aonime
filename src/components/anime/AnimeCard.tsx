@@ -5,12 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlayIcon, Tv, Clapperboard, ShieldAlert, Eye } from 'lucide-react';
+import { PlayIcon, Tv, Clapperboard, ShieldAlert, Eye, BookmarkCheck } from 'lucide-react';
 import type { AnimeListItem, AnimeTooltipData } from '@/lib/types';
 import { getAnimeSlug } from '@/lib/types';
 import { AnimeTooltip } from './AnimeTooltip';
 import { useBlockedFilters } from '@/lib/blocked-filters-context';
+import { useUserLibrary, statusLabels, statusBadgeStyles } from '@/lib/library-context';
 import { getCachedAnimeTooltip, fetchAnimeTooltip } from '@/lib/anime-details-cache';
+import { cn } from '@/lib/utils';
 
 type AnimeCardProps = {
   anime: AnimeListItem;
@@ -19,6 +21,12 @@ type AnimeCardProps = {
 
 export function AnimeCard({ anime, className }: AnimeCardProps) {
   const { isAnimeBlocked, getBlockedReason, blockedFilters } = useBlockedFilters();
+  const { getLibraryStatus } = useUserLibrary();
+  const libraryStatus =
+    getLibraryStatus(anime.id) ||
+    getLibraryStatus(anime.slug) ||
+    getLibraryStatus(getAnimeSlug(anime));
+
   const [tooltipData, setTooltipData] = useState<AnimeTooltipData | null>(() =>
     getCachedAnimeTooltip(anime.id)
   );
@@ -114,16 +122,28 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                 </div>
               )}
             </div>
-            {anime.rank && (
-              <Badge
-                variant="destructive"
-                className="absolute top-2 left-2 bg-primary/90 text-primary-foreground text-lg font-bold border-0"
-              >
-                #{anime.rank}
-              </Badge>
-            )}
+            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start pointer-events-none">
+              {anime.rank && (
+                <Badge
+                  variant="destructive"
+                  className="bg-primary/90 text-primary-foreground text-xs font-bold border-0 shadow-md"
+                >
+                  #{anime.rank}
+                </Badge>
+              )}
+              {libraryStatus && (
+                <Badge
+                  className={cn(
+                    "text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md border-0 bg-emerald-600 text-white flex items-center gap-1 tracking-tight transition-transform duration-200 group-hover:scale-105"
+                  )}
+                >
+                  <BookmarkCheck className="w-3 h-3 flex-shrink-0" />
+                  <span>{statusLabels[libraryStatus]}</span>
+                </Badge>
+              )}
+            </div>
             {anime.type && (
-              <Badge className="absolute top-2 right-2 border-0">
+              <Badge className="absolute top-2 right-2 border-0 shadow-md pointer-events-none">
                 {anime.type === 'TV' ? <Tv className="w-3 h-3 mr-1"/> : <Clapperboard className="w-3 h-3 mr-1"/>}
                 {anime.type}
               </Badge>

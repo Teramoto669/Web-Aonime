@@ -27,8 +27,6 @@ import {
   EyeOff,
   Eye,
   Tag,
-  Film,
-  Star,
   Search,
 } from "lucide-react";
 
@@ -285,7 +283,7 @@ export default function BlockedFiltersModal() {
           <Tabs defaultValue="genres" className="w-full mt-4">
             <TabsList className="grid w-full grid-cols-3 bg-muted/60">
               <TabsTrigger value="genres" className="text-xs gap-1.5">
-                <Tag className="w-3.5 h-3.5" /> Blocked Genres
+                <Tag className="w-3.5 h-3.5" /> Genres
                 {blockedFilters.genres.length > 0 && (
                   <Badge className="ml-1 px-1.5 py-0 text-[10px] h-4 bg-primary/20 text-primary border-0 font-bold">
                     {blockedFilters.genres.length}
@@ -293,7 +291,7 @@ export default function BlockedFiltersModal() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="types" className="text-xs gap-1.5">
-                <Film className="w-3.5 h-3.5" /> Type & Rating
+                Type & Rating
                 {blockedFilters.types.length + blockedFilters.ratings.length > 0 && (
                   <Badge className="ml-1 px-1.5 py-0 text-[10px] h-4 bg-primary/20 text-primary border-0 font-bold">
                     {blockedFilters.types.length + blockedFilters.ratings.length}
@@ -354,11 +352,10 @@ export default function BlockedFiltersModal() {
                         variant={isBlocked ? "destructive" : "outline"}
                         size="sm"
                         onClick={() => handleToggleGenre(genre)}
-                        className={`h-8 rounded-full px-3 text-xs transition-all ${
-                          isBlocked
+                        className={`h-8 rounded-full px-3 text-xs transition-all ${isBlocked
                             ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm"
                             : "hover:border-destructive hover:text-destructive"
-                        }`}
+                          }`}
                       >
                         {isBlocked && <X className="w-3 h-3 mr-1" />}
                         {genre}
@@ -368,10 +365,10 @@ export default function BlockedFiltersModal() {
                   {POPULAR_GENRES.filter((genre) =>
                     genre.toLowerCase().includes(customGenre.toLowerCase().trim())
                   ).length === 0 && (
-                    <p className="text-xs text-muted-foreground italic py-2">
-                      No preset genre matching &quot;{customGenre}&quot;. Click &quot;+ Add&quot; above to add it as a custom blocked genre.
-                    </p>
-                  )}
+                      <p className="text-xs text-muted-foreground italic py-2">
+                        No preset genre matching &quot;{customGenre}&quot;. Click &quot;+ Add&quot; above to add it as a custom blocked genre.
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -379,42 +376,42 @@ export default function BlockedFiltersModal() {
               {blockedFilters.genres.filter(
                 (g) => !POPULAR_GENRES.some((p) => p.toLowerCase() === g.toLowerCase())
               ).length > 0 && (
-                <div className="pt-2 border-t border-border/40">
-                  <Label className="text-xs font-medium text-muted-foreground block mb-2">
-                    Custom Blocked Genres:
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {blockedFilters.genres
-                      .filter(
-                        (g) =>
-                          !POPULAR_GENRES.some(
-                            (p) => p.toLowerCase() === g.toLowerCase()
-                          )
-                      )
-                      .map((genre) => (
-                        <Badge
-                          key={genre}
-                          variant="destructive"
-                          className="px-2.5 py-1 text-xs flex items-center gap-1.5 rounded-full"
-                        >
-                          {genre}
-                          <X
-                            className="w-3 h-3 cursor-pointer hover:opacity-80"
-                            onClick={() => handleToggleGenre(genre)}
-                          />
-                        </Badge>
-                      ))}
+                  <div className="pt-2 border-t border-border/40">
+                    <Label className="text-xs font-medium text-muted-foreground block mb-2">
+                      Custom Blocked Genres:
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {blockedFilters.genres
+                        .filter(
+                          (g) =>
+                            !POPULAR_GENRES.some(
+                              (p) => p.toLowerCase() === g.toLowerCase()
+                            )
+                        )
+                        .map((genre) => (
+                          <Badge
+                            key={genre}
+                            variant="destructive"
+                            className="px-2.5 py-1 text-xs flex items-center gap-1.5 rounded-full"
+                          >
+                            {genre}
+                            <X
+                              className="w-3 h-3 cursor-pointer hover:opacity-80"
+                              onClick={() => handleToggleGenre(genre)}
+                            />
+                          </Badge>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </TabsContent>
 
             {/* TAB: Types & Ratings */}
             <TabsContent value="types" className="space-y-5 pt-3">
               {/* Types Section */}
               <div className="space-y-2">
-                <Label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <Film className="w-3.5 h-3.5 text-primary" /> Blocked Content Types
+                <Label className="text-xs font-semibold block text-foreground">
+                  Blocked Content Types
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_TYPES.map((type) => {
@@ -428,11 +425,10 @@ export default function BlockedFiltersModal() {
                         variant={isBlocked ? "destructive" : "outline"}
                         size="sm"
                         onClick={() => handleToggleType(type)}
-                        className={`h-8 rounded-md px-3 text-xs ${
-                          isBlocked
+                        className={`h-8 rounded-md px-3 text-xs ${isBlocked
                             ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             : ""
-                        }`}
+                          }`}
                       >
                         {isBlocked && <X className="w-3 h-3 mr-1" />}
                         {type}
@@ -444,8 +440,8 @@ export default function BlockedFiltersModal() {
 
               {/* Ratings Section */}
               <div className="space-y-2 pt-3 border-t border-border/40">
-                <Label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <Star className="w-3.5 h-3.5 text-amber-500" /> Blocked Age Ratings
+                <Label className="text-xs font-semibold block text-foreground">
+                  Blocked Age Ratings
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_RATINGS.map((rating) => {
@@ -459,11 +455,10 @@ export default function BlockedFiltersModal() {
                         variant={isBlocked ? "destructive" : "outline"}
                         size="sm"
                         onClick={() => handleToggleRating(rating)}
-                        className={`h-8 rounded-md px-3 text-xs ${
-                          isBlocked
+                        className={`h-8 rounded-md px-3 text-xs ${isBlocked
                             ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             : ""
-                        }`}
+                          }`}
                       >
                         {isBlocked && <X className="w-3 h-3 mr-1" />}
                         {rating}

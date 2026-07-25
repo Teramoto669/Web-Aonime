@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from '@/lib/auth-context';
+import { LibraryProvider } from '@/lib/library-context';
 import { BlockedFiltersProvider } from '@/lib/blocked-filters-context';
 import BlockedFiltersModal from '@/components/filters/BlockedFiltersModal';
 import VerificationBanner from '@/components/auth/VerificationBanner';
@@ -31,21 +32,23 @@ export default function RootLayout({
       </head>
       <body className={cn('font-body antialiased')}>
         <AuthProvider>
-          <BlockedFiltersProvider>
-            <NavigationProvider>
-              <TooltipProvider>
-                <div className="relative flex min-h-screen flex-col bg-background">
-                  <Header />
-                  <VerificationBanner />
-                  <main className="flex-1">{children}</main>
-                  <Footer />
-                </div>
-                <BlockedFiltersModal />
-                <Toaster />
-                <SpeedInsights />
-              </TooltipProvider>
-            </NavigationProvider>
-          </BlockedFiltersProvider>
+          <LibraryProvider>
+            <BlockedFiltersProvider>
+              <NavigationProvider>
+                <TooltipProvider>
+                  <div className="relative flex min-h-screen flex-col bg-background">
+                    <Header />
+                    <VerificationBanner />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
+                  </div>
+                  <BlockedFiltersModal />
+                  <Toaster />
+                  <SpeedInsights />
+                </TooltipProvider>
+              </NavigationProvider>
+            </BlockedFiltersProvider>
+          </LibraryProvider>
         </AuthProvider>
       </body>
     </html>

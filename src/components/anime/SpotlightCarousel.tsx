@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlayCircle, Info } from 'lucide-react';
+import { PlayCircle, Info, BookmarkCheck } from 'lucide-react';
 import type { AnimeListItem } from "@/lib/types";
 import { getAnimeSlug } from "@/lib/types";
 import Autoplay from "embla-carousel-autoplay";
 
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
+import { useUserLibrary, statusLabels, statusBadgeStyles } from "@/lib/library-context";
+import { cn } from "@/lib/utils";
 
 type SpotlightCarouselProps = {
   animes: AnimeListItem[];
@@ -24,6 +26,7 @@ type SpotlightCarouselProps = {
 
 export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
   const { filterAnimeList } = useBlockedFilters();
+  const { getLibraryStatus } = useUserLibrary();
   const filteredAnimes = filterAnimeList(animes);
 
   if (!filteredAnimes || filteredAnimes.length === 0) return null;
@@ -43,62 +46,81 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
         }}
       >
         <CarouselContent>
-          {filteredAnimes.map((anime, index) => (
-            <CarouselItem key={getAnimeSlug(anime)}>
-              <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
-                <div className="absolute inset-0">
-                  <Image
-                    src={anime.image || '/placeholder.jpg'}
-                    alt={anime.title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 1280px"
-                    quality={70}
-                    className="object-cover brightness-50 blur-sm transform-gpu will-change-[transform,filter]"
-                    priority={index === 0}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-                </div>
-                <div className="relative z-10 container mx-auto px-4 h-full flex flex-col pt-14 pb-12 md:pb-20 md:pt-0 lg:pt-20">
-                  <div className="md:w-3/4 lg:w-1/2 space-y-4">
-                    {anime.rank && (
-                      <Badge className="text-lg bg-primary/90 text-primary-foreground">
-                        Rank #{anime.rank}
-                      </Badge>
-                    )}
-                    <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
-                      {anime.title}
-                    </h1>
-                    {anime.synopsis && (
-                      <p className="text-sm md:text-base text-gray-300 line-clamp-3">
-                        {anime.synopsis}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
-                      {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
-                      {anime.date && <Badge variant="secondary">{anime.date}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-4 pt-4">
-                      <Button asChild size="lg">
-                        <Link href={`/watch/${getAnimeSlug(anime)}`}>
-                          <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
-                        </Link>
-                      </Button>
-                      <Button asChild variant="outline" size="lg">
-                        <Link href={`/anime/${getAnimeSlug(anime)}`}>
-                          <Info className="mr-2 h-5 w-5" /> Details
-                        </Link>
-                      </Button>
+          {filteredAnimes.map((anime, index) => {
+            const libraryStatus =
+              getLibraryStatus(anime.id) ||
+              getLibraryStatus(anime.slug) ||
+              getLibraryStatus(getAnimeSlug(anime));
+
+            return (
+              <CarouselItem key={getAnimeSlug(anime)}>
+                <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
+                  <div className="absolute inset-0">
+                    <Image
+                      src={anime.image || '/placeholder.jpg'}
+                      alt={anime.title}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 1280px"
+                      quality={70}
+                      className="object-cover brightness-50 blur-sm transform-gpu will-change-[transform,filter]"
+                      priority={index === 0}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                  </div>
+                  <div className="relative z-10 container mx-auto px-4 h-full flex flex-col pt-14 pb-12 md:pb-20 md:pt-0 lg:pt-20">
+                    <div className="md:w-3/4 lg:w-1/2 space-y-4">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {anime.rank && (
+                          <Badge className="text-sm bg-primary/90 text-primary-foreground">
+                            Rank #{anime.rank}
+                          </Badge>
+                        )}
+                        {libraryStatus && (
+                          <Badge
+                            className={cn(
+                              "text-xs font-bold gap-1 px-2.5 py-1 border-0 shadow-md bg-emerald-600 text-white"
+                            )}
+                          >
+                            <BookmarkCheck className="w-3.5 h-3.5" />
+                            <span>{statusLabels[libraryStatus]}</span>
+                          </Badge>
+                        )}
+                      </div>
+                      <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
+                        {anime.title}
+                      </h1>
+                      {anime.synopsis && (
+                        <p className="text-sm md:text-base text-gray-300 line-clamp-3">
+                          {anime.synopsis}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
+                        {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
+                        {anime.date && <Badge variant="secondary">{anime.date}</Badge>}
+                      </div>
+                      <div className="flex items-center gap-4 pt-4">
+                        <Button asChild size="lg">
+                          <Link href={`/watch/${getAnimeSlug(anime)}`}>
+                            <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
+                          </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="lg">
+                          <Link href={`/anime/${getAnimeSlug(anime)}`}>
+                            <Info className="mr-2 h-5 w-5" /> Details
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </CarouselItem>
-          ))}
+              </CarouselItem>
+            );
+          })}
         </CarouselContent>
         <div className="absolute bottom-4 right-4 md:bottom-10 md:right-10 z-10 flex gap-2">
-          <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0"/>
-          <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0"/>
+          <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0" />
+          <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0" />
         </div>
       </Carousel>
     </div>
