@@ -78,7 +78,8 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                         {libraryStatus && (
                           <Badge
                             className={cn(
-                              "text-xs font-bold gap-1 px-2.5 py-1 border-0 shadow-md bg-emerald-600 text-white"
+                              "text-xs font-bold gap-1 px-2.5 py-1 border-0 shadow-md",
+                              statusBadgeStyles[libraryStatus]
                             )}
                           >
                             <BookmarkCheck className="w-3.5 h-3.5" />

@@ -17,10 +17,10 @@ export const statusLabels: Record<LibraryStatus, string> = {
 
 export const statusBadgeStyles: Record<LibraryStatus, string> = {
   watching: "bg-emerald-600 text-white border-0 shadow-sm",
-  plan_to_watch: "bg-emerald-600 text-white border-0 shadow-sm",
-  completed: "bg-emerald-600 text-white border-0 shadow-sm",
-  on_hold: "bg-emerald-600 text-white border-0 shadow-sm",
-  dropped: "bg-emerald-600 text-white border-0 shadow-sm",
+  plan_to_watch: "bg-blue-600 text-white border-0 shadow-sm",
+  completed: "bg-violet-600 text-white border-0 shadow-sm",
+  on_hold: "bg-amber-500 text-white border-0 shadow-sm",
+  dropped: "bg-rose-600 text-white border-0 shadow-sm",
 };
 
 interface LibraryContextType {

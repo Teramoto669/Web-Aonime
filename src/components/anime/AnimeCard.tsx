@@ -134,7 +134,8 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
               {libraryStatus && (
                 <Badge
                   className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md border-0 bg-emerald-600 text-white flex items-center gap-1 tracking-tight transition-transform duration-200 group-hover:scale-105"
+                    "text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md border-0 flex items-center gap-1 tracking-tight transition-transform duration-200 group-hover:scale-105",
+                    statusBadgeStyles[libraryStatus]
                   )}
                 >
                   <BookmarkCheck className="w-3 h-3 flex-shrink-0" />
