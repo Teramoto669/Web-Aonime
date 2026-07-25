@@ -28,6 +28,56 @@ export const DEFAULT_BLOCKED_FILTERS: BlockedFilters = {
 
 const LOCAL_STORAGE_KEY = "aonime_blocked_filters";
 
+export function getCanonicalRating(ratingStr: string | null | undefined): string | null {
+  if (!ratingStr) return null;
+  const raw = ratingStr.toLowerCase().trim();
+  const norm = raw.replace(/[^a-z0-9]/g, "");
+
+  if (!norm && !raw) return null;
+
+  // 1. Rx / Hentai rating
+  if (norm.includes("rx") || raw.includes("hentai")) {
+    return "Rx";
+  }
+
+  // 2. R+ (Mild Nudity): contains "+"
+  if (
+    (raw.includes("r+") || raw.includes("r +") || norm.includes("rplus") || raw.includes("mild nudity") || norm === "rplus") &&
+    !norm.includes("17")
+  ) {
+    return "R+";
+  }
+
+  // 3. R - 17+ (violence & profanity): contains "17", "r17", "r-17", or standalone "r"
+  if (
+    norm.includes("17") ||
+    norm === "r" ||
+    norm.startsWith("r17") ||
+    raw.includes("r - 17") ||
+    raw.includes("r-17") ||
+    raw.includes("violence")
+  ) {
+    return "R - 17+";
+  }
+
+  // 4. PG-13: contains "13" or "pg13"
+  if (norm.includes("13") || norm.includes("pg13") || raw.includes("pg-13") || raw.includes("teens")) {
+    return "PG-13";
+  }
+
+  // 5. PG: starts with "pg" (and not 13) or contains "children"
+  if (norm.startsWith("pg") || raw.includes("children")) {
+    return "PG";
+  }
+
+  // 6. G: exact "g" or "g - all ages" or "all ages"
+  if (norm === "g" || raw.includes("all ages")) {
+    return "G";
+  }
+
+  return norm;
+}
+
 interface BlockedFiltersContextType {
   blockedFilters: BlockedFilters;
   loading: boolean;
@@ -228,7 +278,7 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
       };
 
       const cachedData = getCachedAnimeTooltip(animeObj.id || animeObj.slug);
-      const mergedObj = cachedData ? { ...cachedData, ...animeObj } : animeObj;
+      const mergedObj = cachedData ? { ...animeObj, ...cachedData } : animeObj;
 
       const animeGenres = extractGenres(mergedObj).map(normalizeString);
       const titleNorm = normalizeString(mergedObj.title || "");
@@ -236,21 +286,16 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
       const slugNorm = normalizeString(mergedObj.slug || mergedObj.id || "");
       const synopsisNorm = normalizeString(mergedObj.synopsis || "");
 
-      // 1. Check Genres
+      // 1. Check Genres (Only check actual anime genre tags)
       if (blockedFilters.genres.length > 0) {
         for (const blockedGenre of blockedFilters.genres) {
           const normBlocked = normalizeString(blockedGenre);
           if (!normBlocked) continue;
 
-          if (animeGenres.some((g) => g === normBlocked || g.includes(normBlocked))) {
-            return `Genre: ${blockedGenre}`;
-          }
-
           if (
-            normBlocked.length >= 4 &&
-            (titleNorm.includes(normBlocked) ||
-              slugNorm.includes(normBlocked) ||
-              synopsisNorm.includes(normBlocked))
+            animeGenres.some(
+              (g) => g === normBlocked || (normBlocked.length >= 4 && g.includes(normBlocked))
+            )
           ) {
             return `Genre: ${blockedGenre}`;
           }
@@ -268,33 +313,21 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
         }
       }
 
-      // 3. Check Ratings
+      // 3. Check Ratings (using canonical rating keys)
       const currentRating = mergedObj.rating || animeObj.rating;
       if (blockedFilters.ratings.length > 0 && currentRating) {
-        const ratingRawLower = currentRating.toLowerCase().trim();
-        const normRating = normalizeString(currentRating);
-
-        for (const blockedRating of blockedFilters.ratings) {
-          const blockedRawLower = blockedRating.toLowerCase().trim();
-          const normBlocked = normalizeString(blockedRating);
-          if (!blockedRawLower || !normBlocked) continue;
-
-          // Robust rating check: e.g. "R+" in "R+" or "R+ - Mild Nudity", "R-17+" or "17+" for R - 17+
-          if (
-            ratingRawLower === blockedRawLower ||
-            ratingRawLower.includes(blockedRawLower) ||
-            normRating === normBlocked ||
-            (normBlocked.includes("r") && normBlocked.includes("17") && normRating.includes("17")) ||
-            (normBlocked === "r" && (normRating === "r" || normRating.startsWith("r17") || normRating.startsWith("rplus"))) ||
-            (normBlocked.includes("plus") && (normRating.includes("plus") || ratingRawLower.includes("r+"))) ||
-            (normBlocked.includes("rx") && normRating.includes("rx"))
-          ) {
-            return `Rating: ${blockedRating}`;
+        const canonicalAnimeRating = getCanonicalRating(currentRating);
+        if (canonicalAnimeRating) {
+          for (const blockedRating of blockedFilters.ratings) {
+            const canonicalBlockedRating = getCanonicalRating(blockedRating);
+            if (canonicalBlockedRating && canonicalAnimeRating === canonicalBlockedRating) {
+              return `Rating: ${blockedRating}`;
+            }
           }
         }
       }
 
-      // 4. Check Keywords
+      // 4. Check Keywords (Search title, slug, and synopsis for explicitly added custom keywords)
       if (blockedFilters.keywords.length > 0) {
         for (const keyword of blockedFilters.keywords) {
           const normKw = normalizeString(keyword);

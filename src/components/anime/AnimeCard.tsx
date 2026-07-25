@@ -58,7 +58,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
     }
   }, [anime.id, blockedFilters.enabled, blockedFilters.ratings.length, blockedFilters.genres.length, (anime as any).rating]);
 
-  const mergedAnime = tooltipData ? { ...tooltipData, ...anime } : anime;
+  const mergedAnime = tooltipData ? { ...anime, ...tooltipData } : anime;
   const isBlocked = isAnimeBlocked(mergedAnime);
   const blockedReason = getBlockedReason(mergedAnime);
   const [unblur, setUnblur] = useState(false);
