@@ -853,10 +853,10 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
         }
 
         const shadowOutline = subConfig.showOutline
-            ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px  0px 0 #000, 2px  2px 0 #000, 0px  2px 0 #000, -2px  2px 0 #000, -2px  0px 0 #000`
+            ? `-2px -2px 0 #000, 0px -2px 0 #000, 2px -2px 0 #000, 2px 0px 0 #000, 2px 2px 0 #000, 0px 2px 0 #000, -2px 2px 0 #000, -2px 0px 0 #000`
             : '';
         const shadowText = subConfig.showShadow
-            ? `0px 4px 8px rgba(0,0,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)`
+            ? `0px 4px 6px rgba(0, 0, 0, 0.85), 0px 8px 12px rgba(0, 0, 0, 0.7)`
             : '';
         const combinedShadow = [shadowOutline, shadowText].filter(Boolean).join(', ') || 'none';
 
@@ -998,7 +998,7 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
                 transform: scale(1.2);
             }
             :root {
-                --subtitle-font-size: clamp(14px, 3.5vw, 22px);
+                --subtitle-font-size: clamp(16px, 3.8vw, 24px);
             }
             .art-fullscreen, :fullscreen {
                 --subtitle-font-size: clamp(20px, 3.5vw, 36px) !important;
