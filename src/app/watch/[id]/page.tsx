@@ -55,7 +55,10 @@ export default async function WatchPage({
             const [detailsData, episodesData, watchData, relatedData, recommendationsData] = await Promise.all([
                 getAnimeDetails(animeId),
                 getAnimeEpisodes(animeId),
-                getWatchData(animeId, currentEp),
+                getWatchData(animeId, currentEp).catch((err) => {
+                    console.error("Failed to fetch watch data", err);
+                    return { sources: [], error: "No streaming sources available!" };
+                }),
                 getAnimeRelated(animeId).catch((err) => {
                     console.error("Failed to fetch related anime", err);
                     return [];
@@ -66,21 +69,6 @@ export default async function WatchPage({
                 })
             ]);
 
-            if (!watchData || !watchData.sources || watchData.sources.length === 0) {
-                return (
-                    <div className="container mx-auto px-4 py-8">
-                        <Alert variant="destructive">
-                            <Terminal className="h-4 w-4" />
-                            <AlertTitle>No streaming sources available!</AlertTitle>
-                            <AlertDescription>
-                                This episode doesn't seem to have any streaming sources yet.
-                                <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
-                            </AlertDescription>
-                        </Alert>
-                    </div>
-                );
-            }
-
             return (
                 <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentEp}`}>
                     <WatchClient
@@ -89,7 +77,7 @@ export default async function WatchPage({
                         episodeRange={currentRange}
                         detailsData={detailsData}
                         episodesData={episodesData}
-                        watchData={watchData}
+                        watchData={watchData || { sources: [] }}
                         relatedData={relatedData}
                         recommendationsData={recommendationsData}
                         cfProxyUrl={process.env.CF_PROXY_URL}
@@ -100,14 +88,14 @@ export default async function WatchPage({
 
         // ── Fallback: ep or range missing — resolve them then redirect ─────────
         const [detailsData, episodesData] = await Promise.all([
-            getAnimeDetails(animeId),
-            getAnimeEpisodes(animeId),
+            getAnimeDetails(animeId).catch(() => ({ id: animeId, title: animeId, image: '', genres: [] } as any)),
+            getAnimeEpisodes(animeId).catch(() => ({ episodes: [] } as any)),
         ]);
 
         // Prefer the canonical slug from the details response
-        const slug = detailsData.slug || animeId;
+        const slug = detailsData?.slug || animeId;
 
-        if (!currentEp && episodesData.episodes.length > 0) {
+        if (!currentEp && episodesData?.episodes && episodesData.episodes.length > 0) {
             const totalEpisodes = episodesData.episodes.length;
             let firstEpObj = episodesData.episodes[0];
 
@@ -124,12 +112,12 @@ export default async function WatchPage({
         }
 
         // Validate episode number
-        const episodeExists = episodesData.episodes.some(e => e.number === currentEp);
-        if (!episodeExists && episodesData.episodes.length > 0) {
+        const episodeExists = episodesData?.episodes?.some((e: { number: string }) => e.number === currentEp);
+        if (!episodeExists && episodesData?.episodes && episodesData.episodes.length > 0) {
             currentEp = episodesData.episodes[0].number;
         }
 
-        if (!currentRange && episodesData.episodes.length > 0) {
+        if (!currentRange && episodesData?.episodes && episodesData.episodes.length > 0) {
             const epNum = parseInt(currentEp);
             if (!isNaN(epNum)) {
                 const totalEpisodes = episodesData.episodes.length;
@@ -142,7 +130,10 @@ export default async function WatchPage({
 
         // ── Fallback render: fetch remaining details and render directly without redirecting ───
         const [watchData, relatedData, recommendationsData] = await Promise.all([
-            getWatchData(slug, currentEp),
+            getWatchData(slug, currentEp).catch((err) => {
+                console.error("Failed to fetch watch data", err);
+                return { sources: [], error: "No streaming sources available!" };
+            }),
             getAnimeRelated(slug).catch((err) => {
                 console.error("Failed to fetch related anime", err);
                 return [];
@@ -153,21 +144,6 @@ export default async function WatchPage({
             })
         ]);
 
-        if (!watchData || !watchData.sources || watchData.sources.length === 0) {
-            return (
-                <div className="container mx-auto px-4 py-8">
-                    <Alert variant="destructive">
-                        <Terminal className="h-4 w-4" />
-                        <AlertTitle>No streaming sources available!</AlertTitle>
-                        <AlertDescription>
-                            This episode doesn't seem to have any streaming sources yet.
-                            <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
-                        </AlertDescription>
-                    </Alert>
-                </div>
-            )
-        }
-
         return (
             <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentEp}`}>
                 <WatchClient
@@ -176,7 +152,7 @@ export default async function WatchPage({
                     episodeRange={currentRange}
                     detailsData={detailsData}
                     episodesData={episodesData}
-                    watchData={watchData}
+                    watchData={watchData || { sources: [] }}
                     relatedData={relatedData}
                     recommendationsData={recommendationsData}
                     cfProxyUrl={process.env.CF_PROXY_URL}
@@ -187,18 +163,21 @@ export default async function WatchPage({
         if (isRedirectError(error)) {
             throw error;
         }
-        console.error(error);
+        console.error("WatchPage error:", error);
         return (
-            <div className="container mx-auto px-4 py-8">
-                <Alert variant="destructive">
-                    <Terminal className="h-4 w-4" />
-                    <AlertTitle>Error loading episode!</AlertTitle>
-                    <AlertDescription>
-                        Could not fetch episode data. The API might be down or the episode is not available.
-                        <Link href={`/anime/${animeId}`} className="underline ml-2">Go back to details</Link>
-                    </AlertDescription>
-                </Alert>
-            </div>
-        )
+            <Suspense fallback={<LoadingSkeleton />} key={`${animeId}-${currentEp}`}>
+                <WatchClient
+                    animeId={animeId}
+                    episodeNum={currentEp || '1'}
+                    episodeRange={currentRange || '1-50'}
+                    detailsData={{ id: animeId, title: animeId, image: '' } as any}
+                    episodesData={{ episodes: [] } as any}
+                    watchData={{ sources: [], error: "Could not fetch episode data. The API might be down or the episode is not available." }}
+                    relatedData={[]}
+                    recommendationsData={[]}
+                    cfProxyUrl={process.env.CF_PROXY_URL}
+                />
+            </Suspense>
+        );
     }
 }

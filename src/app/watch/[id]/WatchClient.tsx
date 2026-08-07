@@ -12,7 +12,8 @@ import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 import { useAuth } from "@/lib/auth-context";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
-import { ShieldAlert, Eye, Settings } from "lucide-react";
+import { ShieldAlert, Eye, Settings, Terminal } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -120,7 +121,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         ? allSources.find(s =>
             s.server === selectedServer.name &&
             (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
-          ) ?? null
+        ) ?? null
         : null;
 
     const slug = detailsData.slug || animeId;
@@ -207,7 +208,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
             <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300 transform-gpu [will-change:filter]" : ""}`}>
                 <div className="lg:col-span-3 space-y-4">
                     {/* Video Player */}
-                    <div className="w-full bg-black rounded-lg shadow-lg">
+                    <div className="w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
                         {currentSource ? (
                             <VideoPlayer
                                 key={`${currentSource.server}-${currentSource.type}-${currentSource.url || currentSource.m3u8 || ""}`}
@@ -217,8 +218,18 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                 skipData={watchData.skip_data}
                             />
                         ) : (
-                            <div className="aspect-video flex items-center justify-center text-muted-foreground">
-                                No server available for this episode.
+                            <div className="aspect-video flex items-center justify-center p-4 sm:p-8 bg-black/90 text-foreground">
+                                <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive/30 text-left">
+                                    <Terminal className="h-4 w-4" />
+                                    <AlertTitle>{watchData?.error || "No streaming sources available!"}</AlertTitle>
+                                    <AlertDescription className="mt-1">
+                                        {watchData?.error ? (
+                                            watchData.error
+                                        ) : (
+                                            "This episode doesn't seem to have any streaming sources yet."
+                                        )}
+                                    </AlertDescription>
+                                </Alert>
                             </div>
                         )}
                     </div>
@@ -238,11 +249,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                     <button
                                         type="button"
                                         onClick={() => setActiveCategory("sub")}
-                                        className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${
-                                            activeCategory === "sub"
-                                                ? "bg-background text-foreground shadow-sm"
-                                                : "text-muted-foreground hover:text-foreground"
-                                        }`}
+                                        className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                            }`}
                                     >
                                         Sub
                                     </button>
@@ -250,11 +260,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                         <button
                                             type="button"
                                             onClick={() => setActiveCategory("hsub")}
-                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${
-                                                activeCategory === "hsub"
-                                                    ? "bg-background text-foreground shadow-sm"
-                                                    : "text-muted-foreground hover:text-foreground"
-                                            }`}
+                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub"
+                                                ? "bg-background text-foreground shadow-sm"
+                                                : "text-muted-foreground hover:text-foreground"
+                                                }`}
                                         >
                                             HSub
                                         </button>
@@ -263,11 +272,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                         <button
                                             type="button"
                                             onClick={() => setActiveCategory("dub")}
-                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${
-                                                activeCategory === "dub"
-                                                    ? "bg-background text-foreground shadow-sm"
-                                                    : "text-muted-foreground hover:text-foreground"
-                                            }`}
+                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub"
+                                                ? "bg-background text-foreground shadow-sm"
+                                                : "text-muted-foreground hover:text-foreground"
+                                                }`}
                                         >
                                             Dub
                                         </button>

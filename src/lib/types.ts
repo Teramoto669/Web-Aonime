@@ -178,6 +178,7 @@ export type WatchData = {
   servers?: Server[];
   sources?: Source[];
   skip_data?: SkipData;
+  error?: string;
 };
 
 // ─── Browse / Search ──────────────────────────────────────────────────────────
