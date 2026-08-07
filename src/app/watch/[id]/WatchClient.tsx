@@ -236,13 +236,13 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
                     {/* Title & Server Controls */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl md:text-3xl font-bold">{title}</h1>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
                             <p className="text-lg text-muted-foreground mt-1">Episode {episodeNum}</p>
                         </div>
 
                         {/* Server selectors — Premium Segmented Toggle & Single Server Select */}
-                        <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
                             {/* Category Toggle (SUB / HSUB / DUB) */}
                             {(hasDub || hasHsub) && (
                                 <div className="flex rounded-md bg-muted p-1 select-none border">
