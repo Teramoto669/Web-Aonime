@@ -1,5 +1,4 @@
-"use client";
-
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { RelatedAnime } from '@/lib/types';
@@ -41,7 +40,7 @@ function getRelatedSlug(item: RelatedAnime): string | null {
     return null;
 }
 
-function RelatedCard({ item }: { item: RelatedAnime }) {
+const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAnime }) {
     let href = '#';
     let isExternal = false;
 
@@ -62,21 +61,23 @@ function RelatedCard({ item }: { item: RelatedAnime }) {
     }
 
     const content = (
-        <div className="group flex-shrink-0 w-[130px] sm:w-[150px]">
+        <div className="group flex-shrink-0 w-[130px] sm:w-[150px] select-none">
             <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md shadow-md transition-transform duration-300 group-hover:scale-105">
                 <Image
                     src={item.image || '/placeholder.jpg'}
                     alt={item.title}
                     fill
                     sizes="(max-width: 640px) 130px, 150px"
-                    className="object-cover"
+                    className="object-cover pointer-events-none"
+                    draggable={false}
+                    loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/30">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/30 pointer-events-none">
                     <PlayIcon className="h-10 w-10 text-white drop-shadow-lg" />
                 </div>
                 {item.relation && (
-                    <Badge className="absolute top-2 left-2 text-[10px] px-1.5 py-0.5 capitalize border-0 bg-primary/90 text-primary-foreground">
+                    <Badge className="absolute top-2 left-2 text-[10px] px-1.5 py-0.5 capitalize border-0 bg-primary/90 text-primary-foreground pointer-events-none">
                         {item.relation}
                     </Badge>
                 )}
@@ -90,7 +91,7 @@ function RelatedCard({ item }: { item: RelatedAnime }) {
     if (isExternal) {
         return (
             <AnimeTooltip id={item.id} fallbackTitle={item.title}>
-                <a href={href} target="_blank" rel="noopener noreferrer">
+                <a href={href} target="_blank" rel="noopener noreferrer" className="block select-none" draggable={false}>
                     {content}
                 </a>
             </AnimeTooltip>
@@ -99,19 +100,24 @@ function RelatedCard({ item }: { item: RelatedAnime }) {
 
     return (
         <AnimeTooltip id={item.id} fallbackTitle={item.title}>
-            <Link href={href}>{content}</Link>
+            <Link href={href} className="block select-none" draggable={false}>
+                {content}
+            </Link>
         </AnimeTooltip>
     );
-}
+});
 
 export function RelatedSection({ related }: RelatedSectionProps) {
     const { filterAnimeList } = useBlockedFilters();
-    const visibleRelated = filterAnimeList(related as any) as RelatedAnime[];
+    const visibleRelated = useMemo(
+        () => filterAnimeList(related as any) as RelatedAnime[],
+        [related, filterAnimeList]
+    );
 
     if (!visibleRelated || visibleRelated.length === 0) return null;
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-4 my-8">
             <div className="flex items-center gap-3">
                 <div className="h-6 w-1 rounded-full bg-primary" />
                 <h2 className="text-xl font-bold">Related Anime</h2>
@@ -121,6 +127,7 @@ export function RelatedSection({ related }: RelatedSectionProps) {
                 opts={{
                     align: "start",
                     dragFree: true,
+                    containScroll: "trimSnaps",
                 }}
                 className="w-full relative"
             >

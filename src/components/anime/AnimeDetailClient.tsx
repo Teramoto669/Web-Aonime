@@ -12,6 +12,7 @@ import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { CommentSection } from "@/components/anime/CommentSection";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
+import { cn } from "@/lib/utils";
 import type { AnimeDetail, AnimeEpisodes, RelatedAnime, AnimeListItem } from "@/lib/types";
 
 interface AnimeDetailClientProps {
@@ -157,7 +158,7 @@ export function AnimeDetailClient({
         </div>
       </div>
 
-      <div className={isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none" : ""}>
+      <div className={cn("mt-10 space-y-10", isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none" : "")}>
         {episodesData.episodes.length > 0 && (
           <EpisodeListClient
             animeId={slug}

@@ -25,7 +25,7 @@ export type AnimeListItem = {
   hasSub?: boolean;
   date?: string;
   synopsis?: string;
-  score?: number;
+  score?: number | string;
 };
 
 // Helper function to extract slug from AnimeListItem

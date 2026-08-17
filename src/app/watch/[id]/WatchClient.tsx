@@ -359,13 +359,13 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
             </div>
 
             {relatedData && relatedData.length > 0 && (
-                <div className="mt-8">
+                <div className="mt-10">
                     <RelatedSection related={relatedData} />
                 </div>
             )}
 
             {recommendationsData && recommendationsData.length > 0 && (
-                <div className="mt-8">
+                <div className="mt-10">
                     <RecommendationsSection recommendations={recommendationsData} />
                 </div>
             )}

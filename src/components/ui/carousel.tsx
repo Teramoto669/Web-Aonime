@@ -68,7 +68,7 @@ const Carousel = React.forwardRef<
     )
     const [canScrollPrev, setCanScrollPrev] = React.useState(false)
     const [canScrollNext, setCanScrollNext] = React.useState(false)
-    const [isScrolling, setIsScrolling] = React.useState(false)
+    const isScrollingRef = React.useRef(false)
 
     const onSelect = React.useCallback((api: CarouselApi) => {
       if (!api) {
@@ -128,29 +128,82 @@ const Carousel = React.forwardRef<
       }
 
       const handleScrollStart = () => {
-        setIsScrolling(true)
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("carousel-scroll", { detail: { scrolling: true } })
-          )
+        if (!isScrollingRef.current) {
+          isScrollingRef.current = true
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("carousel-scroll", { detail: { scrolling: true } })
+            )
+          }
         }
       }
 
       const handleScrollEnd = () => {
-        setIsScrolling(false)
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("carousel-scroll", { detail: { scrolling: false } })
-          )
+        if (isScrollingRef.current) {
+          isScrollingRef.current = false
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("carousel-scroll", { detail: { scrolling: false } })
+            )
+          }
         }
       }
 
+      api.on("pointerDown", handleScrollStart)
       api.on("scroll", handleScrollStart)
       api.on("settle", handleScrollEnd)
 
       return () => {
+        api.off("pointerDown", handleScrollStart)
         api.off("scroll", handleScrollStart)
         api.off("settle", handleScrollEnd)
+      }
+    }, [api])
+
+    const internalRef = React.useRef<HTMLDivElement | null>(null)
+    React.useImperativeHandle(ref, () => internalRef.current as HTMLDivElement)
+
+    const wheelAccumulatorRef = React.useRef(0)
+    const wheelTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+    React.useEffect(() => {
+      const element = internalRef.current
+      if (!element || !api) return
+
+      const handleWheel = (event: WheelEvent) => {
+        if (event.shiftKey) {
+          event.preventDefault()
+
+          if (wheelTimeoutRef.current) {
+            clearTimeout(wheelTimeoutRef.current)
+          }
+          wheelTimeoutRef.current = setTimeout(() => {
+            wheelAccumulatorRef.current = 0
+          }, 200)
+
+          const delta =
+            Math.abs(event.deltaY) > Math.abs(event.deltaX)
+              ? event.deltaY
+              : event.deltaX
+          wheelAccumulatorRef.current += delta
+
+          const threshold = 40
+          if (wheelAccumulatorRef.current >= threshold) {
+            api.scrollNext()
+            wheelAccumulatorRef.current = 0
+          } else if (wheelAccumulatorRef.current <= -threshold) {
+            api.scrollPrev()
+            wheelAccumulatorRef.current = 0
+          }
+        }
+      }
+
+      element.addEventListener("wheel", handleWheel, { passive: false })
+      return () => {
+        element.removeEventListener("wheel", handleWheel)
+        if (wheelTimeoutRef.current) {
+          clearTimeout(wheelTimeoutRef.current)
+        }
       }
     }, [api])
 
@@ -166,11 +219,11 @@ const Carousel = React.forwardRef<
           scrollNext,
           canScrollPrev,
           canScrollNext,
-          isScrolling,
+          isScrolling: isScrollingRef.current,
         }}
       >
         <div
-          ref={ref}
+          ref={internalRef}
           onKeyDownCapture={handleKeyDown}
           className={cn("relative", className)}
           role="region"
