@@ -21,6 +21,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { InitialAppLoader } from "@/components/layout/InitialAppLoader";
 
 export interface UserProfile {
   uid: string;
@@ -75,9 +76,67 @@ export const PRESET_THEMES = [
   { id: "indigo", name: "Indigo", class: "bg-indigo-600 hover:bg-indigo-700", textClass: "text-indigo-500", borderClass: "border-indigo-600", color: "#6366f1" },
 ];
 
+export function applyThemeColor(theme: string) {
+  if (typeof window === "undefined") return;
+  const root = document.documentElement;
+
+  const themes: Record<string, { primary: string; ring: string; accent: string; accentForeground: string }> = {
+    violet: {
+      primary: "275 100% 60%",
+      ring: "275 100% 60%",
+      accent: "275 95% 15%",
+      accentForeground: "275 100% 85%",
+    },
+    rose: {
+      primary: "350 89% 60%",
+      ring: "350 89% 60%",
+      accent: "350 89% 15%",
+      accentForeground: "350 89% 85%",
+    },
+    amber: {
+      primary: "38 92% 50%",
+      ring: "38 92% 50%",
+      accent: "38 92% 15%",
+      accentForeground: "38 92% 85%",
+    },
+    emerald: {
+      primary: "142 71% 45%",
+      ring: "142 71% 45%",
+      accent: "142 71% 12%",
+      accentForeground: "142 71% 85%",
+    },
+    indigo: {
+      primary: "239 84% 59%",
+      ring: "239 84% 59%",
+      accent: "239 84% 15%",
+      accentForeground: "239 84% 85%",
+    },
+  };
+
+  const currentTheme = themes[theme] || themes.violet;
+  root.style.setProperty("--primary", currentTheme.primary);
+  root.style.setProperty("--ring", currentTheme.ring);
+  root.style.setProperty("--accent", currentTheme.accent);
+  root.style.setProperty("--accent-foreground", currentTheme.accentForeground);
+}
+
+// Synchronously apply theme before first DOM render if user cache exists
+if (typeof window !== "undefined") {
+  try {
+    const cached = localStorage.getItem("aonime_user_cache");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed?.themeColor) {
+        applyThemeColor(parsed.themeColor);
+      }
+    }
+  } catch (e) {}
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
 
@@ -88,6 +147,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   useEffect(() => {
+    // Hydrate cached user profile on client mount to ensure instant account info resolution
+    try {
+      const cached = localStorage.getItem("aonime_user_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setUser(parsed);
+        if (parsed?.themeColor) {
+          applyThemeColor(parsed.themeColor);
+        }
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("Failed to parse cached user profile:", e);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch or create user details in Firestore
@@ -114,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Firestore user retrieval error:", e);
         }
 
-        setUser({
+        const profile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: userData.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
@@ -127,9 +201,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ? userData.lastCommentedAt.toDate()
               : new Date(userData.lastCommentedAt))
             : null,
-        });
+        };
+
+        setUser(profile);
+        try {
+          localStorage.setItem("aonime_user_cache", JSON.stringify(profile));
+        } catch (e) {}
       } else {
         setUser(null);
+        try {
+          localStorage.removeItem("aonime_user_cache");
+        } catch (e) {}
       }
       setLoading(false);
     });
@@ -139,48 +221,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Dynamically update CSS primary/ring variables when user changes theme color
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const root = document.documentElement;
-    const theme = user?.themeColor || "violet";
-
-    const themes: Record<string, { primary: string; ring: string; accent: string; accentForeground: string }> = {
-      violet: {
-        primary: "275 100% 60%",
-        ring: "275 100% 60%",
-        accent: "275 95% 15%",
-        accentForeground: "275 100% 85%",
-      },
-      rose: {
-        primary: "350 89% 60%",
-        ring: "350 89% 60%",
-        accent: "350 89% 15%",
-        accentForeground: "350 89% 85%",
-      },
-      amber: {
-        primary: "38 92% 50%",
-        ring: "38 92% 50%",
-        accent: "38 92% 15%",
-        accentForeground: "38 92% 85%",
-      },
-      emerald: {
-        primary: "142 71% 45%",
-        ring: "142 71% 45%",
-        accent: "142 71% 12%",
-        accentForeground: "142 71% 85%",
-      },
-      indigo: {
-        primary: "239 84% 59%",
-        ring: "239 84% 59%",
-        accent: "239 84% 15%",
-        accentForeground: "239 84% 85%",
-      },
-    };
-
-    const currentTheme = themes[theme] || themes.violet;
-    root.style.setProperty("--primary", currentTheme.primary);
-    root.style.setProperty("--ring", currentTheme.ring);
-    root.style.setProperty("--accent", currentTheme.accent);
-    root.style.setProperty("--accent-foreground", currentTheme.accentForeground);
+    if (user?.themeColor) {
+      applyThemeColor(user.themeColor);
+    }
   }, [user?.themeColor]);
 
   const login = async (email: string, password: string, rememberMe: boolean = true) => {
@@ -247,7 +290,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await auth.currentUser.reload();
       const verified = auth.currentUser.emailVerified;
       if (verified) {
-        setUser((prev) => prev ? { ...prev, emailVerified: true } : null);
+        setUser((prev) => {
+          if (!prev) return null;
+          const updated = { ...prev, emailVerified: true };
+          try {
+            localStorage.setItem("aonime_user_cache", JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
       }
       return verified;
     }
@@ -304,10 +354,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Local state reset
     setUser(null);
+    try {
+      localStorage.removeItem("aonime_user_cache");
+    } catch (e) {}
   };
 
   const logout = async () => {
     await signOut(auth);
+    setUser(null);
+    try {
+      localStorage.removeItem("aonime_user_cache");
+    } catch (e) {}
   };
 
   const updateUserProfile = async (profile: { displayName?: string | null; photoURL?: string | null; themeColor?: string }) => {
@@ -332,12 +389,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 3. Update React context state
     setUser((prev) => {
       if (!prev) return null;
-      return {
+      const updated = {
         ...prev,
         displayName: profile.displayName !== undefined ? profile.displayName : prev.displayName,
         photoURL: profile.photoURL !== undefined ? profile.photoURL : prev.photoURL,
         themeColor: profile.themeColor !== undefined ? profile.themeColor : prev.themeColor,
       };
+      try {
+        localStorage.setItem("aonime_user_cache", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
     });
   };
 
@@ -366,7 +427,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeAuthModal,
       }}
     >
-      {children}
+      {loading && <InitialAppLoader />}
+      <div className={loading ? "opacity-0 invisible" : "opacity-100 transition-opacity duration-300"}>
+        {children}
+      </div>
     </AuthContext.Provider>
   );
 }
