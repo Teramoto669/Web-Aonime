@@ -95,9 +95,15 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   }, []);
 
   // Cooldown calculation helper
-  const getRemainingCooldown = (lastComment: Date) => {
+  const getRemainingCooldown = (lastComment: Date | string | number | any) => {
+    if (!lastComment) return 0;
     const now = new Date();
-    const diffMs = now.getTime() - lastComment.getTime();
+    const dateObj = typeof lastComment?.toDate === "function" 
+      ? lastComment.toDate() 
+      : (lastComment instanceof Date ? lastComment : new Date(lastComment));
+    const lastTime = dateObj instanceof Date && !isNaN(dateObj.getTime()) ? dateObj.getTime() : 0;
+    if (!lastTime) return 0;
+    const diffMs = now.getTime() - lastTime;
     const cooldownMs = 5 * 60 * 1000;
     return Math.max(0, cooldownMs - diffMs);
   };

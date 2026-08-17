@@ -152,6 +152,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const cached = localStorage.getItem("aonime_user_cache");
       if (cached) {
         const parsed = JSON.parse(cached);
+        if (parsed?.lastCommentedAt) {
+          parsed.lastCommentedAt = new Date(parsed.lastCommentedAt);
+        }
         setUser(parsed);
         if (parsed?.themeColor) {
           applyThemeColor(parsed.themeColor);

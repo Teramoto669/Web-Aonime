@@ -18,7 +18,7 @@ import { getAnimeSlug } from "@/lib/types";
 import Autoplay from "embla-carousel-autoplay";
 
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
-import { useUserLibrary, statusLabels, statusBadgeStyles } from "@/lib/library-context";
+import { useUserLibrary, statusLabels, statusBadgeStyles, type LibraryStatus } from "@/lib/library-context";
 import { fetchAnimeTooltip, getCachedAnimeTooltip } from "@/lib/anime-details-cache";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ interface SpotlightSlideProps {
   blockedFiltersMode: string;
   isBlocked: boolean;
   blockedReason: string | null;
-  libraryStatus?: string | null;
+  libraryStatus?: LibraryStatus | null;
   isUnblurred: boolean;
   onToggleUnblur: (slug: string) => void;
 }
