@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { VideoPlayer } from "./VideoPlayer";
@@ -12,9 +12,11 @@ import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 import { useAuth } from "@/lib/auth-context";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
-import { ShieldAlert, Eye, Settings, Terminal } from "lucide-react";
+import { ShieldAlert, Eye, Settings, Terminal, ChevronLeft, ChevronRight, PlayCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useRouter } from "@/hooks/use-router";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 
@@ -31,10 +33,90 @@ interface WatchClientProps {
 }
 
 export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, episodesData, watchData, relatedData = [], recommendationsData = [], cfProxyUrl }: WatchClientProps) {
+    const router = useRouter();
     const { isAnimeBlocked, getBlockedReason, openModal } = useBlockedFilters();
     const isBlocked = isAnimeBlocked(detailsData);
     const blockedReason = getBlockedReason(detailsData);
     const [revealed, setRevealed] = useState(false);
+
+    // Auto Play Next episode state
+    const [autoPlay, setAutoPlay] = useState<boolean>(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("aonime_autoplay_next");
+            return saved !== null ? saved === "true" : true;
+        }
+        return true;
+    });
+
+    const handleAutoPlayChange = (enabled: boolean) => {
+        setAutoPlay(enabled);
+        if (typeof window !== "undefined") {
+            localStorage.setItem("aonime_autoplay_next", String(enabled));
+        }
+    };
+
+    const slug = detailsData.slug || animeId;
+    const title = detailsData.title || animeId;
+
+    // Calculate episode list sorting & adjacent episode info
+    const sortedEpisodes = useMemo(() => {
+        if (!episodesData?.episodes || episodesData.episodes.length === 0) return [];
+        return [...episodesData.episodes].sort((a, b) => {
+            const numA = parseFloat(a.number);
+            const numB = parseFloat(b.number);
+            if (isNaN(numA) || isNaN(numB)) return a.number.localeCompare(b.number, undefined, { numeric: true });
+            return numA - numB;
+        });
+    }, [episodesData?.episodes]);
+
+    const currentEpIdx = useMemo(() => {
+        return sortedEpisodes.findIndex(
+            e => parseFloat(e.number) === parseFloat(episodeNum) || e.number === episodeNum
+        );
+    }, [sortedEpisodes, episodeNum]);
+
+    const getEpRange = (epNumStr: string, totalCount: number) => {
+        const num = parseInt(epNumStr);
+        if (isNaN(num) || totalCount <= 50) return totalCount > 50 ? "1-50" : `1-${totalCount}`;
+        const chunkIndex = Math.floor((num - 1) / 50);
+        const start = chunkIndex * 50 + 1;
+        const end = Math.min((chunkIndex + 1) * 50, totalCount);
+        return `${start}-${end}`;
+    };
+
+    const prevEpisodeInfo = useMemo(() => {
+        if (currentEpIdx > 0) {
+            const prev = sortedEpisodes[currentEpIdx - 1];
+            return {
+                number: prev.number,
+                url: `/watch/${slug}?ep=${prev.number}&range=${getEpRange(prev.number, sortedEpisodes.length)}`
+            };
+        }
+        return null;
+    }, [currentEpIdx, sortedEpisodes, slug]);
+
+    const nextEpisodeInfo = useMemo(() => {
+        if (currentEpIdx !== -1 && currentEpIdx < sortedEpisodes.length - 1) {
+            const next = sortedEpisodes[currentEpIdx + 1];
+            return {
+                number: next.number,
+                url: `/watch/${slug}?ep=${next.number}&range=${getEpRange(next.number, sortedEpisodes.length)}`
+            };
+        }
+        return null;
+    }, [currentEpIdx, sortedEpisodes, slug]);
+
+    const handleNavigatePrev = () => {
+        if (prevEpisodeInfo) {
+            router.push(prevEpisodeInfo.url);
+        }
+    };
+
+    const handleNavigateNext = () => {
+        if (nextEpisodeInfo) {
+            router.push(nextEpisodeInfo.url);
+        }
+    };
 
     const allSources = watchData.sources || [];
     const servers = watchData.servers || [];
@@ -123,9 +205,6 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
             (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
         ) ?? null
         : null;
-
-    const slug = detailsData.slug || animeId;
-    const title = detailsData.title || animeId;
 
     const { user } = useAuth();
 
@@ -216,6 +295,12 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                 tracks={currentSource.tracks || []}
                                 cfProxyUrl={cfProxyUrl}
                                 skipData={watchData.skip_data}
+                                autoPlay={autoPlay}
+                                onAutoPlayChange={handleAutoPlayChange}
+                                prevEpisode={prevEpisodeInfo}
+                                onNavigatePrev={handleNavigatePrev}
+                                nextEpisode={nextEpisodeInfo}
+                                onNavigateNext={handleNavigateNext}
                             />
                         ) : (
                             <div className="aspect-video flex items-center justify-center p-4 sm:p-8 bg-black/90 text-foreground">

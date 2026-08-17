@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Loader2, AlertCircle, Play, RotateCcw, Sparkles, ChevronRight, X } from "lucide-react";
 import HLS from "hls.js";
 import type { Source, Track, SkipData } from "@/lib/types";
 import Artplayer from "artplayer";
@@ -14,6 +15,12 @@ type VideoPlayerProps = {
     tracks: Track[];
     cfProxyUrl?: string;
     skipData?: SkipData;
+    autoPlay?: boolean;
+    onAutoPlayChange?: (enabled: boolean) => void;
+    prevEpisode?: { number: string; url: string } | null;
+    onNavigatePrev?: () => void;
+    nextEpisode?: { number: string; url: string } | null;
+    onNavigateNext?: () => void;
 };
 
 // ─── Custom Player Icons (Zenime Style) ───────────────────────────────────────
@@ -96,7 +103,18 @@ function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlayerProps) {
+export function VideoPlayer({
+    source,
+    tracks,
+    cfProxyUrl,
+    skipData,
+    autoPlay = true,
+    onAutoPlayChange,
+    prevEpisode,
+    onNavigatePrev,
+    nextEpisode,
+    onNavigateNext,
+}: VideoPlayerProps) {
     const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -139,7 +157,20 @@ export function VideoPlayer({ source, tracks, cfProxyUrl, skipData }: VideoPlaye
     }
 
     if (playerUrl?.m3u8) {
-        return <HlsPlayer m3u8Url={playerUrl.m3u8} tracks={tracks} skipData={skipData} cfProxyUrl={cfProxyUrl} />;
+        return (
+            <HlsPlayer
+                m3u8Url={playerUrl.m3u8}
+                tracks={tracks}
+                skipData={skipData}
+                cfProxyUrl={cfProxyUrl}
+                autoPlay={autoPlay}
+                onAutoPlayChange={onAutoPlayChange}
+                prevEpisode={prevEpisode}
+                onNavigatePrev={onNavigatePrev}
+                nextEpisode={nextEpisode}
+                onNavigateNext={onNavigateNext}
+            />
+        );
     }
 
     if (playerUrl?.embed) {
@@ -219,9 +250,53 @@ function shiftWebVTT(vttText: string, delay: number): string {
 
 // ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
 
-function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string; tracks: Track[]; skipData?: SkipData; cfProxyUrl?: string }) {
+function HlsPlayer({
+    m3u8Url,
+    tracks,
+    skipData,
+    cfProxyUrl,
+    autoPlay = true,
+    onAutoPlayChange,
+    prevEpisode,
+    onNavigatePrev,
+    nextEpisode,
+    onNavigateNext,
+}: {
+    m3u8Url: string;
+    tracks: Track[];
+    skipData?: SkipData;
+    cfProxyUrl?: string;
+    autoPlay?: boolean;
+    onAutoPlayChange?: (enabled: boolean) => void;
+    prevEpisode?: { number: string; url: string } | null;
+    onNavigatePrev?: () => void;
+    nextEpisode?: { number: string; url: string } | null;
+    onNavigateNext?: () => void;
+}) {
     const artRef = useRef<HTMLDivElement>(null);
     const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
+
+    const [showNextOverlay, setShowNextOverlay] = useState(false);
+    const [countdown, setCountdown] = useState(5);
+    const [isAutoNavigating, setIsAutoNavigating] = useState(false);
+
+    const autoPlayRef = useRef(autoPlay);
+    autoPlayRef.current = autoPlay;
+
+    const prevEpisodeRef = useRef(prevEpisode);
+    prevEpisodeRef.current = prevEpisode;
+
+    const onNavigatePrevRef = useRef(onNavigatePrev);
+    onNavigatePrevRef.current = onNavigatePrev;
+
+    const nextEpisodeRef = useRef(nextEpisode);
+    nextEpisodeRef.current = nextEpisode;
+
+    const onNavigateNextRef = useRef(onNavigateNext);
+    onNavigateNextRef.current = onNavigateNext;
+
+    const onAutoPlayChangeRef = useRef(onAutoPlayChange);
+    onAutoPlayChangeRef.current = onAutoPlayChange;
 
     const tracksKey = JSON.stringify(tracks || []);
 
@@ -476,6 +551,97 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
                             }
                         });
                     }
+                },
+                {
+                    name: "prev-episode",
+                    position: "left",
+                    index: 11,
+                    html: `
+                        <div class="art-control-prev-ep" title="Previous Episode" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 100%; cursor: pointer; opacity: 0.9; transition: opacity 0.2s;">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                            </svg>
+                        </div>
+                    `,
+                    click: function () {
+                        if (prevEpisodeRef.current) {
+                            onNavigatePrevRef.current?.();
+                        }
+                    },
+                    mounted: function (element) {
+                        if (!prevEpisodeRef.current) {
+                            element.style.display = "none";
+                        }
+                    }
+                },
+                {
+                    name: "next-episode",
+                    position: "left",
+                    index: 12,
+                    html: `
+                        <div class="art-control-next-ep" title="Next Episode" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 100%; cursor: pointer; opacity: 0.9; transition: opacity 0.2s;">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                            </svg>
+                        </div>
+                    `,
+                    click: function () {
+                        if (nextEpisodeRef.current) {
+                            onNavigateNextRef.current?.();
+                        }
+                    },
+                    mounted: function (element) {
+                        if (!nextEpisodeRef.current) {
+                            element.style.display = "none";
+                        }
+                    }
+                },
+                {
+                    name: "autoplay-switch",
+                    position: "right",
+                    index: 25,
+                    html: `
+                        <div class="art-control-autoplay-toggle" title="Toggle Auto Play Next Episode" style="display: flex; align-items: center; justify-content: center; height: 100%; cursor: pointer; padding-inline: 6px;">
+                            <div class="art-autoplay-badge" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s ease;">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"></polygon>
+                                    <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor"></line>
+                                </svg>
+                                <span>AUTO</span>
+                            </div>
+                        </div>
+                    `,
+                    click: function () {
+                        const nextVal = !autoPlayRef.current;
+                        onAutoPlayChangeRef.current?.(nextVal);
+                    },
+                    mounted: function (element) {
+                        const $badge = element.querySelector(".art-autoplay-badge") as HTMLElement;
+                        if ($badge) {
+                            const svg = $badge.querySelector("svg");
+                            if (autoPlayRef.current) {
+                                $badge.style.background = "hsl(var(--primary))";
+                                $badge.style.color = "#ffffff";
+                                $badge.style.borderColor = "hsl(var(--primary))";
+                                $badge.style.boxShadow = "0 0 8px hsl(var(--primary) / 0.5)";
+                                if (svg) {
+                                    svg.style.color = "#ffffff";
+                                    svg.style.fill = "#ffffff";
+                                    svg.style.stroke = "#ffffff";
+                                }
+                            } else {
+                                $badge.style.background = "rgba(255, 255, 255, 0.1)";
+                                $badge.style.color = "rgba(255, 255, 255, 0.6)";
+                                $badge.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                                $badge.style.boxShadow = "none";
+                                if (svg) {
+                                    svg.style.color = "rgba(255, 255, 255, 0.6)";
+                                    svg.style.fill = "rgba(255, 255, 255, 0.6)";
+                                    svg.style.stroke = "rgba(255, 255, 255, 0.6)";
+                                }
+                            }
+                        }
+                    }
                 }
             ],
             plugins: [
@@ -638,8 +804,8 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
                 marker.style.left = `${left}%`;
                 marker.style.width = `${width}%`;
 
-                // Prepend to the visual track container so it aligns with height expansion
-                $trackContainer.prepend(marker);
+                // Append to the visual track container so it aligns with height expansion and stays on top
+                $trackContainer.appendChild(marker);
             };
 
             if (currentSkipData.intro) {
@@ -764,6 +930,15 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
         };
 
         playerDom.addEventListener('touchstart', onTouchStart, { passive: false });
+
+        // Listen for video end to trigger auto play overlay
+        art.on('video:ended', () => {
+            if (nextEpisodeRef.current && autoPlayRef.current) {
+                setCountdown(5);
+                setIsAutoNavigating(true);
+                setShowNextOverlay(true);
+            }
+        });
 
         setArtInstance(art);
 
@@ -1099,13 +1274,44 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
                 height: 100% !important;
                 top: 0 !important;
                 background: #facc15 !important;
-                opacity: 0.85 !important;
+                opacity: 0.95 !important;
                 pointer-events: none !important;
-                z-index: 20 !important;
+                z-index: 25 !important;
                 border-radius: 2px !important;
             }
         `;
     }, [subConfig]);
+
+    // Sync Auto Play badge on player control bar
+    useEffect(() => {
+        const playerDom = artInstance?.template?.$player;
+        if (!playerDom) return;
+        const $badge = playerDom.querySelector(".art-autoplay-badge") as HTMLElement;
+        if ($badge) {
+            const svg = $badge.querySelector("svg");
+            if (autoPlay) {
+                $badge.style.background = "hsl(var(--primary))";
+                $badge.style.color = "#ffffff";
+                $badge.style.borderColor = "hsl(var(--primary))";
+                $badge.style.boxShadow = "0 0 8px hsl(var(--primary) / 0.5)";
+                if (svg) {
+                    svg.style.color = "#ffffff";
+                    svg.style.fill = "#ffffff";
+                    svg.style.stroke = "#ffffff";
+                }
+            } else {
+                $badge.style.background = "rgba(255, 255, 255, 0.1)";
+                $badge.style.color = "rgba(255, 255, 255, 0.6)";
+                $badge.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                $badge.style.boxShadow = "none";
+                if (svg) {
+                    svg.style.color = "rgba(255, 255, 255, 0.6)";
+                    svg.style.fill = "rgba(255, 255, 255, 0.6)";
+                    svg.style.stroke = "rgba(255, 255, 255, 0.6)";
+                }
+            }
+        }
+    }, [autoPlay, artInstance]);
 
     // ── Update Artplayer subtitles settings menus dynamically when tracks/subConfig/subDelay change ──
     useEffect(() => {
@@ -1118,7 +1324,25 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
             artInstance.setting.remove("subtitle-size");
             artInstance.setting.remove("subtitle-color");
             artInstance.setting.remove("subtitle-style");
+            artInstance.setting.remove("autoplay-next");
         } catch (e) { }
+
+        // Add Auto Play Next setting menu item
+        artInstance.setting.add({
+            name: "autoplay-next",
+            html: "Auto Play Next",
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>`,
+            position: "right",
+            tooltip: autoPlay ? "ON" : "OFF",
+            selector: [
+                {
+                    html: `Auto Play Next: ${autoPlay ? 'ON' : 'OFF'}`,
+                    onClick: () => {
+                        onAutoPlayChangeRef.current?.(!autoPlay);
+                    }
+                }
+            ]
+        });
 
         if (tracks.length > 0) {
             // 1. Subtitles list
@@ -1351,12 +1575,31 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
         }
     }, [selectedSubtitleIndex, subDelay, originalSubContents, artInstance, tracks]);
 
-    // Reset subtitle states when URL/episode changes
+    // Countdown timer for Auto Play Next
+    useEffect(() => {
+        if (!showNextOverlay || !isAutoNavigating) return;
+
+        if (countdown <= 0) {
+            onNavigateNextRef.current?.();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setCountdown(prev => prev - 1);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [showNextOverlay, isAutoNavigating, countdown]);
+
+    // Reset subtitle states & overlay when URL/episode changes
     useEffect(() => {
         setSelectedSubtitleIndex(tracks.length > 0 ? 0 : -1);
         setSubDelay(0);
         setOriginalSubContents({});
         skipTargetTimeRef.current = null;
+        setShowNextOverlay(false);
+        setCountdown(5);
+        setIsAutoNavigating(false);
         setProcessedTrackUrls(prev => {
             Object.values(prev).forEach(url => {
                 if (url.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -1365,12 +1608,69 @@ function HlsPlayer({ m3u8Url, tracks, skipData, cfProxyUrl }: { m3u8Url: string;
         });
     }, [m3u8Url, tracksKey]);
 
-
-
     return (
         <div className="w-full flex flex-col">
             <div className="w-full aspect-video bg-black relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
                 <div ref={artRef} className="w-full h-full" />
+                {showNextOverlay && nextEpisode && isAutoNavigating && countdown > 0 && artInstance?.template?.$player && createPortal(
+                    <div className="absolute inset-0 z-[50] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                        <div className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100">
+                            <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                    <path
+                                        className="text-white/10"
+                                        strokeWidth="3.5"
+                                        stroke="currentColor"
+                                        fill="none"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    />
+                                    <path
+                                        className="text-primary transition-all duration-1000 ease-linear"
+                                        strokeDasharray={`${(countdown / 5) * 100}, 100`}
+                                        strokeWidth="3.5"
+                                        strokeLinecap="round"
+                                        stroke="currentColor"
+                                        fill="none"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    />
+                                </svg>
+                                <span className="absolute text-2xl font-black text-white">{countdown}</span>
+                            </div>
+
+                            <div>
+                                <p className="text-xs uppercase tracking-wider font-bold text-primary mb-1">
+                                    Up Next
+                                </p>
+                                <h3 className="text-xl font-bold text-white line-clamp-1">
+                                    Episode {nextEpisode.number}
+                                </h3>
+                            </div>
+
+                            <div className="flex items-center justify-center gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNextOverlay(false);
+                                        setIsAutoNavigating(false);
+                                    }}
+                                    className="px-4 py-2 text-xs font-semibold rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onNavigateNextRef.current?.();
+                                    }}
+                                    className="px-5 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                    <Play className="w-3.5 h-3.5 fill-current" /> Play Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>,
+                    artInstance.template.$player
+                )}
             </div>
         </div>
     );
