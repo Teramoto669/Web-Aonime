@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { AnimeListItem } from '@/lib/types';
@@ -12,6 +12,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import { useBlockedFilters } from '@/lib/blocked-filters-context';
 
@@ -62,10 +63,36 @@ const RecommendationCard = React.memo(function RecommendationCard({ item }: { it
 
 export function RecommendationsSection({ recommendations }: RecommendationsSectionProps) {
     const { filterAnimeList } = useBlockedFilters();
+    const [api, setApi] = useState<CarouselApi>();
+    const [displayLimit, setDisplayLimit] = useState(24);
+
     const visibleRecommendations = useMemo(
         () => filterAnimeList(recommendations),
         [recommendations, filterAnimeList]
     );
+
+    const itemsToRender = useMemo(
+        () => visibleRecommendations.slice(0, displayLimit),
+        [visibleRecommendations, displayLimit]
+    );
+
+    useEffect(() => {
+        if (!api) return;
+
+        const checkAndExpand = () => {
+            const selectedIndex = api.selectedScrollSnap();
+            if (selectedIndex >= itemsToRender.length - 6 && itemsToRender.length < visibleRecommendations.length) {
+                setDisplayLimit((prev) => Math.min(prev + 24, visibleRecommendations.length));
+            }
+        };
+
+        api.on("select", checkAndExpand);
+        api.on("scroll", checkAndExpand);
+        return () => {
+            api.off("select", checkAndExpand);
+            api.off("scroll", checkAndExpand);
+        };
+    }, [api, itemsToRender.length, visibleRecommendations.length]);
 
     if (!visibleRecommendations || visibleRecommendations.length === 0) return null;
 
@@ -77,6 +104,7 @@ export function RecommendationsSection({ recommendations }: RecommendationsSecti
                 <span className="text-sm text-muted-foreground ml-auto">{visibleRecommendations.length} titles</span>
             </div>
             <Carousel
+                setApi={setApi}
                 opts={{
                     align: "start",
                     dragFree: true,
@@ -85,7 +113,7 @@ export function RecommendationsSection({ recommendations }: RecommendationsSecti
                 className="w-full relative"
             >
                 <CarouselContent className="-ml-3 sm:-ml-4">
-                    {visibleRecommendations.map((item) => (
+                    {itemsToRender.map((item) => (
                         <CarouselItem key={item.id ?? item.title} className="pl-3 sm:pl-4 basis-auto">
                             <RecommendationCard item={item} />
                         </CarouselItem>

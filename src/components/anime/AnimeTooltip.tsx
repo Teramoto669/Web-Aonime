@@ -63,6 +63,7 @@ interface AnimeTooltipProps {
 
 export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps) {
   const [open, setOpen] = useState(false);
+  const [hasHovered, setHasHovered] = useState(false);
   const prefetchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const isHoveredRef = React.useRef(false);
 
@@ -75,29 +76,10 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
     };
   }, []);
 
-
-
-  // If there's no ID, we fall back to a simple, title-only tooltip
-  if (!id) {
-    return (
-      <Tooltip open={open} onOpenChange={setOpen}>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="start"
-          sideOffset={10}
-          alignOffset={50}
-          className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
-        >
-          <p className="font-semibold">{fallbackTitle}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
   const handlePointerEnter = () => {
     isHoveredRef.current = true;
-    if (isGlobalScrolling) return;
+    if (!hasHovered) setHasHovered(true);
+    if (isGlobalScrolling || !id) return;
 
     prefetchTimeoutRef.current = setTimeout(() => {
       if (isGlobalScrolling) return;
@@ -126,6 +108,33 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
       }, 50);
     }
   };
+
+  // If user hasn't hovered over this card yet, render lightweight wrapper without full Radix Tooltip tree
+  if (!hasHovered) {
+    return (
+      <div onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave} className="inline-block w-full">
+        {children}
+      </div>
+    );
+  }
+
+  // If there's no ID, we fall back to a simple, title-only tooltip
+  if (!id) {
+    return (
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent
+          side="right"
+          align="start"
+          sideOffset={10}
+          alignOffset={50}
+          className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
+        >
+          <p className="font-semibold">{fallbackTitle}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <Tooltip open={open} onOpenChange={handleOpenChange}>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { RelatedAnime } from '@/lib/types';
@@ -11,6 +11,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import { useBlockedFilters } from '@/lib/blocked-filters-context';
 
@@ -109,10 +110,36 @@ const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAni
 
 export function RelatedSection({ related }: RelatedSectionProps) {
     const { filterAnimeList } = useBlockedFilters();
+    const [api, setApi] = useState<CarouselApi>();
+    const [displayLimit, setDisplayLimit] = useState(24);
+
     const visibleRelated = useMemo(
         () => filterAnimeList(related as any) as RelatedAnime[],
         [related, filterAnimeList]
     );
+
+    const itemsToRender = useMemo(
+        () => visibleRelated.slice(0, displayLimit),
+        [visibleRelated, displayLimit]
+    );
+
+    useEffect(() => {
+        if (!api) return;
+
+        const checkAndExpand = () => {
+            const selectedIndex = api.selectedScrollSnap();
+            if (selectedIndex >= itemsToRender.length - 6 && itemsToRender.length < visibleRelated.length) {
+                setDisplayLimit((prev) => Math.min(prev + 24, visibleRelated.length));
+            }
+        };
+
+        api.on("select", checkAndExpand);
+        api.on("scroll", checkAndExpand);
+        return () => {
+            api.off("select", checkAndExpand);
+            api.off("scroll", checkAndExpand);
+        };
+    }, [api, itemsToRender.length, visibleRelated.length]);
 
     if (!visibleRelated || visibleRelated.length === 0) return null;
 
@@ -124,6 +151,7 @@ export function RelatedSection({ related }: RelatedSectionProps) {
                 <span className="text-sm text-muted-foreground ml-auto">{visibleRelated.length} titles</span>
             </div>
             <Carousel
+                setApi={setApi}
                 opts={{
                     align: "start",
                     dragFree: true,
@@ -132,7 +160,7 @@ export function RelatedSection({ related }: RelatedSectionProps) {
                 className="w-full relative"
             >
                 <CarouselContent className="-ml-3 sm:-ml-4">
-                    {visibleRelated.map((item) => (
+                    {itemsToRender.map((item) => (
                         <CarouselItem key={item.id ?? item.title} className="pl-3 sm:pl-4 basis-auto">
                             <RelatedCard item={item} />
                         </CarouselItem>
