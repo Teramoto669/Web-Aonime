@@ -25,6 +25,7 @@ export type AnimeListItem = {
   hasSub?: boolean;
   date?: string;
   synopsis?: string;
+  score?: number;
 };
 
 // Helper function to extract slug from AnimeListItem
@@ -185,6 +186,7 @@ export type WatchData = {
 
 export type BrowseResponse = {
   results?: AnimeListItem[];
+  topRated?: AnimeListItem[];
   currentPage?: number;
   hasNextPage?: boolean;
   hasPreviousPage?: boolean;

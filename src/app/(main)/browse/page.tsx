@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SortClient } from "./SortClient";
 import { FilterMenu } from "@/components/FilterMenu";
+import { TopRatedSidebar } from "@/components/anime/TopRatedSidebar";
 import type { FilterOptions } from "@/lib/types";
 
 export const dynamic = 'force-dynamic';
@@ -91,21 +92,55 @@ async function BrowsePageContent({ page, sort, keyword, filters }: { page: numbe
   try {
     const data = await browseAnime({ page, limit: 24, sort: sort || 'default', keyword, refresh: true, ...filters });
     const animes = data.results ?? [];
+    let topRated = data.topRated ?? [];
+
+    if (topRated.length === 0) {
+      try {
+        const fallbackData = await browseAnime({ sort: 'score', page: 1, limit: 10, refresh: false });
+        topRated = fallbackData.topRated ?? fallbackData.results ?? [];
+      } catch (_) {}
+    }
+
     return (
-      <div className="space-y-8">
-        <AnimeGrid animes={animes} currentPage={page} />
-        {(data.maxPage && data.maxPage > 1) || (!data.maxPage && (animes.length >= 24 || page > 1)) ? (
-          <Pagination
-            currentPage={page}
-            totalPages={data.maxPage ?? (data.hasNextPage ? page + 1 : page)}
-            hasNextPage={data.hasNextPage ?? false}
-            hasPreviousPage={data.hasPreviousPage}
-            minPage={data.minPage}
-          />
-        ) : null}
-        {animes.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            No anime found matching your filters.
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Title & Sort Bar + Anime Grid & Pagination */}
+        <div className={topRated.length > 0 ? "lg:col-span-8 xl:col-span-9 space-y-6" : "lg:col-span-12 space-y-6"}>
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-border/40">
+            <div className="flex items-center gap-3.5">
+              <h1 className="text-3xl font-bold">
+                {keyword ? `Search results for "${keyword}"` : "Browse Anime"}
+              </h1>
+              <FilterMenu filtersData={STATIC_FILTERS} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground font-medium">Sort by:</span>
+              <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
+            </div>
+          </div>
+
+          <AnimeGrid animes={animes} currentPage={page} />
+
+          {(data.maxPage && data.maxPage > 1) || (!data.maxPage && (animes.length >= 24 || page > 1)) ? (
+            <Pagination
+              currentPage={page}
+              totalPages={data.maxPage ?? (data.hasNextPage ? page + 1 : page)}
+              hasNextPage={data.hasNextPage ?? false}
+              hasPreviousPage={data.hasPreviousPage}
+              minPage={data.minPage}
+            />
+          ) : null}
+
+          {animes.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              No anime found matching your filters.
+            </div>
+          )}
+        </div>
+
+        {/* Right Sidebar Column: Top Rated Widget */}
+        {topRated.length > 0 && (
+          <div className="lg:col-span-4 xl:col-span-3">
+            <TopRatedSidebar topRated={topRated} />
           </div>
         )}
       </div>
@@ -117,18 +152,36 @@ async function BrowsePageContent({ page, sort, keyword, filters }: { page: numbe
 }
 
 function LoadingSkeleton() {
-    return (
-        <div className="space-y-8">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-4 md:gap-6">
-                {[...Array(18)].map((_, i) => (
-                    <div key={i}>
-                        <Skeleton className="aspect-[2/3] w-full mb-2 rounded-md" />
-                        <Skeleton className="h-4 w-3/4 rounded-md" />
-                    </div>
-                ))}
-            </div>
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-border/40">
+          <Skeleton className="h-9 w-48 rounded-md" />
+          <Skeleton className="h-9 w-32 rounded-md" />
         </div>
-    );
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
+          {[...Array(18)].map((_, i) => (
+            <div key={i}>
+              <Skeleton className="aspect-[2/3] w-full mb-2 rounded-md" />
+              <Skeleton className="h-4 w-3/4 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-4">
+        <Skeleton className="h-6 w-1/2 rounded-md mb-4" />
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="flex gap-3 items-center">
+            <Skeleton className="w-11 h-16 rounded-md flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-5/6 rounded-md" />
+              <Skeleton className="h-3 w-1/2 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default async function BrowsePage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -138,8 +191,6 @@ export default async function BrowsePage(props: { searchParams: Promise<{ [key: 
   const sort = SORT_OPTIONS.some((o) => o.value === rawSort) ? rawSort : 'default';
   const keyword = typeof params.keyword === 'string' ? params.keyword : undefined;
 
-  // Filter keys matching the API URL param names
-  // Note: type uses "term_type[]" in the API, genre[] uses numeric id
   const filterKeys = ['genre', 'term_type', 'status', 'season', 'year', 'language', 'rating'];
   const filters: Record<string, string[]> = {};
 
@@ -155,20 +206,8 @@ export default async function BrowsePage(props: { searchParams: Promise<{ [key: 
     .join('&');
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold">
-            {keyword ? `Search results for "${keyword}"` : "Browse Anime"}
-          </h1>
-          <FilterMenu filtersData={STATIC_FILTERS} />
-        </div>
-        <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <SortClient sortOptions={SORT_OPTIONS} currentSort={sort} />
-        </div>
-      </div>
-      <Suspense fallback={<LoadingSkeleton />} key={`${page}-${sort}-${keyword ?? ''}-${filterKeyString}`}>
+    <div className="space-y-6">
+      <Suspense fallback={<LoadingSkeleton />} key={`browse-${page}-${sort}-${keyword ?? ''}-${filterKeyString}`}>
         <BrowsePageContent page={page} sort={sort} keyword={keyword} filters={filters} />
       </Suspense>
     </div>

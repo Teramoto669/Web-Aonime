@@ -81,10 +81,13 @@ function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
             const targetUrl = parsed.searchParams.get('url');
             if (targetUrl) {
                 const referer = parsed.searchParams.get('referer') || '';
+                const proxy   = parsed.searchParams.get('proxy') || '';
+                const proxyQs = proxy ? `&proxy=${encodeURIComponent(proxy)}` : '';
+                const refQs   = referer ? `&referer=${encodeURIComponent(referer)}` : '';
                 if (proxyBase) {
-                    return `${proxyBase}/?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+                    return `${proxyBase}/?url=${encodeURIComponent(targetUrl)}${refQs}${proxyQs}`;
                 }
-                return `/api/proxy?url=${encodeURIComponent(targetUrl)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+                return `/api/proxy?url=${encodeURIComponent(targetUrl)}${refQs}${proxyQs}`;
             }
         }
     } catch (_) { }

@@ -1,3 +1,5 @@
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import type { AnimeListItem } from '@/lib/types';
@@ -5,6 +7,14 @@ import { getAnimeSlug } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { PlayIcon } from 'lucide-react';
 import { AnimeTooltip } from './AnimeTooltip';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { useBlockedFilters } from '@/lib/blocked-filters-context';
 
 interface RecommendationsSectionProps {
     recommendations: AnimeListItem[];
@@ -48,40 +58,35 @@ function RecommendationCard({ item }: { item: AnimeListItem }) {
 }
 
 export function RecommendationsSection({ recommendations }: RecommendationsSectionProps) {
-    if (!recommendations || recommendations.length === 0) return null;
+    const { filterAnimeList } = useBlockedFilters();
+    const visibleRecommendations = filterAnimeList(recommendations);
+
+    if (!visibleRecommendations || visibleRecommendations.length === 0) return null;
 
     return (
         <section className="space-y-4">
-            <style>{`
-                .recommendations-scroll::-webkit-scrollbar {
-                    height: 4px;
-                }
-                .recommendations-scroll::-webkit-scrollbar-track {
-                    background: transparent;
-                    border-radius: 9999px;
-                }
-                .recommendations-scroll::-webkit-scrollbar-thumb {
-                    background: hsl(var(--primary) / 0.4);
-                    border-radius: 9999px;
-                }
-                .recommendations-scroll::-webkit-scrollbar-thumb:hover {
-                    background: hsl(var(--primary) / 0.7);
-                }
-                .recommendations-scroll {
-                    scrollbar-width: thin;
-                    scrollbar-color: hsl(var(--primary) / 0.4) transparent;
-                }
-            `}</style>
             <div className="flex items-center gap-3">
                 <div className="h-6 w-1 rounded-full bg-primary" />
                 <h2 className="text-xl font-bold">Recommended Anime</h2>
-                <span className="text-sm text-muted-foreground ml-auto">{recommendations.length} titles</span>
+                <span className="text-sm text-muted-foreground ml-auto">{visibleRecommendations.length} titles</span>
             </div>
-            <div className="recommendations-scroll flex gap-4 overflow-x-auto pb-3">
-                {recommendations.map((item) => (
-                    <RecommendationCard key={item.id ?? item.title} item={item} />
-                ))}
-            </div>
+            <Carousel
+                opts={{
+                    align: "start",
+                    dragFree: true,
+                }}
+                className="w-full relative"
+            >
+                <CarouselContent className="-ml-3 sm:-ml-4">
+                    {visibleRecommendations.map((item) => (
+                        <CarouselItem key={item.id ?? item.title} className="pl-3 sm:pl-4 basis-auto">
+                            <RecommendationCard item={item} />
+                        </CarouselItem>
+                    ))}
+                </CarouselContent>
+                <CarouselPrevious className="-left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
+                <CarouselNext className="-right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
+            </Carousel>
         </section>
     );
 }

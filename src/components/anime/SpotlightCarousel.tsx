@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from 'next/link';
 import {
@@ -11,13 +12,14 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlayCircle, Info, BookmarkCheck } from 'lucide-react';
+import { PlayCircle, Info, BookmarkCheck, ShieldAlert, Eye } from 'lucide-react';
 import type { AnimeListItem } from "@/lib/types";
 import { getAnimeSlug } from "@/lib/types";
 import Autoplay from "embla-carousel-autoplay";
 
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
 import { useUserLibrary, statusLabels, statusBadgeStyles } from "@/lib/library-context";
+import { fetchAnimeTooltip, getCachedAnimeTooltip } from "@/lib/anime-details-cache";
 import { cn } from "@/lib/utils";
 
 type SpotlightCarouselProps = {
@@ -25,9 +27,42 @@ type SpotlightCarouselProps = {
 };
 
 export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
-  const { filterAnimeList } = useBlockedFilters();
+  const { isAnimeBlocked, getBlockedReason, blockedFilters } = useBlockedFilters();
   const { getLibraryStatus } = useUserLibrary();
-  const filteredAnimes = filterAnimeList(animes);
+  const [, setCacheTick] = useState(0);
+  const [unblurredSlides, setUnblurredSlides] = useState<Record<string, boolean>>({});
+
+  const toggleUnblur = (slug: string) => {
+    setUnblurredSlides((prev) => ({ ...prev, [slug]: !prev[slug] }));
+  };
+
+  // Prefetch tooltip/genre info for spotlight items so content filter blocking rules evaluate accurately
+  useEffect(() => {
+    if (!animes || !blockedFilters.enabled) return;
+    let mounted = true;
+    animes.forEach((anime) => {
+      const id = anime.id || anime.slug || getAnimeSlug(anime);
+      if (id && !getCachedAnimeTooltip(id)) {
+        fetchAnimeTooltip(id).then(() => {
+          if (mounted) setCacheTick((t) => t + 1);
+        });
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [animes, blockedFilters.enabled]);
+
+  // Respect user content filter mode:
+  // If mode === "hide": hide blocked items from Spotlight
+  // If mode === "blur": keep item in Spotlight, but render with blurred overlay and Reveal option
+  const filteredAnimes = (animes || []).filter((anime) => {
+    if (!blockedFilters.enabled) return true;
+    if (blockedFilters.mode === "hide") {
+      return !isAnimeBlocked(anime);
+    }
+    return true;
+  });
 
   if (!filteredAnimes || filteredAnimes.length === 0) return null;
 
@@ -47,14 +82,19 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
       >
         <CarouselContent>
           {filteredAnimes.map((anime, index) => {
+            const slug = getAnimeSlug(anime);
+            const isBlocked = isAnimeBlocked(anime);
+            const blockedReason = getBlockedReason(anime);
+            const shouldBlur = isBlocked && blockedFilters.mode === "blur" && !unblurredSlides[slug];
+
             const libraryStatus =
               getLibraryStatus(anime.id) ||
               getLibraryStatus(anime.slug) ||
-              getLibraryStatus(getAnimeSlug(anime));
+              getLibraryStatus(slug);
 
             return (
-              <CarouselItem key={getAnimeSlug(anime)}>
-                <div className="w-full min-h-[35vh] md:h-[50vh] lg:h-[60vh] relative">
+              <CarouselItem key={slug}>
+                <div className="w-full min-h-[440px] md:min-h-[520px] lg:min-h-[580px] relative flex items-center">
                   <div className="absolute inset-0">
                     <Image
                       src={anime.image || '/placeholder.jpg'}
@@ -62,55 +102,140 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
                       fill
                       sizes="(max-width: 1024px) 100vw, 1280px"
                       quality={70}
-                      className="object-cover brightness-50 blur-sm transform-gpu will-change-[transform,filter]"
+                      className={cn(
+                        "object-cover brightness-50 blur-sm transform-gpu will-change-[transform,filter] transition-all duration-500",
+                        shouldBlur && "brightness-20 blur-xl opacity-20"
+                      )}
                       priority={index === 0}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                   </div>
-                  <div className="relative z-10 container mx-auto px-4 h-full flex flex-col pt-14 pb-12 md:pb-20 md:pt-0 lg:pt-20">
-                    <div className="md:w-3/4 lg:w-1/2 space-y-4">
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {anime.rank && (
-                          <Badge className="text-sm bg-primary/90 text-primary-foreground">
-                            Rank #{anime.rank}
+                  <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 lg:py-20 flex items-center justify-between gap-8 min-h-[440px] md:min-h-[520px] lg:min-h-[580px]">
+                    {shouldBlur ? (
+                      <div className="w-full md:w-2/3 lg:w-7/12 space-y-4 pb-2 z-20">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <Badge variant="destructive" className="text-sm font-bold gap-1.5 px-3 py-1 shadow-md">
+                            <ShieldAlert className="w-4 h-4 animate-pulse" />
+                            <span>Content Blocked</span>
                           </Badge>
-                        )}
-                        {libraryStatus && (
-                          <Badge
-                            className={cn(
-                              "text-xs font-bold gap-1 px-2.5 py-1 border-0 shadow-md",
-                              statusBadgeStyles[libraryStatus]
-                            )}
-                          >
-                            <BookmarkCheck className="w-3.5 h-3.5" />
-                            <span>{statusLabels[libraryStatus]}</span>
-                          </Badge>
-                        )}
-                      </div>
-                      <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
-                        {anime.title}
-                      </h1>
-                      {anime.synopsis && (
-                        <p className="text-sm md:text-base text-gray-300 line-clamp-3">
-                          {anime.synopsis}
+                          {blockedReason && (
+                            <Badge variant="outline" className="text-xs border-destructive/40 text-destructive bg-destructive/10 font-medium">
+                              {blockedReason}
+                            </Badge>
+                          )}
+                        </div>
+                        <h1 className="text-2xl md:text-4xl font-extrabold text-white/50 blur-[3px] select-none leading-tight">
+                          {anime.title}
+                        </h1>
+                        <p className="text-sm text-gray-400/50 blur-[2px] select-none line-clamp-2">
+                          {anime.synopsis || "This item matches your content filter blocking criteria."}
                         </p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
-                        {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
-                        {anime.date && <Badge variant="secondary">{anime.date}</Badge>}
+                        <div className="flex items-center gap-4 pt-4">
+                          <Button
+                            size="lg"
+                            variant="secondary"
+                            onClick={() => toggleUnblur(slug)}
+                            className="group bg-white/15 hover:bg-white/30 text-white border border-white/30 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 font-semibold"
+                          >
+                            <Eye className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110" /> Reveal Content
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 pt-4">
-                        <Button asChild size="lg">
-                          <Link href={`/watch/${getAnimeSlug(anime)}`}>
-                            <PlayCircle className="mr-2 h-5 w-5" /> Watch Now
-                          </Link>
-                        </Button>
-                        <Button asChild variant="outline" size="lg">
-                          <Link href={`/anime/${getAnimeSlug(anime)}`}>
-                            <Info className="mr-2 h-5 w-5" /> Details
-                          </Link>
-                        </Button>
+                    ) : (
+                      <div className="w-full md:w-2/3 lg:w-7/12 space-y-4 pb-2">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {anime.rank && (
+                            <Badge className="text-sm bg-primary/90 text-primary-foreground">
+                              Rank #{anime.rank}
+                            </Badge>
+                          )}
+                          {libraryStatus && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-bold gap-1 px-2.5 py-1 border-0 shadow-md",
+                                statusBadgeStyles[libraryStatus]
+                              )}
+                            >
+                              <BookmarkCheck className="w-3.5 h-3.5" />
+                              <span>{statusLabels[libraryStatus]}</span>
+                            </Badge>
+                          )}
+                        </div>
+                        <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-lg leading-tight">
+                          {anime.title}
+                        </h1>
+                        {anime.synopsis && (
+                          <p className="text-sm md:text-base text-gray-300 line-clamp-3">
+                            {anime.synopsis}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {anime.type && <Badge variant="secondary">{anime.type}</Badge>}
+                          {anime.rating && <Badge variant="secondary">{anime.rating}</Badge>}
+                          {anime.date && <Badge variant="secondary">{anime.date}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-4 pt-3">
+                          <Button
+                            asChild
+                            size="lg"
+                            className="group relative overflow-hidden bg-primary text-primary-foreground font-bold transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
+                          >
+                            <Link href={`/watch/${slug}`}>
+                              <PlayCircle className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" /> Watch Now
+                            </Link>
+                          </Button>
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="lg"
+                            className="group bg-white/10 hover:bg-white/25 border-white/25 hover:border-white/50 text-white backdrop-blur-md font-semibold transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
+                          >
+                            <Link href={`/anime/${slug}`}>
+                              <Info className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-12" /> Details
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Poster on right side with blur overlay if shouldBlur is true */}
+                    <div className="hidden md:flex items-center justify-end md:w-1/3 lg:w-4/12 pr-4 lg:pr-12">
+                      <div className="relative w-48 h-72 md:w-52 md:h-80 lg:w-60 lg:h-96 rounded-2xl overflow-hidden shadow-2xl border border-white/20 ring-1 ring-white/10">
+                        <Image
+                          src={anime.image || '/placeholder.jpg'}
+                          alt={anime.title}
+                          fill
+                          sizes="(max-width: 1024px) 220px, 260px"
+                          quality={90}
+                          className={cn(
+                            "object-cover",
+                            shouldBlur && "blur-xl opacity-30 scale-110"
+                          )}
+                          priority={index === 0}
+                        />
+                        {shouldBlur ? (
+                          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center p-4 text-center z-10 space-y-3">
+                            <ShieldAlert className="w-10 h-10 text-destructive animate-pulse" />
+                            <Badge variant="destructive" className="text-xs uppercase font-bold px-2 py-0.5">
+                              Blocked
+                            </Badge>
+                            {blockedReason && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 px-1">
+                                {blockedReason}
+                              </p>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => toggleUnblur(slug)}
+                              className="text-xs bg-background/80 hover:bg-background text-foreground border border-border mt-1 transition-transform hover:scale-105"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" /> Reveal
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -119,9 +244,9 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
             );
           })}
         </CarouselContent>
-        <div className="absolute bottom-4 right-4 md:bottom-10 md:right-10 z-10 flex gap-2">
-          <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0" />
-          <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0" />
+        <div className="absolute bottom-6 right-6 md:bottom-8 md:right-10 z-10 flex gap-2">
+          <CarouselPrevious className="relative translate-x-0 translate-y-0 left-0 top-0 transition-all duration-300 hover:scale-110 hover:bg-primary hover:text-primary-foreground hover:border-primary" />
+          <CarouselNext className="relative translate-x-0 translate-y-0 left-0 top-0 transition-all duration-300 hover:scale-110 hover:bg-primary hover:text-primary-foreground hover:border-primary" />
         </div>
       </Carousel>
     </div>

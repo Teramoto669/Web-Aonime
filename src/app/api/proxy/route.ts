@@ -38,13 +38,15 @@ export async function GET(req: NextRequest) {
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': '*',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+    'X-Accel-Buffering': 'no',
   };
 
   const refererParam = searchParams.get('referer');
+  const customProxy  = searchParams.get('proxy');
 
   // Determine what this URL is
   const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
-  const isSubtitle = /\.vtt/i.test(target) || /subtitles\//i.test(target);
+  const isSubtitle = /\.(vtt|srt|ass)$/i.test(target) || /subtitles\//i.test(target);
 
   // Build upstream headers — always inject Referer so CDNs like vidstream
   // don't 403 segment requests (which is what caused the "stuck at 0:00" bug).
@@ -72,7 +74,10 @@ export async function GET(req: NextRequest) {
   try {
     let upstreamRes;
     if (CF_PROXY) {
-      const workerUrl = `${CF_PROXY}/?url=${encodeURIComponent(target)}${refererParam ? `&referer=${encodeURIComponent(refererParam)}` : ''}`;
+      let workerUrl = `${CF_PROXY}/?url=${encodeURIComponent(target)}`;
+      if (refererParam) workerUrl += `&referer=${encodeURIComponent(refererParam)}`;
+      if (customProxy)  workerUrl += `&proxy=${encodeURIComponent(customProxy)}`;
+
       upstreamRes = await fetch(workerUrl, {
         headers: forwarded,
         cache: 'no-store',
@@ -95,6 +100,7 @@ export async function GET(req: NextRequest) {
       responseHeaders.set('Access-Control-Allow-Origin', '*');
       responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
       responseHeaders.set('Access-Control-Allow-Headers', '*');
+      responseHeaders.set('X-Accel-Buffering', 'no');
 
       return new Response(upstreamRes.body, {
         status: upstreamRes.status,
@@ -114,7 +120,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ── Subtitle (VTT) — proxy as-is ────────────────────────────────────────
+    // ── Subtitle (VTT/SRT/ASS) — proxy as-is ─────────────────────────────────
     if (isSubtitle) {
       return new Response(upstreamRes.body, {
         status: upstreamRes.status,
@@ -163,6 +169,7 @@ export async function GET(req: NextRequest) {
 
               let proxied = `/api/proxy?url=${encodeURIComponent(absolute)}`;
               if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;
+              if (customProxy)  proxied += `&proxy=${encodeURIComponent(customProxy)}`;
               return `URI="${proxied}"`;
             } catch {
               return match;
@@ -186,9 +193,10 @@ export async function GET(req: NextRequest) {
             }
           } catch (_) {}
 
-          // All segment/sub-manifest URLs → through this proxy (with Referer)
+          // All segment/sub-manifest URLs → through this proxy (with Referer & optional custom proxy)
           let proxied = `/api/proxy?url=${encodeURIComponent(resolved)}`;
           if (refererParam) proxied += `&referer=${encodeURIComponent(refererParam)}`;
+          if (customProxy)  proxied += `&proxy=${encodeURIComponent(customProxy)}`;
           return proxied;
         } catch {
           return line;
