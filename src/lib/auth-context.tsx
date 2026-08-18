@@ -375,12 +375,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const updates: any = {};
     if (profile.displayName !== undefined) updates.displayName = profile.displayName;
-    if (profile.photoURL !== undefined) updates.photoURL = profile.photoURL;
+    
+    // Firebase Auth updateProfile strictly enforces max 2,048 chars for photoURL.
+    // If photoURL is a long Base64 string, skip setting photoURL in Auth profile to prevent 400 error.
+    if (profile.photoURL !== undefined && (profile.photoURL === null || profile.photoURL.length <= 2000)) {
+      updates.photoURL = profile.photoURL;
+    }
 
-    // 1. Update Firebase Auth user profile
-    await updateProfile(auth.currentUser, updates);
+    // 1. Update Firebase Auth user profile (only displayName and short URLs)
+    if (Object.keys(updates).length > 0) {
+      await updateProfile(auth.currentUser, updates);
+    }
 
-    // 2. Update Firestore document
+    // 2. Update Firestore document (Firestore supports up to 1MB, storing Base64 Data URIs safely)
     const userDocRef = doc(db, "users", auth.currentUser.uid);
     const firestoreUpdates: any = {};
     if (profile.displayName !== undefined) firestoreUpdates.displayName = profile.displayName;
