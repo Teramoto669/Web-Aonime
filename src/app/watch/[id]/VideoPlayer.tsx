@@ -248,6 +248,33 @@ function shiftWebVTT(vttText: string, delay: number): string {
     return shiftedLines.join('\n');
 }
 
+// ─── Subtitle Language Preference Helper ────────────────────────────────────
+
+function getInitialSubtitleIndex(trackList: Track[]): number {
+    if (!trackList || trackList.length === 0) return -1;
+    if (typeof window === "undefined") return 0;
+
+    const savedLabel = localStorage.getItem("preferred-subtitle-label");
+    if (savedLabel === "OFF") return -1;
+
+    if (savedLabel) {
+        const savedLower = savedLabel.toLowerCase().trim();
+        // 1. Exact label match
+        const exactIdx = trackList.findIndex(t => t.label?.toLowerCase().trim() === savedLower);
+        if (exactIdx !== -1) return exactIdx;
+
+        // 2. Fuzzy label or language match (e.g. "english", "eng", "en", "indonesia", "ind", "sub")
+        const fuzzyIdx = trackList.findIndex(t => {
+            const label = (t.label || "").toLowerCase();
+            const kind = (t.kind || "").toLowerCase();
+            return label.includes(savedLower) || savedLower.includes(label) || kind.includes(savedLower);
+        });
+        if (fuzzyIdx !== -1) return fuzzyIdx;
+    }
+
+    return 0;
+}
+
 // ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
 
 function HlsPlayer({
@@ -300,9 +327,21 @@ function HlsPlayer({
 
     const tracksKey = JSON.stringify(tracks || []);
 
-    const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(
-        tracks.length > 0 ? 0 : -1
+    const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(() =>
+        getInitialSubtitleIndex(tracks)
     );
+
+    const handleSelectSubtitle = (index: number) => {
+        setSelectedSubtitleIndex(index);
+        if (typeof window !== "undefined") {
+            if (index >= 0 && tracks[index]) {
+                const trackLabel = tracks[index].label || "";
+                localStorage.setItem("preferred-subtitle-label", trackLabel);
+            } else if (index === -1) {
+                localStorage.setItem("preferred-subtitle-label", "OFF");
+            }
+        }
+    };
     const [subDelay, setSubDelay] = useState<number>(0);
     const [originalSubContents, setOriginalSubContents] = useState<Record<number, string>>({});
     const [processedTrackUrls, setProcessedTrackUrls] = useState<Record<number, string>>({});
@@ -565,6 +604,9 @@ function HlsPlayer({
                     `,
                     click: function () {
                         if (prevEpisodeRef.current) {
+                            if (typeof window !== "undefined" && (this.fullscreen || document.fullscreenElement)) {
+                                sessionStorage.setItem("preferred-fullscreen", "true");
+                            }
                             onNavigatePrevRef.current?.();
                         }
                     },
@@ -587,6 +629,9 @@ function HlsPlayer({
                     `,
                     click: function () {
                         if (nextEpisodeRef.current) {
+                            if (typeof window !== "undefined" && (this.fullscreen || document.fullscreenElement)) {
+                                sessionStorage.setItem("preferred-fullscreen", "true");
+                            }
                             onNavigateNextRef.current?.();
                         }
                     },
@@ -708,8 +753,15 @@ function HlsPlayer({
 
 
 
-        // Lock screen orientation to landscape when in fullscreen mode on mobile devices
+        // Track screen orientation & save fullscreen preference
         art.on('fullscreen', async (state) => {
+            if (typeof window !== "undefined") {
+                if (state) {
+                    sessionStorage.setItem("preferred-fullscreen", "true");
+                } else {
+                    sessionStorage.removeItem("preferred-fullscreen");
+                }
+            }
             if (state) {
                 try {
                     const orientation = screen.orientation as any;
@@ -816,6 +868,18 @@ function HlsPlayer({
             }
         };
 
+        const restoreFullscreenIfPreferred = () => {
+            if (typeof window !== "undefined" && sessionStorage.getItem("preferred-fullscreen") === "true") {
+                if (!art.fullscreen) {
+                    try {
+                        art.fullscreen = true;
+                    } catch (err) {
+                        console.warn("Auto fullscreen restore failed:", err);
+                    }
+                }
+            }
+        };
+
         // Draw initially if metadata is already loaded
         if (art.duration > 0) {
             drawSkipMarkers();
@@ -825,8 +889,12 @@ function HlsPlayer({
             if (art.duration > 0) {
                 drawSkipMarkers();
             }
+            restoreFullscreenIfPreferred();
         });
-        art.on('video:loadedmetadata', drawSkipMarkers);
+        art.on('video:loadedmetadata', () => {
+            drawSkipMarkers();
+            restoreFullscreenIfPreferred();
+        });
         art.on('video:durationchange', drawSkipMarkers);
 
         // Mobile Double Tap to Skip 5s Gesture (Left/Right side)
@@ -971,7 +1039,33 @@ function HlsPlayer({
                 }
             }
         };
-    }, [m3u8Url]);
+    }, []);
+
+    const isFirstMountRef = useRef(true);
+
+    // Switch video stream dynamically when episode changes without unmounting Artplayer or closing Fullscreen
+    useEffect(() => {
+        if (isFirstMountRef.current) {
+            isFirstMountRef.current = false;
+            return;
+        }
+        if (!artInstance || isDestroyedRef.current) return;
+
+        try {
+            if (hlsRef.current && HLS.isSupported()) {
+                hlsRef.current.loadSource(m3u8Url);
+                hlsRef.current.startLoad();
+                if (artInstance.video) {
+                    artInstance.video.play().catch(() => {});
+                }
+            } else if (artInstance.video) {
+                artInstance.video.src = m3u8Url;
+                artInstance.video.play().catch(() => {});
+            }
+        } catch (err) {
+            console.error("Error switching video stream:", err);
+        }
+    }, [m3u8Url, artInstance]);
 
     // ── Load/Save Subtitle Config ──
     useEffect(() => {
@@ -1361,14 +1455,14 @@ function HlsPlayer({
                         html: "Off",
                         default: selectedSubtitleIndex === -1,
                         onClick: () => {
-                            setSelectedSubtitleIndex(-1);
+                            handleSelectSubtitle(-1);
                         }
                     },
                     ...tracks.map((track, i) => ({
                         html: track.label || `Track ${i + 1}`,
                         default: selectedSubtitleIndex === i,
                         onClick: () => {
-                            setSelectedSubtitleIndex(i);
+                            handleSelectSubtitle(i);
                         }
                     }))
                 ]
@@ -1579,7 +1673,10 @@ function HlsPlayer({
     useEffect(() => {
         if (!showNextOverlay || !isAutoNavigating) return;
 
-        if (countdown <= 0) {
+        if (countdown < 0) {
+            if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
+                sessionStorage.setItem("preferred-fullscreen", "true");
+            }
             onNavigateNextRef.current?.();
             return;
         }
@@ -1589,11 +1686,11 @@ function HlsPlayer({
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [showNextOverlay, isAutoNavigating, countdown]);
+    }, [showNextOverlay, isAutoNavigating, countdown, artInstance]);
 
     // Reset subtitle states & overlay when URL/episode changes
     useEffect(() => {
-        setSelectedSubtitleIndex(tracks.length > 0 ? 0 : -1);
+        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks));
         setSubDelay(0);
         setOriginalSubContents({});
         skipTargetTimeRef.current = null;
@@ -1612,7 +1709,7 @@ function HlsPlayer({
         <div className="w-full flex flex-col">
             <div className="w-full aspect-video bg-black relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
                 <div ref={artRef} className="w-full h-full" />
-                {showNextOverlay && nextEpisode && isAutoNavigating && countdown > 0 && artInstance?.template?.$player && createPortal(
+                {showNextOverlay && nextEpisode && isAutoNavigating && countdown >= 0 && artInstance?.template?.$player && createPortal(
                     <div className="absolute inset-0 z-[50] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
                         <div className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100">
                             <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
@@ -1660,6 +1757,9 @@ function HlsPlayer({
                                 <button
                                     type="button"
                                     onClick={() => {
+                                        if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
+                                            sessionStorage.setItem("preferred-fullscreen", "true");
+                                        }
                                         onNavigateNextRef.current?.();
                                     }}
                                     className="px-5 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30 flex items-center gap-1.5 transition-all cursor-pointer"

@@ -23,6 +23,7 @@ type EpisodeListClientProps = {
   currentEpisode?: string;
   hideIcons?: boolean;
   initialRange?: string;
+  onSelectEpisode?: (epNumber: string, rangeStr: string) => void;
 };
 
 export function EpisodeListClient({
@@ -32,6 +33,7 @@ export function EpisodeListClient({
   currentEpisode,
   hideIcons,
   initialRange,
+  onSelectEpisode,
 }: EpisodeListClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const defaultRange = useMemo(() => {
@@ -173,7 +175,15 @@ export function EpisodeListClient({
                 className={cn("justify-start h-auto py-2 flex flex-col items-start")}
                 title={`Episode ${ep.number}`}
               >
-                <Link href={`/watch/${animeId}?ep=${ep.number}&range=${selectedRange}`}>
+                <Link
+                  href={`/watch/${animeId}?ep=${ep.number}&range=${selectedRange}`}
+                  onClick={(e) => {
+                    if (onSelectEpisode) {
+                      e.preventDefault();
+                      onSelectEpisode(ep.number, selectedRange);
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-1 w-full">
                     <span className="font-semibold">EP {ep.number}</span>
                     {!hideIcons && (

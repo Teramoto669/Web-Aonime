@@ -55,6 +55,11 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         }
     };
 
+    // Seamless episode navigation state
+    const [currentEpNum, setCurrentEpNum] = useState<string>(episodeNum);
+    const [watchDataState, setWatchDataState] = useState<WatchData>(watchData);
+    const [isFetchingEpisode, setIsFetchingEpisode] = useState(false);
+
     const slug = detailsData.slug || animeId;
     const title = detailsData.title || animeId;
 
@@ -71,9 +76,9 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     const currentEpIdx = useMemo(() => {
         return sortedEpisodes.findIndex(
-            e => parseFloat(e.number) === parseFloat(episodeNum) || e.number === episodeNum
+            e => parseFloat(e.number) === parseFloat(currentEpNum) || e.number === currentEpNum
         );
-    }, [sortedEpisodes, episodeNum]);
+    }, [sortedEpisodes, currentEpNum]);
 
     const getEpRange = (epNumStr: string, totalCount: number) => {
         const num = parseInt(epNumStr);
@@ -82,6 +87,31 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         const start = chunkIndex * 50 + 1;
         const end = Math.min((chunkIndex + 1) * 50, totalCount);
         return `${start}-${end}`;
+    };
+
+    const changeEpisode = async (newEpNum: string, newRangeStr?: string) => {
+        if (newEpNum === currentEpNum || isFetchingEpisode) return;
+        setIsFetchingEpisode(true);
+
+        const rangeStr = newRangeStr || getEpRange(newEpNum, sortedEpisodes.length);
+        const newUrl = `/watch/${slug}?ep=${newEpNum}&range=${rangeStr}`;
+        if (typeof window !== "undefined") {
+            window.history.pushState(null, '', newUrl);
+        }
+
+        setCurrentEpNum(newEpNum);
+
+        try {
+            const res = await fetch(`/api/watch?slug=${encodeURIComponent(slug)}&ep=${encodeURIComponent(newEpNum)}`);
+            if (res.ok) {
+                const data = await res.json();
+                setWatchDataState(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch next episode watch data:", err);
+        } finally {
+            setIsFetchingEpisode(false);
+        }
     };
 
     const prevEpisodeInfo = useMemo(() => {
@@ -108,18 +138,18 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     const handleNavigatePrev = () => {
         if (prevEpisodeInfo) {
-            router.push(prevEpisodeInfo.url);
+            changeEpisode(prevEpisodeInfo.number);
         }
     };
 
     const handleNavigateNext = () => {
         if (nextEpisodeInfo) {
-            router.push(nextEpisodeInfo.url);
+            changeEpisode(nextEpisodeInfo.number);
         }
     };
 
-    const allSources = watchData.sources || [];
-    const servers = watchData.servers || [];
+    const allSources = watchDataState.sources || [];
+    const servers = watchDataState.servers || [];
 
     // Normalize type: treat 'hsub' as a distinct category
     const getSourceType = (source: Source): "sub" | "dub" | "hsub" => {
@@ -137,15 +167,13 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         return "sub";
     };
 
-    // Build a merged server list: start from the explicit `servers` array,
-    // then append any server from `sources` whose name+type combo is missing.
+    // Build a merged server list
     const buildServerList = (type: "sub" | "dub" | "hsub") => {
         const fromServers = servers.filter(s => s.type === type);
         const knownNames = new Set(fromServers.map(s => s.name));
         const fromSources = allSources
             .filter(s => getSourceType(s) === type && s.server && !knownNames.has(s.server))
             .map(s => ({ name: s.server!, type }));
-        // Deduplicate fromSources by name
         const seen = new Set<string>();
         const uniqueFromSources = fromSources.filter(s => {
             if (seen.has(s.name)) return false;
@@ -162,28 +190,14 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     const hasDub = dubServers.length > 0;
     const hasHsub = hsubServers.length > 0;
 
-    // Selected server index per category
     const [subServerIdx, setSubServerIdx] = useState(0);
     const [hsubServerIdx, setHsubServerIdx] = useState(0);
     const [dubServerIdx, setDubServerIdx] = useState(0);
-
-    // Active source is determined by the last-clicked category
     const [activeCategory, setActiveCategory] = useState<"sub" | "dub" | "hsub">("sub");
 
-    const handleSubChange = (idx: number) => {
-        setSubServerIdx(idx);
-        setActiveCategory("sub");
-    };
-
-    const handleHsubChange = (idx: number) => {
-        setHsubServerIdx(idx);
-        setActiveCategory("hsub");
-    };
-
-    const handleDubChange = (idx: number) => {
-        setDubServerIdx(idx);
-        setActiveCategory("dub");
-    };
+    const handleSubChange = (idx: number) => { setSubServerIdx(idx); setActiveCategory("sub"); };
+    const handleHsubChange = (idx: number) => { setHsubServerIdx(idx); setActiveCategory("hsub"); };
+    const handleDubChange = (idx: number) => { setDubServerIdx(idx); setActiveCategory("dub"); };
 
     const getActiveServers = () => {
         if (activeCategory === "sub") return subServers;
@@ -197,14 +211,23 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         return dubServerIdx;
     };
 
-    const selectedServer = getActiveServers()[getActiveServerIdx()] ?? null;
+    useEffect(() => {
+        setSubServerIdx(0);
+        setHsubServerIdx(0);
+        setDubServerIdx(0);
+    }, [watchDataState]);
 
-    const currentSource = selectedServer
-        ? allSources.find(s =>
-            s.server === selectedServer.name &&
-            (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
-        ) ?? null
-        : null;
+    const selectedServer = getActiveServers()[getActiveServerIdx()] ?? null;
+    const currentSource = useMemo(() => {
+        if (selectedServer) {
+            const matched = allSources.find(s =>
+                s.server === selectedServer.name &&
+                (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
+            );
+            if (matched) return matched;
+        }
+        return allSources[0] ?? null;
+    }, [selectedServer, allSources, servers]);
 
     const { user } = useAuth();
 
@@ -215,7 +238,6 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
             try {
                 const targetId = detailsData.id || animeId;
                 if (!targetId) return;
-
                 // 1. Save/update watch history entry
                 const historyRef = doc(db, "watch_history", `${user.uid}_${targetId}`);
                 await setDoc(historyRef, {
@@ -223,9 +245,8 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                     animeId: targetId,
                     title: detailsData.title || animeId,
                     image: detailsData.image || "",
-                    type: detailsData.type || "TV",
                     slug: detailsData.slug || animeId,
-                    episodeNum: episodeNum,
+                    episodeNum: currentEpNum,
                     watchedAt: serverTimestamp()
                 }, { merge: true });
 
@@ -234,7 +255,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                 const librarySnap = await getDoc(libraryRef);
                 if (librarySnap.exists()) {
                     await updateDoc(libraryRef, {
-                        lastEpisodeWatched: episodeNum,
+                        lastEpisodeWatched: currentEpNum,
                         lastEpisodeWatchedAt: serverTimestamp()
                     });
                 }
@@ -244,11 +265,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         };
 
         saveWatchHistory();
-    }, [user, detailsData.id, animeId, episodeNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
+    }, [user, detailsData.id, animeId, currentEpNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
 
     return (
         <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-            {/* Blocked Filter Warning Banner */}
             {isBlocked && !revealed && (
                 <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
                     <div className="flex items-center space-x-3">
@@ -256,45 +276,27 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <ShieldAlert className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-destructive">
-                                Content Filter Warning
-                            </h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                This anime matches your active Content Blocklist ({blockedReason}).
-                            </p>
+                            <h3 className="text-sm font-bold text-destructive">Content Filter Warning</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">This anime matches your active Content Blocklist ({blockedReason}).</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={openModal}
-                            className="text-xs h-8 gap-1.5 border-destructive/40 hover:bg-destructive/10"
-                        >
-                            <Settings className="w-3.5 h-3.5" /> Adjust Filters
-                        </Button>
-                        <Button
-                            size="sm"
-                            onClick={() => setRevealed(true)}
-                            className="text-xs h-8 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
-                        >
-                            <Eye className="w-3.5 h-3.5" /> Unblock & Watch
-                        </Button>
+                        <Button variant="outline" size="sm" onClick={openModal} className="text-xs h-8 gap-1.5 border-destructive/40 hover:bg-destructive/10"><Settings className="w-3.5 h-3.5" /> Adjust Filters</Button>
+                        <Button size="sm" onClick={() => setRevealed(true)} className="text-xs h-8 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"><Eye className="w-3.5 h-3.5" /> Unblock & Watch</Button>
                     </div>
                 </div>
             )}
 
-            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300 transform-gpu [will-change:filter]" : ""}`}>
+            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
                 <div className="lg:col-span-3 space-y-4">
-                    {/* Video Player */}
                     <div className="w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
                         {currentSource ? (
                             <VideoPlayer
-                                key={`${currentSource.server}-${currentSource.type}-${currentSource.url || currentSource.m3u8 || ""}`}
+                                key="aonime-player"
                                 source={currentSource}
-                                tracks={currentSource.tracks || []}
+                                tracks={currentSource.tracks || watchDataState.tracks || []}
                                 cfProxyUrl={cfProxyUrl}
-                                skipData={watchData.skip_data}
+                                skipData={watchDataState.skip_data}
                                 autoPlay={autoPlay}
                                 onAutoPlayChange={handleAutoPlayChange}
                                 prevEpisode={prevEpisodeInfo}
@@ -306,88 +308,37 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <div className="aspect-video flex items-center justify-center p-4 sm:p-8 bg-black/90 text-foreground">
                                 <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive/30 text-left">
                                     <Terminal className="h-4 w-4" />
-                                    <AlertTitle>{watchData?.error || "No streaming sources available!"}</AlertTitle>
-                                    <AlertDescription className="mt-1">
-                                        {watchData?.error ? (
-                                            watchData.error
-                                        ) : (
-                                            "This episode doesn't seem to have any streaming sources yet."
-                                        )}
-                                    </AlertDescription>
+                                    <AlertTitle>{watchDataState?.error || "No streaming sources available!"}</AlertTitle>
+                                    <AlertDescription className="mt-1">{watchDataState?.error ? watchDataState.error : "This episode doesn't seem to have any streaming sources yet."}</AlertDescription>
                                 </Alert>
                             </div>
                         )}
                     </div>
 
-                    {/* Title & Server Controls */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
                             <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
-                            <p className="text-lg text-muted-foreground mt-1">Episode {episodeNum}</p>
+                            <p className="text-lg text-muted-foreground mt-1">Episode {currentEpNum}</p>
                         </div>
-
-                        {/* Server selectors — Premium Segmented Toggle & Single Server Select */}
                         <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
-                            {/* Category Toggle (SUB / HSUB / DUB) */}
                             {(hasDub || hasHsub) && (
                                 <div className="flex rounded-md bg-muted p-1 select-none border">
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveCategory("sub")}
-                                        className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub"
-                                            ? "bg-background text-foreground shadow-sm"
-                                            : "text-muted-foreground hover:text-foreground"
-                                            }`}
-                                    >
-                                        Sub
-                                    </button>
-                                    {hasHsub && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setActiveCategory("hsub")}
-                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub"
-                                                ? "bg-background text-foreground shadow-sm"
-                                                : "text-muted-foreground hover:text-foreground"
-                                                }`}
-                                        >
-                                            HSub
-                                        </button>
-                                    )}
-                                    {hasDub && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setActiveCategory("dub")}
-                                            className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub"
-                                                ? "bg-background text-foreground shadow-sm"
-                                                : "text-muted-foreground hover:text-foreground"
-                                                }`}
-                                        >
-                                            Dub
-                                        </button>
-                                    )}
+                                    <button type="button" onClick={() => setActiveCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
+                                    {hasHsub && <button type="button" onClick={() => setActiveCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
+                                    {hasDub && <button type="button" onClick={() => setActiveCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
                                 </div>
                             )}
-
-                            {/* Server Select Dropdown */}
                             {(getActiveServers().length > 0) && (
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-muted-foreground uppercase">Server</span>
-                                    <Select
-                                        value={String(getActiveServerIdx())}
-                                        onValueChange={(v) => {
-                                            const idx = parseInt(v);
-                                            if (activeCategory === "sub") handleSubChange(idx);
-                                            else if (activeCategory === "hsub") handleHsubChange(idx);
-                                            else handleDubChange(idx);
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-[150px] border-primary">
-                                            <SelectValue placeholder="Select Server" />
+                                    <Select value={String(getActiveServerIdx())} onValueChange={(v) => { const idx = parseInt(v); if (activeCategory === "sub") handleSubChange(idx); else if (activeCategory === "hsub") handleHsubChange(idx); else handleDubChange(idx); }}>
+                                        <SelectTrigger className="w-[140px] text-xs font-semibold">
+                                            <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {getActiveServers().map((server, idx) => (
-                                                <SelectItem key={`${activeCategory}-${idx}`} value={String(idx)}>
-                                                    {server.name || `Server ${idx + 1}`}
+                                            {getActiveServers().map((server, i) => (
+                                                <SelectItem key={`${server.name}-${i}`} value={String(i)} className="text-xs">
+                                                    {server.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -397,38 +348,24 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         </div>
                     </div>
 
-                    {/* Anime info link & library action */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-lg bg-card/10">
-                        <Link href={`/anime/${slug}`} className="flex items-center gap-4 hover:opacity-90 transition-opacity flex-1">
-                            <div className="relative h-24 w-16 flex-shrink-0">
-                                <Image
-                                    src={detailsData.image || '/placeholder.jpg'}
-                                    alt={title}
-                                    fill
-                                    className="rounded-sm object-cover"
-                                />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Now Watching</p>
-                                <h2 className="text-xl font-bold line-clamp-1">{title}</h2>
-                                <p className="text-sm text-muted-foreground line-clamp-1">
-                                    {detailsData.genres?.join(', ') || detailsData.type || 'Anime'}
-                                </p>
+                    <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 flex items-center justify-between gap-4">
+                        <Link href={`/anime/${slug}`} className="flex items-center gap-3 sm:gap-4 min-w-0 group">
+                            {detailsData.image && (
+                                <div className="relative w-12 h-16 sm:w-14 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity">
+                                    <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
+                                </div>
+                            )}
+                            <div className="min-w-0">
+                                <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">{title}</h3>
+                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{detailsData.genres?.join(', ') || detailsData.type || 'Anime'}</p>
                             </div>
                         </Link>
                         <div className="flex-shrink-0">
-                            <LibraryButton
-                                animeId={detailsData.id || animeId}
-                                title={title}
-                                image={detailsData.image || ""}
-                                type={detailsData.type || "TV"}
-                                slug={slug}
-                                className="w-full sm:w-auto h-10 text-xs px-4"
-                            />
+                            <LibraryButton animeId={detailsData.id || animeId} title={title} image={detailsData.image || ""} type={detailsData.type || "TV"} slug={slug} className="w-full sm:w-auto h-10 text-xs px-4" />
                         </div>
                     </div>
 
-                    <CommentSection animeId={slug} episodeNum={episodeNum} animeTitle={title} />
+                    <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
                 </div>
 
                 <div className="lg:col-span-1">
@@ -436,9 +373,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         animeId={slug}
                         episodes={episodesData.episodes}
                         totalEpisodes={episodesData.episodes.length}
-                        currentEpisode={episodeNum}
+                        currentEpisode={currentEpNum}
                         hideIcons={true}
                         initialRange={episodeRange}
+                        onSelectEpisode={(epNum, rangeStr) => changeEpisode(epNum, rangeStr)}
                     />
                 </div>
             </div>

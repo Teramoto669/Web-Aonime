@@ -178,6 +178,7 @@ export type WatchData = {
   episode?: Episode;
   servers?: Server[];
   sources?: Source[];
+  tracks?: Track[];
   skip_data?: SkipData;
   error?: string;
 };
