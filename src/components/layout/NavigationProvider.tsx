@@ -92,9 +92,6 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      // Do not trigger navigation if event default was already prevented (e.g. by Embla Carousel drag)
-      if (e.defaultPrevented) return;
-
       const targetEl = e.target as HTMLElement;
       if (!targetEl) return;
 
@@ -109,6 +106,15 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
       const anchor = targetEl.closest("a");
       if (!anchor) return;
+
+      // If anchor is inside an Embla Carousel and the user was DRAGGING, do not trigger loading indicator
+      const carouselViewport = anchor.closest<HTMLElement>("[data-carousel-viewport]");
+      if (carouselViewport) {
+        const emblaApi = (carouselViewport as any).__emblaApi;
+        if (emblaApi && typeof emblaApi.clickAllowed === "function" && !emblaApi.clickAllowed()) {
+          return;
+        }
+      }
 
       const href = anchor.getAttribute("href");
       if (!href) return;
@@ -145,10 +151,9 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       }
     };
 
-    // Use bubble phase (false) so carousel drag listeners (Embla) can cancel click events first
-    document.addEventListener("click", handleAnchorClick, false);
+    document.addEventListener("click", handleAnchorClick, true);
     return () => {
-      document.removeEventListener("click", handleAnchorClick, false);
+      document.removeEventListener("click", handleAnchorClick, true);
     };
   }, [isNavigating]);
 
