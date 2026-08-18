@@ -92,6 +92,9 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
+      // Do not trigger navigation if event default was already prevented (e.g. by Embla Carousel drag)
+      if (e.defaultPrevented) return;
+
       const targetEl = e.target as HTMLElement;
       if (!targetEl) return;
 
@@ -129,6 +132,12 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
         const url = new URL(href, window.location.origin);
         if (url.origin !== window.location.origin) return;
 
+        // If clicking current exact URL, do not trigger loading indicator
+        const currentUrl = new URL(window.location.href);
+        if (url.pathname === currentUrl.pathname && url.search === currentUrl.search) {
+          return;
+        }
+
         // Start navigation state
         setIsNavigating(true);
       } catch (err) {
@@ -136,9 +145,10 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       }
     };
 
-    document.addEventListener("click", handleAnchorClick, true);
+    // Use bubble phase (false) so carousel drag listeners (Embla) can cancel click events first
+    document.addEventListener("click", handleAnchorClick, false);
     return () => {
-      document.removeEventListener("click", handleAnchorClick, true);
+      document.removeEventListener("click", handleAnchorClick, false);
     };
   }, [isNavigating]);
 
