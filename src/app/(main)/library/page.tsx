@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useAuth, PRESET_AVATARS, PRESET_THEMES } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
-import { uploadAvatarToSupabase, compressImage, deleteAvatarFromSupabase } from "@/lib/supabase";
+import { compressImage } from "@/lib/image-utils";
 import { AnimeCard } from "@/components/anime/AnimeCard";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -397,7 +397,7 @@ function LibraryPageContent() {
     }
   };
 
-  // Avatar Upload via Supabase REST API
+  // Avatar Upload via Base64 Data URI (No third-party cloud storage required)
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -413,19 +413,12 @@ function LibraryPageContent() {
 
     setUploadingFile(true);
     try {
-      // Compress the image client-side to maximum 256x256 at 85% quality
-      const compressedBlob = await compressImage(file, 256, 256, 0.85);
+      // Compress the image client-side to maximum 256x256 at 85% quality JPEG Base64 (~15-25KB)
+      const base64AvatarUrl = await compressImage(file, 256, 256, 0.85);
 
-      // Clean up previous avatar if it belongs to our Supabase storage
-      if (selectedAvatar) {
-        await deleteAvatarFromSupabase(selectedAvatar);
-      }
-
-      // Upload compressed blob
-      const publicUrl = await uploadAvatarToSupabase(compressedBlob, user.uid);
-      setSelectedAvatar(publicUrl);
+      setSelectedAvatar(base64AvatarUrl);
       toast({
-        title: "Avatar Uploaded",
+        title: "Avatar Processed",
         description: "Preview updated. Click 'Save Profile Changes' to apply permanently.",
       });
     } catch (error: any) {
@@ -433,7 +426,7 @@ function LibraryPageContent() {
       toast({
         variant: "destructive",
         title: "Upload Failed",
-        description: error.message || "Failed to upload avatar to Supabase.",
+        description: error.message || "Failed to process avatar image.",
       });
     } finally {
       setUploadingFile(false);
@@ -561,12 +554,7 @@ function LibraryPageContent() {
     if (!user) return;
     setIsDeletingAccount(true);
     try {
-      // 1. Delete custom avatar file in Supabase if exists to free storage
-      if (user.photoURL) {
-        await deleteAvatarFromSupabase(user.photoURL);
-      }
-
-      // 2. Perform Firebase Auth and Firestore deletions
+      // Perform Firebase Auth and Firestore deletions
       await deleteUserAccount(user.isGoogleUser ? undefined : deleteConfirmPassword);
       toast({
         title: "Account Deleted",
