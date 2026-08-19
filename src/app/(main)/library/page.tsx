@@ -1037,9 +1037,9 @@ function LibraryPageContent() {
                   </div>
                 </SelectItem>
                 {isAdmin && (
-                  <SelectItem value="admin" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-amber-500/15 data-[state=checked]:text-amber-400 focus:bg-amber-500/10 focus:text-amber-400">
+                  <SelectItem value="admin" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-amber-400" />
+                      <ShieldCheck className="h-4 w-4 text-primary" />
                       <span>Admin Settings</span>
                     </div>
                   </SelectItem>
@@ -1063,8 +1063,8 @@ function LibraryPageContent() {
               Edit Profile
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="admin" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30">
-                <ShieldCheck className="h-4 w-4 text-amber-400" />
+              <TabsTrigger value="admin" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
                 Admin Settings
               </TabsTrigger>
             )}
@@ -1470,12 +1470,6 @@ function LibraryPageContent() {
               {/* Header Title */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wide uppercase">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Admin Control Panel
-                    </span>
-                  </div>
                   <h2 className="text-xl font-bold tracking-tight">System Settings</h2>
                   <p className="text-xs text-muted-foreground">
                     Configure global parameters, rate limits, and spam protection timers across the platform.
@@ -1487,10 +1481,7 @@ function LibraryPageContent() {
               <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-amber-400" />
-                      <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer</h3>
-                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer</h3>
                     <p className="text-xs text-muted-foreground">
                       Sets the mandatory waiting period between consecutive comments or replies posted by users.
                     </p>
@@ -1502,9 +1493,9 @@ function LibraryPageContent() {
                     variant={adminCooldownEnabled ? "default" : "outline"}
                     onClick={() => setAdminCooldownEnabled(!adminCooldownEnabled)}
                     className={cn(
-                      "h-8 px-3 text-xs font-bold transition-all",
+                      "h-8 px-3 text-xs font-bold transition-all shadow-sm",
                       adminCooldownEnabled
-                        ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
                         : "border-border/60 text-muted-foreground hover:bg-muted"
                     )}
                   >
@@ -1536,7 +1527,7 @@ function LibraryPageContent() {
                           className={cn(
                             "flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all",
                             isSelected
-                              ? "bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.2)] scale-[1.02]"
+                              ? "bg-primary/15 text-primary border-primary/50 shadow-sm"
                               : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
                           )}
                         >
@@ -1580,11 +1571,10 @@ function LibraryPageContent() {
                 </div>
 
                 {/* Live Preview Box */}
-                <div className="p-3 bg-card/40 border border-amber-500/20 rounded-lg flex items-center justify-between text-xs">
+                <div className="p-3 bg-card/40 border border-border/40 rounded-lg flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
                     <span className="text-muted-foreground">Effective Wait Time:</span>
-                    <strong className="text-amber-400 font-mono font-bold">
+                    <strong className="text-foreground font-mono font-bold">
                       {adminCooldownEnabled && adminCooldownSeconds > 0
                         ? formatDurationLabel(adminCooldownSeconds)
                         : "Disabled (0s delay)"}
@@ -1632,7 +1622,7 @@ function LibraryPageContent() {
                 <Button
                   type="submit"
                   disabled={savingAdminSettings || loadingCommentSettings}
-                  className="font-bold h-11 px-8 bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_16px_rgba(245,158,11,0.3)] transition-all"
+                  className="font-bold h-11 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
                 >
                   {savingAdminSettings ? (
                     <>

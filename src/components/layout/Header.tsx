@@ -258,8 +258,8 @@ export default function Header() {
                     </DropdownMenuItem>
                     {isAdmin && (
                       <DropdownMenuItem asChild>
-                        <Link href="/library?tab=admin" className="cursor-pointer flex items-center text-amber-400 focus:text-amber-400 focus:bg-amber-500/10">
-                          <ShieldCheck className="mr-2 h-4 w-4 text-amber-400" />
+                        <Link href="/library?tab=admin" className="cursor-pointer flex items-center">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
                           <span>Admin Settings</span>
                         </Link>
                       </DropdownMenuItem>
