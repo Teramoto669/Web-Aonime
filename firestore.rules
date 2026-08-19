@@ -52,11 +52,11 @@ service cloud.firestore {
 
     // Strict rules for the "libraries" collection
     match /libraries/{libraryId} {
-      // Anyone logged in can read library items
-      allow read: if isAuthenticated();
+      // Users can only read their own library items (or Admin)
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       
-      // Users can only delete a library item if it exists and belongs to them
-      allow delete: if isOwner(resource.data.userId);
+      // Users can only delete a library item if it exists and belongs to them (or Admin)
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
       
       // Users can only create or update a library item if the data's userId matches their authenticated UID
       allow create, update: if isAuthenticated() 
@@ -84,9 +84,12 @@ service cloud.firestore {
       // - Must be logged in and writing their own userId
       // - Comment creation timestamp must match the request time
       // - Must update user profile lastCommentedAt to current request time in the same batch
+      // - Initial reactions must start at 0
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.createdAt == request.time
+        && request.resource.data.get('likesCount', 0) == 0
+        && request.resource.data.get('dislikesCount', 0) == 0
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastCommentedAt == request.time;
     }
 
@@ -106,23 +109,28 @@ service cloud.firestore {
 
     // Strict rules for the "notifications" collection
     match /notifications/{notificationId} {
-      // User can only read their own notifications
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      // User can only read their own notifications (or Admin)
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       
-      // Anyone logged in can create a notification (to allow sending replies or writing library updates)
-      allow create: if isAuthenticated();
+      // Logged-in users can only create 'reply' notifications with senderId matching their auth UID
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.userId is string
+        && request.resource.data.userId != request.auth.uid
+        && request.resource.data.type == 'reply'
+        && request.resource.data.createdAt == request.time;
       
       // User can update/delete their own notifications (e.g. mark as read or dismiss)
-      allow update, delete: if isOwner(resource.data.userId);
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // Strict rules for the "watch_history" collection
     match /watch_history/{historyId} {
-      // Anyone logged in can read watch history items
-      allow read: if isAuthenticated();
+      // Users can only read their own watch history items (or Admin)
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       
-      // Users can only delete a history item if it exists and belongs to them
-      allow delete: if isOwner(resource.data.userId);
+      // Users can only delete a history item if it exists and belongs to them (or Admin)
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
       
       // Users can only create or update a history item if the data's userId matches their authenticated UID
       allow create, update: if isAuthenticated() 

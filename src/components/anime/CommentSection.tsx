@@ -27,6 +27,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   MessageSquare, 
   Trash2, 
@@ -720,6 +730,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [commentToDelete, setCommentToDelete] = useState<{ id: string; isReply?: boolean } | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
 
   // Reply states
@@ -1189,15 +1200,17 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     }
   };
 
-  const handleDelete = async (commentId: string) => {
-    if (!user) return;
-    setDeletingId(commentId);
+  const handleConfirmDelete = async () => {
+    if (!user || !commentToDelete) return;
+    const targetCommentId = commentToDelete.id;
+    const isReply = commentToDelete.isReply;
+    setDeletingId(targetCommentId);
 
     try {
-      await deleteDoc(doc(db, "comments", commentId));
+      await deleteDoc(doc(db, "comments", targetCommentId));
       toast({
-        title: "Comment deleted",
-        description: "The comment has been successfully removed.",
+        title: isReply ? "Reply deleted" : "Comment deleted",
+        description: isReply ? "Your reply has been successfully removed." : "Your comment has been successfully removed.",
       });
     } catch (error) {
       console.error("Error deleting comment:", error);
@@ -1208,6 +1221,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
       });
     } finally {
       setDeletingId(null);
+      setCommentToDelete(null);
     }
   };
 
@@ -1439,7 +1453,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDelete(comment.id)}
+                              onClick={() => setCommentToDelete({ id: comment.id, isReply: false })}
                               disabled={deletingId === comment.id || isSavingEdit}
                               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                               title="Delete Comment"
@@ -1688,7 +1702,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      onClick={() => handleDelete(reply.id)}
+                                      onClick={() => setCommentToDelete({ id: reply.id, isReply: true })}
                                       disabled={deletingId === reply.id || isSavingEdit}
                                       className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                                       title="Delete Reply"
@@ -1891,6 +1905,38 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={!!commentToDelete} onOpenChange={(open) => !open && !deletingId && setCommentToDelete(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {commentToDelete?.isReply ? "Reply" : "Comment"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this {commentToDelete?.isReply ? "reply" : "comment"}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={!!deletingId}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

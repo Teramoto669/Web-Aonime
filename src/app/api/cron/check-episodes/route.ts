@@ -7,14 +7,15 @@ export const maxDuration = 60; // Max execution time for Vercel functions
 
 export async function GET(request: Request) {
   try {
-    // 1. Verify Vercel Cron secret in production
+    // 1. Verify Vercel Cron secret (enforces fail-closed auth in production or if CRON_SECRET is set)
     const authHeader = request.headers.get('authorization');
-    if (
-      process.env.NODE_ENV === 'production' &&
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-      return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    const cronSecret = process.env.CRON_SECRET;
+    const isProd = process.env.NODE_ENV === 'production';
+
+    if (isProd || cronSecret) {
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // 2. Fetch all user library items marked as "watching"

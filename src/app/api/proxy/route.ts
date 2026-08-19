@@ -3,6 +3,72 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
+function isSafeUrl(targetUrl: string): boolean {
+  try {
+    const parsed = new URL(targetUrl);
+    
+    // 1. Only allow HTTP and HTTPS protocols
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase().trim();
+
+    // 2. Reject empty hostname or credentials embedded in URL
+    if (!hostname || parsed.username || parsed.password) {
+      return false;
+    }
+
+    // 3. Block loopback, localhost, and internal domain names
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.lan') ||
+      hostname === '0.0.0.0' ||
+      hostname === '::' ||
+      hostname === '::1' ||
+      hostname === '[::1]'
+    ) {
+      return false;
+    }
+
+    // 4. Block cloud metadata endpoints
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      return false;
+    }
+
+    // 5. Block IPv4 private & special ranges
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const ipMatch = hostname.match(ipv4Regex);
+    if (ipMatch) {
+      const o1 = Number(ipMatch[1]);
+      const o2 = Number(ipMatch[2]);
+      const o3 = Number(ipMatch[3]);
+      const o4 = Number(ipMatch[4]);
+      if (o1 > 255 || o2 > 255 || o3 > 255 || o4 > 255) return false;
+
+      if (o1 === 127) return false; // 127.0.0.0/8 (Loopback)
+      if (o1 === 10) return false; // 10.0.0.0/8 (Private)
+      if (o1 === 172 && o2 >= 16 && o2 <= 31) return false; // 172.16.0.0/12 (Private)
+      if (o1 === 192 && o2 === 168) return false; // 192.168.0.0/16 (Private)
+      if (o1 === 169 && o2 === 254) return false; // 169.254.0.0/16 (Link-local)
+      if (o1 === 100 && o2 >= 64 && o2 <= 127) return false; // 100.64.0.0/10 (CGNAT)
+      if (o1 === 0) return false; // 0.0.0.0/8
+    }
+
+    // 6. Block decimal / hex / octal IP representations
+    if (/^\d+$/.test(hostname) || /^0x[0-9a-f]+$/i.test(hostname)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const target = searchParams.get('url');
@@ -11,14 +77,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
   }
 
-  // Security check: Block direct access (copy-pasting URL in browser tab or cross-origin requests)
-  const refererHeader = req.headers.get('Referer');
-  const secFetchDest = req.headers.get('Sec-Fetch-Dest');
+  // SSRF Protection: Validate target URL against private IPs and cloud metadata
+  if (!isSafeUrl(target)) {
+    return NextResponse.json({ error: 'Forbidden or invalid target URL' }, { status: 400 });
+  }
 
+  const customProxy = searchParams.get('proxy');
+  if (customProxy && !isSafeUrl(customProxy)) {
+    return NextResponse.json({ error: 'Forbidden or invalid proxy URL' }, { status: 400 });
+  }
+
+  // Security check: Block direct document/iframe navigation
+  const secFetchDest = req.headers.get('Sec-Fetch-Dest');
   if (secFetchDest === 'document' || secFetchDest === 'iframe') {
     return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
   }
 
+  const refererHeader = req.headers.get('Referer');
   if (!refererHeader) {
     return NextResponse.json({ status: 400, result: 'Bad request' }, { status: 400 });
   }
@@ -42,7 +117,6 @@ export async function GET(req: NextRequest) {
   };
 
   const refererParam = searchParams.get('referer');
-  const customProxy  = searchParams.get('proxy');
 
   // Determine what this URL is
   const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
