@@ -32,10 +32,13 @@ export interface UserProfile {
   emailVerified: boolean;
   isGoogleUser: boolean;
   lastCommentedAt?: Date | null;
+  role?: "admin" | "user";
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
   user: UserProfile | null;
+  isAdmin: boolean;
   loading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
@@ -191,6 +194,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Firestore user retrieval error:", e);
         }
 
+        const isUserAdmin = userData.role === "admin" || userData.isAdmin === true;
+
         const profile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -204,6 +209,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ? userData.lastCommentedAt.toDate()
               : new Date(userData.lastCommentedAt))
             : null,
+          role: userData.role || (isUserAdmin ? "admin" : "user"),
+          isAdmin: isUserAdmin,
         };
 
         setUser(profile);
@@ -420,6 +427,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        isAdmin: Boolean(user?.isAdmin || user?.role === "admin"),
         loading,
         login,
         register,

@@ -37,18 +37,33 @@ import {
   Loader2,
   FolderHeart,
   ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   Check,
   Upload,
   KeyRound,
   UserX,
   Play,
-  History
+  History,
+  Clock,
+  Sliders,
+  Sparkles,
+  CheckCircle2,
+  RotateCcw,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import type { AnimeListItem } from "@/lib/types";
 import { Pagination } from "@/components/Pagination";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
+import {
+  useCommentSettings,
+  saveCommentSettings,
+  PRESET_COOLDOWNS,
+  formatDurationLabel,
+  DEFAULT_COMMENT_SETTINGS,
+} from "@/lib/system-settings";
 
 const ITEMS_PER_PAGE = 24;
 
@@ -114,6 +129,7 @@ const statusLabels: Record<string, string> = {
 function LibraryPageContent() {
   const {
     user,
+    isAdmin,
     loading: authLoading,
     openAuthModal,
     updateUserProfile,
@@ -126,7 +142,8 @@ function LibraryPageContent() {
   
   const targetUserId = searchParams.get("user");
   const isOwnLibrary = !targetUserId || (user && targetUserId === user.uid);
-  const defaultTab = searchParams.get("tab") === "profile" ? "profile" : "library";
+  const tabParam = searchParams.get("tab");
+  const defaultTab = tabParam === "profile" ? "profile" : tabParam === "admin" ? "admin" : "library";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
@@ -157,6 +174,81 @@ function LibraryPageContent() {
   const [selectedTheme, setSelectedTheme] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+
+  // Admin settings state
+  const { settings: currentCommentSettings, loading: loadingCommentSettings } = useCommentSettings();
+  const [adminCooldownSeconds, setAdminCooldownSeconds] = useState<number>(300);
+  const [adminCooldownEnabled, setAdminCooldownEnabled] = useState<boolean>(true);
+  const [customMinutes, setCustomMinutes] = useState<string>("5");
+  const [customSeconds, setCustomSeconds] = useState<string>("0");
+  const [savingAdminSettings, setSavingAdminSettings] = useState(false);
+
+  // Sync comment settings when loaded
+  useEffect(() => {
+    if (currentCommentSettings) {
+      setAdminCooldownSeconds(currentCommentSettings.cooldownSeconds);
+      setAdminCooldownEnabled(currentCommentSettings.enabled);
+      setCustomMinutes(Math.floor(currentCommentSettings.cooldownSeconds / 60).toString());
+      setCustomSeconds((currentCommentSettings.cooldownSeconds % 60).toString());
+    }
+  }, [currentCommentSettings]);
+
+  const handleCustomDurationChange = (minutesStr: string, secondsStr: string) => {
+    setCustomMinutes(minutesStr);
+    setCustomSeconds(secondsStr);
+    const mins = Math.max(0, parseInt(minutesStr) || 0);
+    const secs = Math.max(0, parseInt(secondsStr) || 0);
+    setAdminCooldownSeconds(mins * 60 + secs);
+  };
+
+  const handleSelectPreset = (seconds: number) => {
+    setAdminCooldownSeconds(seconds);
+    setCustomMinutes(Math.floor(seconds / 60).toString());
+    setCustomSeconds((seconds % 60).toString());
+  };
+
+  const handleSaveAdminCommentSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Unauthorized Access",
+        description: "You do not have administrator permissions to modify system settings.",
+      });
+      return;
+    }
+
+    setSavingAdminSettings(true);
+    try {
+      await saveCommentSettings(
+        {
+          cooldownSeconds: Math.max(0, adminCooldownSeconds),
+          enabled: adminCooldownEnabled,
+        },
+        user
+      );
+      toast({
+        title: "Settings Saved Successfully!",
+        description: `Comment cooldown is now set to ${formatDurationLabel(adminCooldownSeconds)} (${adminCooldownEnabled ? "Enabled" : "Disabled"}).`,
+      });
+    } catch (err: any) {
+      console.error("Error saving comment settings:", err);
+      toast({
+        variant: "destructive",
+        title: "Failed to Save Settings",
+        description: err.message || "An unexpected error occurred while saving system settings.",
+      });
+    } finally {
+      setSavingAdminSettings(false);
+    }
+  };
+
+  const handleResetCommentSettings = () => {
+    setAdminCooldownSeconds(DEFAULT_COMMENT_SETTINGS.cooldownSeconds);
+    setAdminCooldownEnabled(DEFAULT_COMMENT_SETTINGS.enabled);
+    setCustomMinutes(Math.floor(DEFAULT_COMMENT_SETTINGS.cooldownSeconds / 60).toString());
+    setCustomSeconds((DEFAULT_COMMENT_SETTINGS.cooldownSeconds % 60).toString());
+  };
 
   // Password update state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -916,10 +1008,12 @@ function LibraryPageContent() {
                   {activeTab === "library" && <Bookmark className="h-4 w-4 text-primary" />}
                   {activeTab === "history" && <History className="h-4 w-4 text-primary" />}
                   {activeTab === "profile" && <User className="h-4 w-4 text-primary" />}
+                  {activeTab === "admin" && <ShieldCheck className="h-4 w-4 text-amber-400" />}
                   <span>
                     {activeTab === "library" && "My Library"}
                     {activeTab === "history" && "Watch History"}
                     {activeTab === "profile" && "Edit Profile"}
+                    {activeTab === "admin" && "Admin Settings"}
                   </span>
                 </div>
               </SelectTrigger>
@@ -942,6 +1036,14 @@ function LibraryPageContent() {
                     <span>Edit Profile</span>
                   </div>
                 </SelectItem>
+                {isAdmin && (
+                  <SelectItem value="admin" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-amber-500/15 data-[state=checked]:text-amber-400 focus:bg-amber-500/10 focus:text-amber-400">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-amber-400" />
+                      <span>Admin Settings</span>
+                    </div>
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -960,6 +1062,12 @@ function LibraryPageContent() {
               <User className="h-4 w-4" />
               Edit Profile
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="admin" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-400 data-[state=active]:border-amber-500/30">
+                <ShieldCheck className="h-4 w-4 text-amber-400" />
+                Admin Settings
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* --- LIBRARY TAB --- */}
@@ -1338,6 +1446,206 @@ function LibraryPageContent() {
             </div>
           </div>
 
+        </TabsContent>
+
+        {/* --- ADMIN SETTINGS TAB --- */}
+        <TabsContent value="admin" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-none space-y-8 animate-in fade-in duration-300">
+          {!isAdmin ? (
+            <div className="text-center py-16 bg-card/10 border border-dashed border-destructive/40 rounded-2xl p-8 space-y-4">
+              <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-destructive">
+                <ShieldX className="h-7 w-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-destructive">Access Restricted</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  You do not have administrator permissions to access this control panel.
+                </p>
+              </div>
+              <Button onClick={() => setActiveTab("library")} variant="outline" className="font-bold border-border/60 text-xs">
+                Return to My Library
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveAdminCommentSettings} className="space-y-6">
+              {/* Header Title */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wide uppercase">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Admin Control Panel
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-bold tracking-tight">System Settings</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Configure global parameters, rate limits, and spam protection timers across the platform.
+                  </p>
+                </div>
+              </div>
+
+              {/* Comment Cooldown Section */}
+              <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-amber-400" />
+                      <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Sets the mandatory waiting period between consecutive comments or replies posted by users.
+                    </p>
+                  </div>
+
+                  {/* Toggle Enabled / Disabled */}
+                  <Button
+                    type="button"
+                    variant={adminCooldownEnabled ? "default" : "outline"}
+                    onClick={() => setAdminCooldownEnabled(!adminCooldownEnabled)}
+                    className={cn(
+                      "h-8 px-3 text-xs font-bold transition-all",
+                      adminCooldownEnabled
+                        ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                        : "border-border/60 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {adminCooldownEnabled ? (
+                      <>
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                        Cooldown Active
+                      </>
+                    ) : (
+                      "Cooldown Disabled"
+                    )}
+                  </Button>
+                </div>
+
+                {/* Preset Quick Buttons */}
+                <div className="space-y-2 pt-2 border-t border-border/30">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Sliders className="h-3.5 w-3.5 text-primary" />
+                    Quick Preset Durations:
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {PRESET_COOLDOWNS.map((preset) => {
+                      const isSelected = adminCooldownSeconds === preset.seconds;
+                      return (
+                        <button
+                          key={preset.seconds}
+                          type="button"
+                          onClick={() => handleSelectPreset(preset.seconds)}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all",
+                            isSelected
+                              ? "bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.2)] scale-[1.02]"
+                              : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
+                          )}
+                        >
+                          <span className="font-extrabold text-sm">{preset.label}</span>
+                          <span className="text-[10px] opacity-75 font-normal">{preset.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Duration Input */}
+                <div className="space-y-2 pt-2 border-t border-border/30">
+                  <Label className="text-xs text-muted-foreground">Or Set Custom Duration:</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Minutes</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1440"
+                        value={customMinutes}
+                        onChange={(e) => handleCustomDurationChange(e.target.value, customSeconds)}
+                        placeholder="0"
+                        className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Seconds</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={customSeconds}
+                        onChange={(e) => handleCustomDurationChange(customMinutes, e.target.value)}
+                        placeholder="0"
+                        className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="p-3 bg-card/40 border border-amber-500/20 rounded-lg flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span className="text-muted-foreground">Effective Wait Time:</span>
+                    <strong className="text-amber-400 font-mono font-bold">
+                      {adminCooldownEnabled && adminCooldownSeconds > 0
+                        ? formatDurationLabel(adminCooldownSeconds)
+                        : "Disabled (0s delay)"}
+                    </strong>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-muted/60 rounded border border-border/40 text-muted-foreground">
+                    {adminCooldownSeconds}s total
+                  </span>
+                </div>
+
+                {/* Real-time Status Card */}
+                {currentCommentSettings && (
+                  <div className="p-3 bg-muted/10 border border-border/30 rounded-lg space-y-1 text-[11px] text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>Currently active on server:</span>
+                      <strong className="text-foreground font-mono">
+                        {currentCommentSettings.enabled && currentCommentSettings.cooldownSeconds > 0
+                          ? formatDurationLabel(currentCommentSettings.cooldownSeconds)
+                          : "Disabled"}
+                      </strong>
+                    </div>
+                    {currentCommentSettings.updatedBy && (
+                      <div className="flex items-center justify-between">
+                        <span>Last modified by:</span>
+                        <span className="text-foreground font-medium">{currentCommentSettings.updatedBy}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleResetCommentSettings}
+                  disabled={savingAdminSettings}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 h-10"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset to Default (5m)
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={savingAdminSettings || loadingCommentSettings}
+                  className="font-bold h-11 px-8 bg-amber-500 hover:bg-amber-600 text-black shadow-[0_0_16px_rgba(245,158,11,0.3)] transition-all"
+                >
+                  {savingAdminSettings ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving Settings...
+                    </>
+                  ) : (
+                    "Save Admin Settings"
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
         </TabsContent>
       </Tabs>
       )}

@@ -3,23 +3,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Strict rules for the "users" collection
-    match /users/{userId} {
-      // Anyone logged in can read profile data, only the owner can write
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true))
+      );
+    }
+
+    // Strict rules for the "users" collection
+    match /users/{userId} {
+      // Anyone logged in can read profile data
+      allow read: if isAuthenticated();
+      
+      // Prevent privilege escalation: Users cannot assign themselves role: "admin" or isAdmin: true
+      allow create: if isOwner(userId)
+        && (!('role' in request.resource.data) || request.resource.data.role != 'admin')
+        && (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin != true);
+
+      // Users can update their profile, but cannot tamper with 'role' or 'isAdmin' fields unless they are already an Admin
+      allow update: if isOwner(userId) && (
+        isAdmin() ||
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin'])
+      );
+
+      // Only owner can delete their own account
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // Strict rules for the "system_settings" collection
+    match /system_settings/{settingId} {
+      // Anyone can read system settings (e.g. comment cooldown, global configurations)
+      allow read: if true;
+
+      // Only verified Admin users can modify system settings
+      allow write: if isAdmin();
+    }
+
     // Strict rules for the "libraries" collection
     match /libraries/{libraryId} {
       // Anyone logged in can read library items
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       
       // Users can only delete a library item if it exists and belongs to them
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if isOwner(resource.data.userId);
       
       // Users can only create or update a library item if the data's userId matches their authenticated UID
-      allow create, update: if request.auth != null 
+      allow create, update: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid
         && (resource == null || resource.data.userId == request.auth.uid);
     }
@@ -29,13 +69,13 @@ service cloud.firestore {
       // Anyone can view comments
       allow read: if true;
 
-      // Users can delete their own comments
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Users can delete their own comments, Admins can moderate/delete any comment
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
 
       // Update rules:
       // - Comment owner can edit their own comment's content, isEdited, and updatedAt fields
       // - Any logged-in user can update likesCount and dislikesCount fields (reactions)
-      allow update: if request.auth != null && (
+      allow update: if isAuthenticated() && (
         (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'isEdited', 'updatedAt']))
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'dislikesCount'])
       );
@@ -43,54 +83,49 @@ service cloud.firestore {
       // Create rules:
       // - Must be logged in and writing their own userId
       // - Comment creation timestamp must match the request time
-      // - Must update user profile lastCommentedAt to current request time in the same batch (via getAfter)
-      // - Previous lastCommentedAt must be null or at least 5 minutes ago
-      allow create: if request.auth != null
+      // - Must update user profile lastCommentedAt to current request time in the same batch
+      allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastCommentedAt == request.time
-        && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('lastCommentedAt', null) == null
-          || request.time >= get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('lastCommentedAt', null) + duration.value(5, 'm')
-        );
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.lastCommentedAt == request.time;
     }
 
     // Strict rules for the "comment_reactions" collection
     match /comment_reactions/{reactionId} {
       // Users can only read their own reaction documents
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId);
 
       // Users can only create or update their own reactions
-      allow create, update: if request.auth != null 
+      allow create, update: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid
         && (resource == null || resource.data.userId == request.auth.uid);
 
       // Users can delete their own reactions
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if isOwner(resource.data.userId);
     }
 
     // Strict rules for the "notifications" collection
     match /notifications/{notificationId} {
       // User can only read their own notifications
-      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
       
       // Anyone logged in can create a notification (to allow sending replies or writing library updates)
-      allow create: if request.auth != null;
+      allow create: if isAuthenticated();
       
       // User can update/delete their own notifications (e.g. mark as read or dismiss)
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId);
     }
 
     // Strict rules for the "watch_history" collection
     match /watch_history/{historyId} {
       // Anyone logged in can read watch history items
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       
       // Users can only delete a history item if it exists and belongs to them
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if isOwner(resource.data.userId);
       
       // Users can only create or update a history item if the data's userId matches their authenticated UID
-      allow create, update: if request.auth != null 
+      allow create, update: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid
         && (resource == null || resource.data.userId == request.auth.uid);
     }

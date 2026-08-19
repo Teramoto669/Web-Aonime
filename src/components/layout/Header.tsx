@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Bookmark, Menu, ShieldAlert } from "lucide-react";
+import { User, LogOut, Bookmark, Menu, ShieldAlert, ShieldCheck } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
 import {
@@ -31,7 +31,7 @@ import {
 
 export default function Header() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const { user, loading, logout, openAuthModal } = useAuth();
+  const { user, isAdmin, loading, logout, openAuthModal } = useAuth();
   const { openModal: openBlockedFiltersModal, blockedFilters } = useBlockedFilters();
   const pathname = usePathname();
 
@@ -256,6 +256,14 @@ export default function Header() {
                         <span>Edit Profile</span>
                       </Link>
                     </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/library?tab=admin" className="cursor-pointer flex items-center text-amber-400 focus:text-amber-400 focus:bg-amber-500/10">
+                          <ShieldCheck className="mr-2 h-4 w-4 text-amber-400" />
+                          <span>Admin Settings</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={openBlockedFiltersModal} className="cursor-pointer flex items-center">
                       <ShieldAlert className="mr-2 h-4 w-4 text-destructive" />
                       <span>Content Blocklist</span>

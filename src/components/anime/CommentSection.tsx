@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useCommentSettings, formatCooldown } from "@/lib/system-settings";
 import {
   Popover,
   PopoverContent,
@@ -710,6 +711,7 @@ function FormattingToolbar({
 
 export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSectionProps) {
   const { user, openAuthModal, updateLastCommentedAt } = useAuth();
+  const { settings: commentSettings } = useCommentSettings();
   const { toast } = useToast();
   
   const [mounted, setMounted] = useState(false);
@@ -868,7 +870,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
   // Cooldown calculation helper
   const getRemainingCooldown = (lastComment: Date | string | number | any) => {
-    if (!lastComment) return 0;
+    if (!lastComment || !commentSettings.enabled || commentSettings.cooldownSeconds <= 0) return 0;
     const now = new Date();
     const dateObj = typeof lastComment?.toDate === "function" 
       ? lastComment.toDate() 
@@ -876,13 +878,13 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     const lastTime = dateObj instanceof Date && !isNaN(dateObj.getTime()) ? dateObj.getTime() : 0;
     if (!lastTime) return 0;
     const diffMs = now.getTime() - lastTime;
-    const cooldownMs = 5 * 60 * 1000;
+    const cooldownMs = commentSettings.cooldownSeconds * 1000;
     return Math.max(0, cooldownMs - diffMs);
   };
 
   // Cooldown countdown timer
   useEffect(() => {
-    if (!user?.lastCommentedAt) {
+    if (!user?.lastCommentedAt || !commentSettings.enabled || commentSettings.cooldownSeconds <= 0) {
       setRemainingMs(0);
       return;
     }
@@ -894,7 +896,10 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     };
 
     const initialMs = updateTimer();
-    if (initialMs <= 0) return;
+    if (initialMs <= 0) {
+      setRemainingMs(0);
+      return;
+    }
 
     const interval = setInterval(() => {
       const ms = updateTimer();
@@ -904,7 +909,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [user?.lastCommentedAt]);
+  }, [user?.lastCommentedAt, commentSettings.enabled, commentSettings.cooldownSeconds]);
 
   // Listen to user's comment reactions
   useEffect(() => {
@@ -1204,13 +1209,6 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     } finally {
       setDeletingId(null);
     }
-  };
-
-  const formatCooldown = (ms: number) => {
-    const totalSecs = Math.ceil(ms / 1000);
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return `${mins}m ${secs}s`;
   };
 
   // Separation of comments and replies
