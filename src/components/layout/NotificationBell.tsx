@@ -87,17 +87,18 @@ export function NotificationBell() {
         })) as NotificationType[];
 
         // Sort items by createdAt descending (newest first)
+        const now = Date.now();
         items.sort((a, b) => {
           const timeA = a.createdAt
             ? (typeof a.createdAt.toDate === "function"
               ? a.createdAt.toDate().getTime()
               : new Date(a.createdAt as any).getTime())
-            : 0;
+            : now;
           const timeB = b.createdAt
             ? (typeof b.createdAt.toDate === "function"
               ? b.createdAt.toDate().getTime()
               : new Date(b.createdAt as any).getTime())
-            : 0;
+            : now;
           return timeB - timeA;
         });
 
