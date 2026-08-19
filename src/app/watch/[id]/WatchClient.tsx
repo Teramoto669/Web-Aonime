@@ -295,8 +295,9 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                 </div>
             )}
 
-            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
-                <div className="lg:col-span-3 space-y-4">
+            <div className={`grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
+                {/* 1. Video Player & Title/Server Selector */}
+                <div className="order-1 lg:col-span-3 space-y-4">
                     <div className="relative z-10 w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
                         {currentSource ? (
                             <VideoPlayer
@@ -386,11 +387,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             )}
                         </div>
                     </div>
-
-                    <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
                 </div>
 
-                <div className="lg:col-span-1 space-y-6">
+                {/* 2. Episode List (Mobile: 2nd block below video, Desktop: Right column top) */}
+                <div className="order-2 lg:order-2 lg:col-span-1 lg:col-start-4 lg:row-start-1">
                     <EpisodeListClient
                         animeId={slug}
                         episodes={episodesData.episodes}
@@ -400,7 +400,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         initialRange={episodeRange}
                         onSelectEpisode={(epNum, rangeStr) => changeEpisode(epNum, rangeStr)}
                     />
+                </div>
 
+                {/* 3. Anime Detail Card (Mobile: 3rd block below episodes, Desktop: Right column 2nd item) */}
+                <div className="order-3 lg:order-4 lg:col-span-1 lg:col-start-4 lg:row-start-2">
                     <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 space-y-4">
                         <div className="flex flex-col gap-3">
                             <Link href={`/anime/${slug}`} className="flex items-start gap-3 group">
@@ -472,6 +475,11 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* 4. Comment Section (Mobile: 4th block / bottom below details, Desktop: Left column below title) */}
+                <div className="order-4 lg:order-3 lg:col-span-3 lg:col-start-1">
+                    <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
                 </div>
             </div>
 

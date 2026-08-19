@@ -634,7 +634,7 @@ function FormattingToolbar({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 bg-muted/30 border border-border/50 rounded-t-lg border-b-0">
+    <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-muted/30 border border-border/50 rounded-t-lg border-b-0">
       <Button
         type="button"
         variant="ghost"
@@ -695,13 +695,13 @@ function FormattingToolbar({
               <span>GIF</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent side="top" align="start" className="w-[360px] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
+          <PopoverContent side="top" align="start" className="w-[min(calc(100vw-32px),360px)] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
             <KlipyGifPicker onSelectGif={onInsertGif} />
           </PopoverContent>
         </Popover>
       )}
 
-      <div className="h-3.5 w-[1px] bg-border/60 mx-1" />
+      <div className="h-3.5 w-[1px] bg-border/60 mx-0.5 sm:mx-1" />
 
       <Button
         type="button"
@@ -709,7 +709,7 @@ function FormattingToolbar({
         size="sm"
         disabled={disabled}
         onClick={() => onInsert("spoiler")}
-        className="h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1 font-semibold"
+        className="h-7 px-1.5 sm:px-2 text-[11px] sm:text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1 font-semibold"
         title="Add Spoiler (||text||)"
       >
         <EyeOff className="w-3.5 h-3.5" />
@@ -1306,66 +1306,65 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               </div>
             )}
 
-            <div className="flex gap-4 items-start">
-              <Link href={`/library?user=${user.uid}`} className="hover:opacity-85 transition-opacity">
-                <Avatar className="h-10 w-10 border border-border ring-2 ring-primary/20">
-                  <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-                    {user.displayName?.charAt(0).toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Link>
-
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold flex items-center gap-1 text-foreground/90">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Link href={`/library?user=${user.uid}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                    <Avatar className="h-7 w-7 sm:h-9 sm:w-9 border border-border ring-2 ring-primary/20">
+                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs sm:text-sm">
+                        {user.displayName?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <span className="text-xs sm:text-sm font-semibold text-foreground/90 truncate">
                     Posting as <Link href={`/library?user=${user.uid}`} className={`font-bold hover:underline ${getThemeTextClass(user.themeColor)}`}>{user.displayName}</Link>
                   </span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {commentText.length}/500
-                  </span>
                 </div>
+                <span className="text-[10px] sm:text-xs text-muted-foreground font-mono flex-shrink-0">
+                  {commentText.length}/500
+                </span>
+              </div>
 
-                <div className="space-y-0">
-                  <FormattingToolbar
-                    disabled={isSubmitting || remainingMs > 0}
-                    onInsert={(type) => handleInsertFormatting(type, false)}
-                    onInsertGif={(gifUrl) => handleInsertGif(gifUrl, false)}
-                  />
-                  <Textarea
-                    ref={mainTextareaRef}
-                    placeholder={
-                      remainingMs > 0
-                        ? "Commenting is locked during cooldown..."
-                        : `Write a comment about this ${episodeNum ? "episode" : "anime"}...`
-                    }
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
-                    disabled={isSubmitting || remainingMs > 0}
-                    className="min-h-[100px] resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-b-lg rounded-t-none"
-                    required
-                  />
-                </div>
+              <div className="space-y-0 w-full">
+                <FormattingToolbar
+                  disabled={isSubmitting || remainingMs > 0}
+                  onInsert={(type) => handleInsertFormatting(type, false)}
+                  onInsertGif={(gifUrl) => handleInsertGif(gifUrl, false)}
+                />
+                <Textarea
+                  ref={mainTextareaRef}
+                  placeholder={
+                    remainingMs > 0
+                      ? "Commenting is locked during cooldown..."
+                      : `Write a comment about this ${episodeNum ? "episode" : "anime"}...`
+                  }
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
+                  disabled={isSubmitting || remainingMs > 0}
+                  className="min-h-[85px] sm:min-h-[100px] text-xs sm:text-sm resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-b-lg rounded-t-none w-full"
+                  required
+                />
+              </div>
 
-                <div className="flex justify-end pt-1">
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || remainingMs > 0 || !commentText.trim()}
-                    className="font-bold flex items-center gap-2 px-5 bg-primary hover:bg-primary/95 text-primary-foreground shadow-md transition-all duration-300 disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Posting...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Post Comment
-                      </>
-                    )}
-                  </Button>
-                </div>
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || remainingMs > 0 || !commentText.trim()}
+                  className="w-full sm:w-auto font-bold flex items-center justify-center gap-2 px-5 h-9 sm:h-10 text-xs sm:text-sm bg-primary hover:bg-primary/95 text-primary-foreground shadow-md transition-all duration-300 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Post Comment
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </form>
@@ -1414,9 +1413,9 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               return (
                 <div key={comment.id} className="space-y-4">
                   {/* Parent Comment */}
-                  <div className="group flex gap-4 p-4 rounded-xl border border-border/50 bg-card/10 hover:bg-card/20 transition-all duration-300 shadow-sm">
-                    <Link href={`/library?user=${comment.userId}`} className="hover:opacity-85 transition-opacity">
-                      <Avatar className="h-10 w-10 border border-border/80">
+                  <div className="group flex gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border/50 bg-card/10 hover:bg-card/20 transition-all duration-300 shadow-sm">
+                    <Link href={`/library?user=${comment.userId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-border/80">
                         <AvatarImage src={comment.userPhoto || undefined} alt={comment.userName} />
                         <AvatarFallback className="bg-primary/5 text-primary font-semibold text-xs">
                           {comment.userName.charAt(0).toUpperCase()}
@@ -1428,18 +1427,18 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <Link href={`/library?user=${comment.userId}`} className="hover:underline">
-                            <span className={`text-sm font-bold ${getThemeTextClass(comment.userThemeColor)}`}>
+                            <span className={`text-xs sm:text-sm font-bold ${getThemeTextClass(comment.userThemeColor)}`}>
                               {comment.userName}
                             </span>
                           </Link>
-                          <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1">
                             {formattedTime}
-                            {comment.isEdited && <span className="text-[10px] text-muted-foreground/70 italic">(edited)</span>}
+                            {comment.isEdited && <span className="text-[9px] sm:text-[10px] text-muted-foreground/70 italic">(edited)</span>}
                           </span>
                         </div>
 
                         {isOwner && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1646,7 +1645,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
                   {/* Replies (Threaded Indentation) */}
                   {parentReplies.length > 0 && (
-                    <div className="pl-4 sm:pl-10 border-l border-border/50 ml-5 space-y-3 pt-1">
+                    <div className="pl-2.5 sm:pl-8 border-l border-border/50 ml-2 sm:ml-5 space-y-3 pt-1">
                       {parentReplies.map((reply) => {
                         const isReplyOwner = user?.uid === reply.userId;
                         const replyTime = reply.createdAt
@@ -1661,10 +1660,10 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                         return (
                           <div 
                             key={reply.id} 
-                            className="group/reply flex gap-3 p-3 rounded-xl border border-border/30 bg-card/5 hover:bg-card/10 transition-all duration-200"
+                            className="group/reply flex gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-border/30 bg-card/5 hover:bg-card/10 transition-all duration-200"
                           >
-                            <Link href={`/library?user=${reply.userId}`} className="hover:opacity-85 transition-opacity">
-                              <Avatar className="h-8 w-8 border border-border/80">
+                            <Link href={`/library?user=${reply.userId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/80">
                                 <AvatarImage src={reply.userPhoto || undefined} alt={reply.userName} />
                                 <AvatarFallback className="bg-primary/5 text-primary font-semibold text-[10px]">
                                   {reply.userName.charAt(0).toUpperCase()}
@@ -1688,7 +1687,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                 </div>
 
                                 {isReplyOwner && (
-                                  <div className="flex items-center gap-1 opacity-0 group-hover/reply:opacity-100 focus-within:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/reply:opacity-100 focus-within:opacity-100 transition-opacity">
                                     <Button
                                       variant="ghost"
                                       size="icon"
