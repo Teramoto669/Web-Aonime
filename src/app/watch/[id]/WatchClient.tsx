@@ -296,190 +296,196 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
             )}
 
             <div className={`grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
-                {/* 1. Video Player & Title/Server Selector */}
-                <div className="order-1 lg:col-span-3 space-y-4">
-                    <div className="relative z-10 w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
-                        {currentSource ? (
-                            <VideoPlayer
-                                key="aonime-player"
-                                source={currentSource}
-                                tracks={currentSource.tracks || watchDataState.tracks || []}
-                                cfProxyUrl={cfProxyUrl}
-                                skipData={watchDataState.skip_data}
-                                autoPlay={autoPlay}
-                                onAutoPlayChange={handleAutoPlayChange}
-                                prevEpisode={prevEpisodeInfo}
-                                onNavigatePrev={handleNavigatePrev}
-                                nextEpisode={nextEpisodeInfo}
-                                onNavigateNext={handleNavigateNext}
-                            />
-                        ) : (
-                            <div className="aspect-video flex items-center justify-center p-4 sm:p-8 bg-black/90 text-foreground">
-                                <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive/30 text-left">
-                                    <Terminal className="h-4 w-4" />
-                                    <AlertTitle>{watchDataState?.error || "No streaming sources available!"}</AlertTitle>
-                                    <AlertDescription className="mt-1">{watchDataState?.error ? watchDataState.error : "This episode doesn't seem to have any streaming sources yet."}</AlertDescription>
-                                </Alert>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1 space-y-2">
-                            <div>
-                                <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
-                                {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
-                                    <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
-                                )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                                <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5">
-                                    Episode {currentEpNum}
-                                </Badge>
-                                {detailsData.malScore != null && (
-                                    <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
-                                        <Star className="w-3.5 h-3.5 fill-current" />
-                                        <span>{detailsData.malScore.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {detailsData.type && (
-                                    <Badge variant="outline" className="text-xs font-semibold gap-1">
-                                        <Tv className="w-3 h-3 text-primary" /> {detailsData.type}
-                                    </Badge>
-                                )}
-                                {detailsData.rating && (
-                                    <Badge variant="secondary" className="text-xs font-normal">
-                                        {detailsData.rating}
-                                    </Badge>
-                                )}
-                                {detailsData.aired && (
-                                    <span className="text-muted-foreground text-xs flex items-center gap-1">
-                                        <Calendar className="w-3 h-3 text-primary" /> {detailsData.aired}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
-                            {(hasDub || hasHsub) && (
-                                <div className="flex rounded-md bg-muted p-1 select-none border">
-                                    <button type="button" onClick={() => setActiveCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
-                                    {hasHsub && <button type="button" onClick={() => setActiveCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
-                                    {hasDub && <button type="button" onClick={() => setActiveCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
-                                </div>
-                            )}
-                            {(getActiveServers().length > 0) && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground uppercase">Server</span>
-                                    <Select value={String(getActiveServerIdx())} onValueChange={(v) => { const idx = parseInt(v); if (activeCategory === "sub") handleSubChange(idx); else if (activeCategory === "hsub") handleHsubChange(idx); else handleDubChange(idx); }}>
-                                        <SelectTrigger className="w-[140px] text-xs font-semibold">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {getActiveServers().map((server, i) => (
-                                                <SelectItem key={`${server.name}-${i}`} value={String(i)} className="text-xs">
-                                                    {server.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                {/* Main Content Column (Desktop: Left 3 cols, Mobile: contents) */}
+                <div className="contents lg:flex lg:flex-col lg:col-span-3 lg:space-y-6">
+                    {/* Video Player & Title/Server Selector */}
+                    <div className="order-1 space-y-4">
+                        <div className="relative z-10 w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
+                            {currentSource ? (
+                                <VideoPlayer
+                                    key="aonime-player"
+                                    source={currentSource}
+                                    tracks={currentSource.tracks || watchDataState.tracks || []}
+                                    cfProxyUrl={cfProxyUrl}
+                                    skipData={watchDataState.skip_data}
+                                    autoPlay={autoPlay}
+                                    onAutoPlayChange={handleAutoPlayChange}
+                                    prevEpisode={prevEpisodeInfo}
+                                    onNavigatePrev={handleNavigatePrev}
+                                    nextEpisode={nextEpisodeInfo}
+                                    onNavigateNext={handleNavigateNext}
+                                />
+                            ) : (
+                                <div className="aspect-video flex items-center justify-center p-4 sm:p-8 bg-black/90 text-foreground">
+                                    <Alert variant="destructive" className="max-w-md bg-destructive/10 border-destructive/30 text-left">
+                                        <Terminal className="h-4 w-4" />
+                                        <AlertTitle>{watchDataState?.error || "No streaming sources available!"}</AlertTitle>
+                                        <AlertDescription className="mt-1">{watchDataState?.error ? watchDataState.error : "This episode doesn't seem to have any streaming sources yet."}</AlertDescription>
+                                    </Alert>
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
 
-                {/* 2. Episode List (Mobile: 2nd block below video, Desktop: Right column top) */}
-                <div className="order-2 lg:order-2 lg:col-span-1 lg:col-start-4 lg:row-start-1">
-                    <EpisodeListClient
-                        animeId={slug}
-                        episodes={episodesData.episodes}
-                        totalEpisodes={episodesData.episodes.length}
-                        currentEpisode={currentEpNum}
-                        hideIcons={true}
-                        initialRange={episodeRange}
-                        onSelectEpisode={(epNum, rangeStr) => changeEpisode(epNum, rangeStr)}
-                    />
-                </div>
-
-                {/* 3. Anime Detail Card (Mobile: 3rd block below episodes, Desktop: Right column 2nd item) */}
-                <div className="order-3 lg:order-4 lg:col-span-1 lg:col-start-4 lg:row-start-2">
-                    <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 space-y-4">
-                        <div className="flex flex-col gap-3">
-                            <Link href={`/anime/${slug}`} className="flex items-start gap-3 group">
-                                {detailsData.image && (
-                                    <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity shadow-md">
-                                        <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
-                                    </div>
-                                )}
-                                <div className="min-w-0 space-y-1 flex-1">
-                                    <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight line-clamp-2">{title}</h3>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1 space-y-2">
+                                <div>
+                                    <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
                                     {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
-                                        <p className="text-xs text-muted-foreground line-clamp-1">{detailsData.titleJp}</p>
+                                        <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
                                     )}
-
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
-                                        {detailsData.status && (
-                                            <span>Status: <strong className="text-foreground font-medium">{detailsData.status}</strong></span>
-                                        )}
-                                        {detailsData.duration && detailsData.duration !== "?" && (
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3 text-primary" /> {detailsData.duration}
-                                            </span>
-                                        )}
-                                        {detailsData.studios && detailsData.studios.length > 0 && (
-                                            <span>Studio: <strong className="text-foreground font-medium">{detailsData.studios.join(', ')}</strong></span>
-                                        )}
-                                    </div>
                                 </div>
-                            </Link>
-
-                            {genresList.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                    {genresList.map((genre) => (
-                                        <Badge key={genre} variant="secondary" className="text-[11px] py-0 px-2 font-normal">
-                                            {genre}
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5">
+                                        Episode {currentEpNum}
+                                    </Badge>
+                                    {detailsData.malScore != null && (
+                                        <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
+                                            <Star className="w-3.5 h-3.5 fill-current" />
+                                            <span>{detailsData.malScore.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    {detailsData.type && (
+                                        <Badge variant="outline" className="text-xs font-semibold gap-1">
+                                            <Tv className="w-3 h-3 text-primary" /> {detailsData.type}
                                         </Badge>
-                                    ))}
+                                    )}
+                                    {detailsData.rating && (
+                                        <Badge variant="secondary" className="text-xs font-normal">
+                                            {detailsData.rating}
+                                        </Badge>
+                                    )}
+                                    {detailsData.aired && (
+                                        <span className="text-muted-foreground text-xs flex items-center gap-1">
+                                            <Calendar className="w-3 h-3 text-primary" /> {detailsData.aired}
+                                        </span>
+                                    )}
                                 </div>
-                            )}
-
-                            <div className="flex items-center gap-2 pt-1">
-                                <Button variant="outline" size="sm" asChild className="flex-1 h-9 text-xs gap-1.5 border-border/60">
-                                    <Link href={`/anime/${slug}`}>
-                                        <Info className="w-3.5 h-3.5 text-primary" /> Details
-                                    </Link>
-                                </Button>
-                                <LibraryButton animeId={detailsData.id || animeId} title={title} image={detailsData.image || ""} type={detailsData.type || "TV"} slug={slug} className="flex-1 h-9 text-xs px-3" />
                             </div>
-                        </div>
 
-                        {detailsData.synopsis && (
-                            <div className="pt-3 border-t border-border/40 text-xs text-muted-foreground leading-relaxed">
-                                <p className={showFullSynopsis ? "" : "line-clamp-3"}>
-                                    {detailsData.synopsis}
-                                </p>
-                                {detailsData.synopsis.length > 150 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowFullSynopsis(!showFullSynopsis)}
-                                        className="mt-1 text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                                    >
-                                        {showFullSynopsis ? (
-                                            <>Show Less <ChevronUp className="w-3 h-3" /></>
-                                        ) : (
-                                            <>Read More <ChevronDown className="w-3 h-3" /></>
-                                        )}
-                                    </button>
+                            <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
+                                {(hasDub || hasHsub) && (
+                                    <div className="flex rounded-md bg-muted p-1 select-none border">
+                                        <button type="button" onClick={() => setActiveCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
+                                        {hasHsub && <button type="button" onClick={() => setActiveCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
+                                        {hasDub && <button type="button" onClick={() => setActiveCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
+                                    </div>
+                                )}
+                                {(getActiveServers().length > 0) && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-muted-foreground uppercase">Server</span>
+                                        <Select value={String(getActiveServerIdx())} onValueChange={(v) => { const idx = parseInt(v); if (activeCategory === "sub") handleSubChange(idx); else if (activeCategory === "hsub") handleHsubChange(idx); else handleDubChange(idx); }}>
+                                            <SelectTrigger className="w-[140px] text-xs font-semibold">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {getActiveServers().map((server, i) => (
+                                                    <SelectItem key={`${server.name}-${i}`} value={String(i)} className="text-xs">
+                                                        {server.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+                    </div>
+
+                    {/* Comment Section (Desktop: 3rd in left column, Mobile: 5th after details) */}
+                    <div className="order-5 lg:order-2">
+                        <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
                     </div>
                 </div>
 
-                {/* 4. Comment Section (Mobile: 4th block / bottom below details, Desktop: Left column below title) */}
-                <div className="order-4 lg:order-3 lg:col-span-3 lg:col-start-1">
-                    <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
+                {/* Sidebar Column (Desktop: Right 1 col, Mobile: contents) */}
+                <div className="contents lg:flex lg:flex-col lg:col-span-1 lg:space-y-6">
+                    {/* Episode List */}
+                    <div className="order-2 lg:order-1">
+                        <EpisodeListClient
+                            animeId={slug}
+                            episodes={episodesData.episodes}
+                            totalEpisodes={episodesData.episodes.length}
+                            currentEpisode={currentEpNum}
+                            hideIcons={true}
+                            initialRange={episodeRange}
+                            onSelectEpisode={(epNum, rangeStr) => changeEpisode(epNum, rangeStr)}
+                        />
+                    </div>
+
+                    {/* Anime Detail Card */}
+                    <div className="order-3 lg:order-2">
+                        <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 space-y-4">
+                            <div className="flex flex-col gap-3">
+                                <Link href={`/anime/${slug}`} className="flex items-start gap-3 group">
+                                    {detailsData.image && (
+                                        <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity shadow-md">
+                                            <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 space-y-1 flex-1">
+                                        <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight line-clamp-2">{title}</h3>
+                                        {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
+                                            <p className="text-xs text-muted-foreground line-clamp-1">{detailsData.titleJp}</p>
+                                        )}
+
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
+                                            {detailsData.status && (
+                                                <span>Status: <strong className="text-foreground font-medium">{detailsData.status}</strong></span>
+                                            )}
+                                            {detailsData.duration && detailsData.duration !== "?" && (
+                                                <span className="flex items-center gap-1">
+                                                    <Clock className="w-3 h-3 text-primary" /> {detailsData.duration}
+                                                </span>
+                                            )}
+                                            {detailsData.studios && detailsData.studios.length > 0 && (
+                                                <span>Studio: <strong className="text-foreground font-medium">{detailsData.studios.join(', ')}</strong></span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Link>
+
+                                {genresList.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                        {genresList.map((genre) => (
+                                            <Badge key={genre} variant="secondary" className="text-[11px] py-0 px-2 font-normal">
+                                                {genre}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2 pt-1">
+                                    <Button variant="outline" size="sm" asChild className="flex-1 h-9 text-xs gap-1.5 border-border/60">
+                                        <Link href={`/anime/${slug}`}>
+                                            <Info className="w-3.5 h-3.5 text-primary" /> Details
+                                        </Link>
+                                    </Button>
+                                    <LibraryButton animeId={detailsData.id || animeId} title={title} image={detailsData.image || ""} type={detailsData.type || "TV"} slug={slug} className="flex-1 h-9 text-xs px-3" />
+                                </div>
+                            </div>
+
+                            {detailsData.synopsis && (
+                                <div className="pt-3 border-t border-border/40 text-xs text-muted-foreground leading-relaxed">
+                                    <p className={showFullSynopsis ? "" : "line-clamp-3"}>
+                                        {detailsData.synopsis}
+                                    </p>
+                                    {detailsData.synopsis.length > 150 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowFullSynopsis(!showFullSynopsis)}
+                                            className="mt-1 text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                                        >
+                                            {showFullSynopsis ? (
+                                                <>Show Less <ChevronUp className="w-3 h-3" /></>
+                                            ) : (
+                                                <>Read More <ChevronDown className="w-3 h-3" /></>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
