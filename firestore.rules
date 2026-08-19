@@ -32,9 +32,13 @@ service cloud.firestore {
       // Users can delete their own comments
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
-      // Users can only update likesCount and dislikesCount fields on comments (e.g. reacting)
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'dislikesCount']);
+      // Update rules:
+      // - Comment owner can edit their own comment's content, isEdited, and updatedAt fields
+      // - Any logged-in user can update likesCount and dislikesCount fields (reactions)
+      allow update: if request.auth != null && (
+        (resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'isEdited', 'updatedAt']))
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'dislikesCount'])
+      );
 
       // Create rules:
       // - Must be logged in and writing their own userId

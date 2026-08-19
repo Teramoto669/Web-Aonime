@@ -8,6 +8,7 @@ import {
   onSnapshot, 
   writeBatch, 
   deleteDoc, 
+  updateDoc,
   serverTimestamp,
   type Timestamp
 } from "firebase/firestore";
@@ -20,6 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { 
   MessageSquare, 
   Trash2, 
@@ -30,7 +36,19 @@ import {
   Sparkles,
   CornerDownRight,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Pencil,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface CommentSectionProps {
@@ -54,6 +72,8 @@ interface CommentType {
   parentUserName?: string | null;
   likesCount?: number;
   dislikesCount?: number;
+  isEdited?: boolean;
+  updatedAt?: Timestamp | null;
 }
 
 const getThemeTextClass = (theme?: string) => {
@@ -65,6 +85,628 @@ const getThemeTextClass = (theme?: string) => {
     default: return "text-violet-500 hover:text-violet-400";
   }
 };
+
+// Safe React parser for bold (**), italic (*), underline (<u>), strikethrough (~~)
+function renderFormattedText(text: string): React.ReactNode[] {
+  const regex = /(\*\*.+?\*\*|\*.+?\*|<u>.+?<\/u>|~~.+?~~)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={index} className="italic">{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith("<u>") && part.endsWith("</u>") && part.length > 7) {
+      return <u key={index} className="underline">{part.slice(3, -4)}</u>;
+    }
+    if (part.startsWith("~~") && part.endsWith("~~") && part.length > 4) {
+      return <del key={index} className="line-through opacity-75">{part.slice(2, -2)}</del>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
+// Discord-style Hover/Click Reveal Spoiler Block
+function SpoilerBlock({ content }: { content: string }) {
+  const [clicked, setClicked] = useState(false);
+
+  return (
+    <span
+      onClick={() => setClicked(!clicked)}
+      className={cn(
+        "inline-block rounded-sm px-1.5 py-0.5 transition-all duration-150 cursor-pointer select-none align-baseline mx-0.5",
+        clicked
+          ? "bg-foreground/15 text-foreground border border-border/30"
+          : "bg-foreground/85 text-transparent hover:bg-foreground/15 hover:text-foreground border border-transparent hover:border-border/30"
+      )}
+      title="Spoiler (hover or click to reveal)"
+    >
+      {renderFormattedText(content)}
+    </span>
+  );
+}
+
+// Comment Content Renderer (Parses formatting, spoilers, and GIFs)
+function CommentContentRenderer({ content }: { content: string }) {
+  const spoilerRegex = /(\|\|[\s\S]+?\|\||\[spoiler\][\s\S]+?\[\/spoiler\])/gi;
+  const segments = content.split(spoilerRegex);
+
+  return (
+    <div className="space-y-1 text-sm text-foreground/90 leading-relaxed break-words">
+      {segments.map((segment, idx) => {
+        if (!segment) return null;
+
+        if (
+          (segment.startsWith("||") && segment.endsWith("||") && segment.length >= 4) ||
+          (segment.startsWith("[spoiler]") && segment.endsWith("[/spoiler]") && segment.length >= 19)
+        ) {
+          const rawInner = segment.startsWith("||")
+            ? segment.slice(2, -2)
+            : segment.slice(9, -10);
+          return <SpoilerBlock key={idx} content={rawInner} />;
+        }
+
+        const gifPattern = /!\[gif\]\((https?:\/\/[^\s\)]+)\)|\[gif:(https?:\/\/[^\s\]]+)\]/gi;
+        const nodes: React.ReactNode[] = [];
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+
+        while ((match = gifPattern.exec(segment)) !== null) {
+          if (match.index > lastIndex) {
+            const textBefore = segment.substring(lastIndex, match.index);
+            nodes.push(<React.Fragment key={`text-${lastIndex}`}>{renderFormattedText(textBefore)}</React.Fragment>);
+          }
+
+          const gifUrl = match[1] || match[2];
+          if (gifUrl) {
+            nodes.push(
+              <div key={`gif-${match.index}`} className="my-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={gifUrl}
+                  alt="GIF"
+                  className="max-w-[280px] max-h-[200px] rounded-lg object-cover border border-border/40 shadow-sm"
+                  loading="lazy"
+                />
+              </div>
+            );
+          }
+
+          lastIndex = gifPattern.lastIndex;
+        }
+
+        if (lastIndex < segment.length) {
+          const remainingText = segment.substring(lastIndex);
+          nodes.push(<React.Fragment key={`text-${lastIndex}`}>{renderFormattedText(remainingText)}</React.Fragment>);
+        }
+
+        return <React.Fragment key={idx}>{nodes}</React.Fragment>;
+      })}
+    </div>
+  );
+}
+
+// KLIPY GIF Picker Popover Component
+function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState("Anime");
+  const [gifs, setGifs] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasNext, setHasNext] = useState(true);
+  const [cache, setCache] = useState<Record<string, string[]>>({});
+  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollCategories = (direction: "left" | "right") => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({
+        left: direction === "left" ? -120 : 120,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const categories = [
+    "Anime",
+    "Reaction",
+    "Fight",
+    "Dance",
+    "Laugh",
+    "Meme",
+    "Cute",
+    "Sad",
+    "Wow",
+    "Love",
+    "Angry"
+  ];
+
+  const fallbackPresets: Record<string, string[]> = {
+    Anime: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2FwOXEzYXZ1Mm8zc3k5bmpsNXJ5OXAwYmdhdTNxczN2OHRvaHQybCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13fTar4VVaFlG8/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaGcxcnphZHJkZXRscnh0ZXdwMWswNGMxcXFvZmlrbXRna2syeXB4dSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L2F6C7c4V0eM/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcm5wMmV5d2gwcXlwdmhybHNxcTZ5MGc3aHh1eW9td2t4azhjcXlsYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/c6X5zoem5mVpy/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbnZsaGtjeGttanIwcTdrOWdla3BhdjB2eG5mZnlycmU0OTJtMGh5NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/d4aVHC1HKnButuXC/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1dnBucmx0MGVscWFxcWJkMXd6dHZ4NDFiMmYwb2psYmd0OGg0bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yC7D21M9wI50I/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnVzajJmNzVzYzllcXU0dDRrZ2o1NmI1eWtwMTBnMHptc3Jtbnh4MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Od0QRnzwRBYm4/giphy.gif"
+    ],
+    Reaction: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtuY25zdzJrdmxqMHhjcms1dXJ1ODl5aTJrdnEycWZocmQxeWw1eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/a3IWyIG8JUy3u/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1dnBucmx0MGVscWFxcWJkMXd6dHZ4NDFiMmYwb2psYmd0OGg0bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yC7D21M9wI50I/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnVzajJmNzVzYzllcXU0dDRrZ2o1NmI1eWtwMTBnMHptc3Jtbnh4MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Od0QRnzwRBYm4/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDVycXlydWNldGNqMWU5b2YyYWFsbG9ydXJrdnhxNWt5cTUxeXkwaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/u0vGv6UQ72L1m/giphy.gif"
+    ],
+    Fight: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZm1iaXZ4bjdrOHBnNnY4cmgzdWNreGcxbmcyMmx6NHFhczJzZXhndSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/X14dDAj24t83e/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnJvbXRmZjJnaWhsdXdrM3RyeXJodzhsdGZ3ODRma29vMnZ4eHRvOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/BumuKalq5hS92/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMWNra2JodHJ0eTJ0MGp0ZXBic2g1djZydnhjcmlvNDdqMmRrbWZ1dSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/480e60bgSrgvS/giphy.gif"
+    ],
+    Dance: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHRkMmtuZjh6cGNkMnlnYmd6cmhjcW5uazVyb2lxbmtjMGswMXplZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kFfbnGQ72OGD6/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmxlZnNucXRocm4wdzcyYXRpdnhxMHNveWpwb2sxaW1zMWxrczgwZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/11r19abx6m5o64/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjdsanIwdzhhNmd6amc0dGZtMnJjNW0ydDFmdGN1Y3ptemVlZnJkMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif"
+    ],
+    Laugh: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHp1dnBucmx0MGVscWFxcWJkMXd6dHZ4NDFiMmYwb2psYmd0OGg0bSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yC7D21M9wI50I/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExaGcxcnphZHJkZXRscnh0ZXdwMWswNGMxcXFvZmlrbXRna2syeXB4dSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L2F6C7c4V0eM/giphy.gif"
+    ],
+    Meme: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnVzajJmNzVzYzllcXU0dDRrZ2o1NmI1eWtwMTBnMHptc3Jtbnh4MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Od0QRnzwRBYm4/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmtuY25zdzJrdmxqMHhjcms1dXJ1ODl5aTJrdnEycWZocmQxeWw1eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/a3IWyIG8JUy3u/giphy.gif"
+    ],
+    Cute: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2FwOXEzYXZ1Mm8zc3k5bmpsNXJ5OXAwYmdhdTNxczN2OHRvaHQybCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13fTar4VVaFlG8/giphy.gif",
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHRkMmtuZjh6cGNkMnlnYmd6cmhjcW5uazVyb2lxbmtjMGswMXplZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kFfbnGQ72OGD6/giphy.gif"
+    ],
+    Sad: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbnZsaGtjeGttanIwcTdrOWdla3BhdjB2eG5mZnlycmU0OTJtMGh5NCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/d4aVHC1HKnButuXC/giphy.gif"
+    ],
+    Wow: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcm5wMmV5d2gwcXlwdmhybHNxcTZ5MGc3aHh1eW9td2t4azhjcXlsYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/c6X5zoem5mVpy/giphy.gif"
+    ],
+    Love: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2FwOXEzYXZ1Mm8zc3k5bmpsNXJ5OXAwYmdhdTNxczN2OHRvaHQybCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/13fTar4VVaFlG8/giphy.gif"
+    ],
+    Angry: [
+      "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZm1iaXZ4bjdrOHBnNnY4cmgzdWNreGcxbmcyMmx6NHFhczJzZXhndSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/X14dDAj24t83e/giphy.gif"
+    ]
+  };
+
+  useEffect(() => {
+    let isSubscribed = true;
+    const queryKey = searchQuery.trim() ? searchQuery.trim().toLowerCase() : activeCategory;
+
+    // Check if already cached
+    if (cache[queryKey] && cache[queryKey].length > 0) {
+      setGifs(cache[queryKey]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      const searchTerm = searchQuery.trim() ? queryKey : `${queryKey} anime`;
+
+      const safeFetchJson = async (url: string) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const text = await res.text();
+          if (!text || !text.trim()) return null;
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      };
+
+      // 1. KLIPY API
+      const klipyKey = process.env.NEXT_PUBLIC_KLIPY_API_KEY;
+      if (klipyKey && klipyKey.trim()) {
+        try {
+          const endpoint = searchQuery.trim()
+            ? `https://api.klipy.com/api/v1/${klipyKey.trim()}/gifs/search?q=${encodeURIComponent(searchTerm)}&limit=30`
+            : `https://api.klipy.com/api/v1/${klipyKey.trim()}/gifs/search?q=${encodeURIComponent(activeCategory)}&limit=30`;
+
+          const json = await safeFetchJson(endpoint);
+          if (json) {
+            let list: any[] = [];
+            if (Array.isArray(json)) list = json;
+            else if (Array.isArray(json.data)) list = json.data;
+            else if (json.data && Array.isArray(json.data.data)) list = json.data.data;
+            else if (json.data && Array.isArray(json.data.items)) list = json.data.items;
+            else if (json.data && Array.isArray(json.data.gifs)) list = json.data.gifs;
+            else if (Array.isArray(json.results)) list = json.results;
+            else if (Array.isArray(json.items)) list = json.items;
+            else if (Array.isArray(json.gifs)) list = json.gifs;
+
+            const apiUrls = list
+              .map((item: any) => {
+                // Official KLIPY schema: prioritize small file sizes (sm / xs) for fast loading & low bandwidth
+                const f = item.file || item.files;
+                if (f && typeof f === "object") {
+                  return (
+                    f.sm?.gif?.url ||
+                    f.sm?.webp?.url ||
+                    f.xs?.gif?.url ||
+                    f.xs?.webp?.url ||
+                    f.md?.gif?.url ||
+                    f.md?.webp?.url ||
+                    f.hd?.gif?.url ||
+                    f.url
+                  );
+                }
+                return (
+                  item.images?.fixed_height?.url ||
+                  item.images?.downsized?.url ||
+                  item.images?.original?.url ||
+                  item.media?.gif?.url ||
+                  item.media_formats?.gif?.url ||
+                  item.url ||
+                  item.gif_url
+                );
+              })
+              .filter(Boolean);
+
+            if (apiUrls.length > 0 && isSubscribed) {
+              setGifs(apiUrls);
+              setCache((prev) => ({ ...prev, [queryKey]: apiUrls }));
+              setPage(1);
+              setHasNext(json.data?.has_next ?? json.has_next ?? apiUrls.length >= 20);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("KLIPY API fetch error:", err);
+        }
+      }
+
+      // 2. Fallback to local presets
+      if (isSubscribed) {
+        const fallback = fallbackPresets[activeCategory] || fallbackPresets.Anime || Object.values(fallbackPresets).flat();
+        setGifs(fallback);
+        setPage(1);
+        setHasNext(false);
+        setIsLoading(false);
+      }
+    }, searchQuery.trim() ? 300 : 0);
+
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, activeCategory]);
+
+  const handleLoadMore = async () => {
+    const klipyKey = process.env.NEXT_PUBLIC_KLIPY_API_KEY;
+    if (!klipyKey || !klipyKey.trim() || isLoadingMore || !hasNext) return;
+
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    const queryKey = searchQuery.trim() ? searchQuery.trim().toLowerCase() : activeCategory;
+    const searchTerm = searchQuery.trim() ? queryKey : `${queryKey} anime`;
+
+    try {
+      const endpoint = searchQuery.trim()
+        ? `https://api.klipy.com/api/v1/${klipyKey.trim()}/gifs/search?q=${encodeURIComponent(searchTerm)}&page=${nextPage}&limit=24`
+        : `https://api.klipy.com/api/v1/${klipyKey.trim()}/gifs/search?q=${encodeURIComponent(activeCategory)}&page=${nextPage}&limit=24`;
+
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const json = await res.json();
+        let list: any[] = [];
+        if (Array.isArray(json)) list = json;
+        else if (Array.isArray(json.data)) list = json.data;
+        else if (json.data && Array.isArray(json.data.data)) list = json.data.data;
+        else if (json.data && Array.isArray(json.data.items)) list = json.data.items;
+
+        const newUrls = list
+          .map((item: any) => {
+            const f = item.file || item.files;
+            if (f && typeof f === "object") {
+              return (
+                f.sm?.gif?.url ||
+                f.sm?.webp?.url ||
+                f.xs?.gif?.url ||
+                f.xs?.webp?.url ||
+                f.md?.gif?.url ||
+                f.md?.webp?.url ||
+                f.hd?.gif?.url ||
+                f.url
+              );
+            }
+            return (
+              item.images?.fixed_height?.url ||
+              item.images?.downsized?.url ||
+              item.images?.original?.url ||
+              item.media?.gif?.url ||
+              item.url
+            );
+          })
+          .filter(Boolean);
+
+        if (newUrls.length > 0) {
+          setGifs((prev) => [...prev, ...newUrls]);
+          setPage(nextPage);
+          setHasNext(json.data?.has_next ?? json.has_next ?? newUrls.length >= 10);
+        } else {
+          setHasNext(false);
+        }
+      } else {
+        setHasNext(false);
+      }
+    } catch (err) {
+      console.error("Load more GIFs error:", err);
+      setHasNext(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Fetch search suggestions from KLIPY API
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const klipyKey = process.env.NEXT_PUBLIC_KLIPY_API_KEY;
+    if (!klipyKey || !klipyKey.trim()) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.klipy.com/api/v1/${klipyKey.trim()}/search-suggestions/${encodeURIComponent(trimmed)}?limit=8`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.data)) {
+            setSuggestions(json.data);
+          }
+        }
+      } catch (err) {
+        console.error("KLIPY suggestions error:", err);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 font-bold text-xs text-primary">
+          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+          <span>GIFs</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">powered by KLIPY</span>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search GIFs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-8 px-3 py-1 text-xs bg-background border border-border/60 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {isLoading && (
+            <Loader2 className="w-3.5 h-3.5 animate-spin absolute right-2.5 top-2 text-muted-foreground" />
+          )}
+        </div>
+
+        {suggestions.length > 0 && (
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+            {suggestions.map((suggestion, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSearchQuery(suggestion);
+                  setSuggestions([]);
+                }}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 hover:bg-primary/20 hover:text-primary border border-border/40 transition-colors text-muted-foreground font-medium flex-shrink-0 cursor-pointer"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!searchQuery && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => scrollCategories("left")}
+            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors flex-shrink-0 border border-border/40 cursor-pointer"
+            title="Previous Categories"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+
+          <div
+            ref={categoryScrollRef}
+            className="flex-1 flex gap-1 overflow-x-auto pb-0.5 scrollbar-hide scroll-smooth"
+          >
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setActiveCategory(category)}
+                className={cn(
+                  "px-2.5 py-0.5 text-[10px] font-semibold rounded-full border transition-all flex-shrink-0 cursor-pointer",
+                  activeCategory === category
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-muted-foreground hover:bg-muted border-border/40"
+                )}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollCategories("right")}
+            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors flex-shrink-0 border border-border/40 cursor-pointer"
+            title="Next Categories"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+        {isLoading && gifs.length === 0 ? (
+          <div className="col-span-2 py-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span>Loading GIFs...</span>
+          </div>
+        ) : (
+          gifs.map((url, i) => (
+            <button
+              key={`${url}-${i}`}
+              type="button"
+              onClick={() => onSelectGif(url)}
+              className="group relative aspect-video rounded-lg overflow-hidden border border-border/40 hover:border-primary transition-all focus:outline-none cursor-pointer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt="GIF"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                loading="lazy"
+              />
+            </button>
+          ))
+        )}
+
+        {gifs.length > 0 && hasNext && !isLoading && (
+          <div className="col-span-2 pt-2 pb-1 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="w-full text-xs h-7 gap-1.5 font-semibold text-muted-foreground hover:text-foreground border-border/50 hover:bg-muted/50 transition-colors"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  <span>Loading more GIFs...</span>
+                </>
+              ) : (
+                <span>Load More GIFs</span>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Formatting Toolbar for Textarea
+function FormattingToolbar({
+  onInsert,
+  onInsertGif,
+  disabled = false,
+}: {
+  onInsert: (type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler") => void;
+  onInsertGif: (url: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 bg-muted/30 border border-border/50 rounded-t-lg border-b-0">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onInsert("bold")}
+        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground font-bold"
+        title="Bold (**text**)"
+      >
+        <Bold className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onInsert("italic")}
+        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground italic"
+        title="Italic (*text*)"
+      >
+        <Italic className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onInsert("underline")}
+        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground underline"
+        title="Underline (<u>text</u>)"
+      >
+        <Underline className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onInsert("strikethrough")}
+        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground line-through"
+        title="Strikethrough (~~text~~)"
+      >
+        <Strikethrough className="w-3.5 h-3.5" />
+      </Button>
+
+      {Boolean(process.env.NEXT_PUBLIC_KLIPY_API_KEY && process.env.NEXT_PUBLIC_KLIPY_API_KEY.trim()) && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={disabled}
+              className="h-7 px-1.5 text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1"
+              title="Insert GIF"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>GIF</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-[360px] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
+            <KlipyGifPicker onSelectGif={onInsertGif} />
+          </PopoverContent>
+        </Popover>
+      )}
+
+      <div className="h-3.5 w-[1px] bg-border/60 mx-1" />
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onInsert("spoiler")}
+        className="h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1 font-semibold"
+        title="Add Spoiler (||text||)"
+      >
+        <EyeOff className="w-3.5 h-3.5" />
+        <span>Spoiler</span>
+      </Button>
+    </div>
+  );
+}
 
 export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSectionProps) {
   const { user, openAuthModal, updateLastCommentedAt } = useAuth();
@@ -85,6 +727,136 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
   // Reaction states
   const [reactions, setReactions] = useState<Record<string, "like" | "dislike">>({});
+
+  // Textarea Refs for inserting formatting
+  const mainTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const replyTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertFormatting = (
+    type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler",
+    isReply = false
+  ) => {
+    const textarea = isReply ? replyTextareaRef.current : mainTextareaRef.current;
+    const currentText = isReply ? replyText : commentText;
+    const setText = isReply ? setReplyText : setCommentText;
+
+    let prefix = "";
+    let suffix = "";
+
+    switch (type) {
+      case "bold": prefix = "**"; suffix = "**"; break;
+      case "italic": prefix = "*"; suffix = "*"; break;
+      case "underline": prefix = "<u>"; suffix = "</u>"; break;
+      case "strikethrough": prefix = "~~"; suffix = "~~"; break;
+      case "spoiler": prefix = "||"; suffix = "||"; break;
+    }
+
+    if (textarea) {
+      const start = textarea.selectionStart ?? currentText.length;
+      const end = textarea.selectionEnd ?? currentText.length;
+      const selected = currentText.substring(start, end) || "text";
+      const replacement = `${prefix}${selected}${suffix}`;
+      const newText = (currentText.substring(0, start) + replacement + currentText.substring(end)).slice(0, 500);
+      setText(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+      }, 0);
+    } else {
+      setText((prev) => (prev + `${prefix}text${suffix}`).slice(0, 500));
+    }
+  };
+
+  const handleInsertGif = (gifUrl: string, isReply = false) => {
+    const setText = isReply ? setReplyText : setCommentText;
+    const gifCode = `![gif](${gifUrl})`;
+    setText((prev) => {
+      const space = prev && !prev.endsWith(" ") ? " " : "";
+      return (prev + space + gifCode).slice(0, 500);
+    });
+  };
+
+  // Edit states
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const handleStartEdit = (comment: CommentType) => {
+    setEditingId(comment.id);
+    setEditText(comment.content);
+  };
+
+  const handleEditSave = async (commentId: string) => {
+    if (!user) return;
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+
+    setIsSavingEdit(true);
+    try {
+      const commentRef = doc(db, "comments", commentId);
+      await updateDoc(commentRef, {
+        content: trimmed,
+        isEdited: true,
+        updatedAt: serverTimestamp(),
+      });
+
+      setEditingId(null);
+      setEditText("");
+      toast({
+        title: "Comment updated!",
+        description: "Your comment has been edited successfully.",
+      });
+    } catch (error: any) {
+      console.error("Error updating comment:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to update comment",
+        description: error.message || "An error occurred while saving changes.",
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleInsertEditFormatting = (
+    type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler"
+  ) => {
+    const textarea = editTextareaRef.current;
+    let prefix = "";
+    let suffix = "";
+
+    switch (type) {
+      case "bold": prefix = "**"; suffix = "**"; break;
+      case "italic": prefix = "*"; suffix = "*"; break;
+      case "underline": prefix = "<u>"; suffix = "</u>"; break;
+      case "strikethrough": prefix = "~~"; suffix = "~~"; break;
+      case "spoiler": prefix = "||"; suffix = "||"; break;
+    }
+
+    if (textarea) {
+      const start = textarea.selectionStart ?? editText.length;
+      const end = textarea.selectionEnd ?? editText.length;
+      const selected = editText.substring(start, end) || "text";
+      const replacement = `${prefix}${selected}${suffix}`;
+      const newText = (editText.substring(0, start) + replacement + editText.substring(end)).slice(0, 500);
+      setEditText(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+      }, 0);
+    } else {
+      setEditText((prev) => (prev + `${prefix}text${suffix}`).slice(0, 500));
+    }
+  };
+
+  const handleInsertEditGif = (gifUrl: string) => {
+    const gifCode = `![gif](${gifUrl})`;
+    setEditText((prev) => {
+      const space = prev && !prev.endsWith(" ") ? " " : "";
+      return (prev + space + gifCode).slice(0, 500);
+    });
+  };
 
   // Target ID: different scopes for details page vs. specific episode
   const targetId = episodeNum ? `${animeId}_ep_${episodeNum}` : animeId;
@@ -542,18 +1314,26 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                   </span>
                 </div>
 
-                <Textarea
-                  placeholder={
-                    remainingMs > 0
-                      ? "Commenting is locked during cooldown..."
-                      : `Write a comment about this ${episodeNum ? "episode" : "anime"}...`
-                  }
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
-                  disabled={isSubmitting || remainingMs > 0}
-                  className="min-h-[100px] resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-lg"
-                  required
-                />
+                <div className="space-y-0">
+                  <FormattingToolbar
+                    disabled={isSubmitting || remainingMs > 0}
+                    onInsert={(type) => handleInsertFormatting(type, false)}
+                    onInsertGif={(gifUrl) => handleInsertGif(gifUrl, false)}
+                  />
+                  <Textarea
+                    ref={mainTextareaRef}
+                    placeholder={
+                      remainingMs > 0
+                        ? "Commenting is locked during cooldown..."
+                        : `Write a comment about this ${episodeNum ? "episode" : "anime"}...`
+                    }
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
+                    disabled={isSubmitting || remainingMs > 0}
+                    className="min-h-[100px] resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-b-lg rounded-t-none"
+                    required
+                  />
+                </div>
 
                 <div className="flex justify-end pt-1">
                   <Button
@@ -640,32 +1420,97 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               {comment.userName}
                             </span>
                           </Link>
-                          <span className="text-[11px] text-muted-foreground font-medium">
+                          <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
                             {formattedTime}
+                            {comment.isEdited && <span className="text-[10px] text-muted-foreground/70 italic">(edited)</span>}
                           </span>
                         </div>
 
                         {isOwner && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(comment.id)}
-                            disabled={deletingId === comment.id}
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
-                            title="Delete Comment"
-                          >
-                            {deletingId === comment.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleStartEdit(comment)}
+                              disabled={deletingId === comment.id || isSavingEdit}
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                              title="Edit Comment"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(comment.id)}
+                              disabled={deletingId === comment.id || isSavingEdit}
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                              title="Delete Comment"
+                            >
+                              {deletingId === comment.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </div>
 
-                      <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed font-sans font-medium">
-                        {comment.content}
-                      </p>
+                      {editingId === comment.id ? (
+                        <div className="mt-2 space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+                            <span className="font-semibold text-foreground">Editing Comment</span>
+                            <span>{editText.length}/500</span>
+                          </div>
+                          <div className="space-y-0">
+                            <FormattingToolbar
+                              disabled={isSavingEdit}
+                              onInsert={(type) => handleInsertEditFormatting(type)}
+                              onInsertGif={(gifUrl) => handleInsertEditGif(gifUrl)}
+                            />
+                            <Textarea
+                              ref={editTextareaRef}
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value.slice(0, 500))}
+                              disabled={isSavingEdit}
+                              className="min-h-[80px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-b-lg rounded-t-none"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2 pt-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingId(null)}
+                              disabled={isSavingEdit}
+                              className="text-xs h-8 px-3 font-semibold"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleEditSave(comment.id)}
+                              disabled={isSavingEdit || !editText.trim()}
+                              className="text-xs h-8 px-4 bg-primary hover:bg-primary/95 text-primary-foreground font-bold flex items-center gap-1.5"
+                            >
+                              {isSavingEdit ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  Save
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <CommentContentRenderer content={comment.content} />
+                      )}
 
                       {/* Comment Action Bar */}
                       <div className="flex items-center gap-4 pt-1.5 border-t border-border/10">
@@ -734,13 +1579,21 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                 <span>Replying to <span className="font-bold">@{comment.userName}</span></span>
                                 <span>{replyText.length}/500</span>
                               </div>
-                              <Textarea
-                                placeholder="Type your reply here..."
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
-                                disabled={isSubmittingReply || remainingMs > 0}
-                                className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50"
-                              />
+                              <div className="space-y-0">
+                                <FormattingToolbar
+                                  disabled={isSubmittingReply || remainingMs > 0}
+                                  onInsert={(type) => handleInsertFormatting(type, true)}
+                                  onInsertGif={(gifUrl) => handleInsertGif(gifUrl, true)}
+                                />
+                                <Textarea
+                                  ref={replyTextareaRef}
+                                  placeholder="Type your reply here..."
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
+                                  disabled={isSubmittingReply || remainingMs > 0}
+                                  className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-b-lg rounded-t-none"
+                                />
+                              </div>
                               <div className="flex justify-end gap-2">
                                 <Button
                                   type="button"
@@ -818,31 +1671,98 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                   <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
                                     <CornerDownRight className="w-3 h-3 text-muted-foreground/50" />
                                     {replyTime}
+                                    {reply.isEdited && <span className="text-[9px] text-muted-foreground/70 italic">(edited)</span>}
                                   </span>
                                 </div>
 
                                 {isReplyOwner && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDelete(reply.id)}
-                                    disabled={deletingId === reply.id}
-                                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md opacity-0 group-hover/reply:opacity-100 focus:opacity-100 disabled:opacity-50 transition-all"
-                                    title="Delete Reply"
-                                  >
-                                    {deletingId === reply.id ? (
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="w-3 h-3" />
-                                    )}
-                                  </Button>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover/reply:opacity-100 focus-within:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleStartEdit(reply)}
+                                      disabled={deletingId === reply.id || isSavingEdit}
+                                      className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                                      title="Edit Reply"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDelete(reply.id)}
+                                      disabled={deletingId === reply.id || isSavingEdit}
+                                      className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                                      title="Delete Reply"
+                                    >
+                                      {deletingId === reply.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-3 h-3" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
 
-                              <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words leading-relaxed font-sans font-medium">
-                                <span className="text-primary font-semibold mr-1">@{reply.parentUserName || comment.userName}</span>
-                                {reply.content}
-                              </p>
+                              {editingId === reply.id ? (
+                                <div className="mt-2 space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+                                    <span className="font-semibold text-foreground">Editing Reply</span>
+                                    <span>{editText.length}/500</span>
+                                  </div>
+                                  <div className="space-y-0">
+                                    <FormattingToolbar
+                                      disabled={isSavingEdit}
+                                      onInsert={(type) => handleInsertEditFormatting(type)}
+                                      onInsertGif={(gifUrl) => handleInsertEditGif(gifUrl)}
+                                    />
+                                    <Textarea
+                                      ref={editTextareaRef}
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value.slice(0, 500))}
+                                      disabled={isSavingEdit}
+                                      className="min-h-[70px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-b-lg rounded-t-none"
+                                    />
+                                  </div>
+                                  <div className="flex justify-end gap-2 pt-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setEditingId(null)}
+                                      disabled={isSavingEdit}
+                                      className="text-xs h-7 px-3 font-semibold"
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => handleEditSave(reply.id)}
+                                      disabled={isSavingEdit || !editText.trim()}
+                                      className="text-xs h-7 px-3 bg-primary hover:bg-primary/95 text-primary-foreground font-bold flex items-center gap-1.5"
+                                    >
+                                      {isSavingEdit ? (
+                                        <>
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                          Saving...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Check className="w-3 h-3" />
+                                          Save
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <span className="text-xs text-primary font-semibold mr-1">@{reply.parentUserName || comment.userName}</span>
+                                  <CommentContentRenderer content={reply.content} />
+                                </div>
+                              )}
 
                               {/* Reply Action Bar */}
                               <div className="flex items-center gap-4 pt-1.5 mt-1 border-t border-border/5">
@@ -911,13 +1831,21 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                         <span>Replying to <span className="font-bold">@{reply.userName}</span></span>
                                         <span>{replyText.length}/500</span>
                                       </div>
-                                      <Textarea
-                                        placeholder="Type your reply here..."
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
-                                        disabled={isSubmittingReply || remainingMs > 0}
-                                        className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50"
-                                      />
+                                      <div className="space-y-0">
+                                        <FormattingToolbar
+                                          disabled={isSubmittingReply || remainingMs > 0}
+                                          onInsert={(type) => handleInsertFormatting(type, true)}
+                                          onInsertGif={(gifUrl) => handleInsertGif(gifUrl, true)}
+                                        />
+                                        <Textarea
+                                          ref={replyTextareaRef}
+                                          placeholder="Type your reply here..."
+                                          value={replyText}
+                                          onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
+                                          disabled={isSubmittingReply || remainingMs > 0}
+                                          className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-b-lg rounded-t-none"
+                                        />
+                                      </div>
                                       <div className="flex justify-end gap-2">
                                         <Button
                                           type="button"

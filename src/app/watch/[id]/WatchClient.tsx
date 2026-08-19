@@ -12,9 +12,10 @@ import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
 import { useAuth } from "@/lib/auth-context";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
-import { ShieldAlert, Eye, Settings, Terminal, ChevronLeft, ChevronRight, PlayCircle } from "lucide-react";
+import { ShieldAlert, Eye, Settings, Terminal, ChevronLeft, ChevronRight, PlayCircle, Star, Tv, Calendar, Clock, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "@/hooks/use-router";
 import { db } from "@/lib/firebase";
@@ -62,6 +63,13 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     const slug = detailsData.slug || animeId;
     const title = detailsData.title || animeId;
+
+    const [showFullSynopsis, setShowFullSynopsis] = useState(false);
+    const genresList = useMemo(() => {
+        return (detailsData.genres || []).map(
+            (genre) => genre.charAt(0).toUpperCase() + genre.slice(1)
+        );
+    }, [detailsData.genres]);
 
     // Calculate episode list sorting & adjacent episode info
     const sortedEpisodes = useMemo(() => {
@@ -316,13 +324,41 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                            <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
-                            {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
-                                <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
-                            )}
-                            <p className="text-lg text-muted-foreground mt-1">Episode {currentEpNum}</p>
+                        <div className="min-w-0 flex-1 space-y-2">
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
+                                {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
+                                    <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5">
+                                    Episode {currentEpNum}
+                                </Badge>
+                                {detailsData.malScore != null && (
+                                    <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
+                                        <Star className="w-3.5 h-3.5 fill-current" />
+                                        <span>{detailsData.malScore.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {detailsData.type && (
+                                    <Badge variant="outline" className="text-xs font-semibold gap-1">
+                                        <Tv className="w-3 h-3 text-primary" /> {detailsData.type}
+                                    </Badge>
+                                )}
+                                {detailsData.rating && (
+                                    <Badge variant="secondary" className="text-xs font-normal">
+                                        {detailsData.rating}
+                                    </Badge>
+                                )}
+                                {detailsData.aired && (
+                                    <span className="text-muted-foreground text-xs flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 text-primary" /> {detailsData.aired}
+                                    </span>
+                                )}
+                            </div>
                         </div>
+
                         <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
                             {(hasDub || hasHsub) && (
                                 <div className="flex rounded-md bg-muted p-1 select-none border">
@@ -351,30 +387,10 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 flex items-center justify-between gap-4">
-                        <Link href={`/anime/${slug}`} className="flex items-center gap-3 sm:gap-4 min-w-0 group">
-                            {detailsData.image && (
-                                <div className="relative w-12 h-16 sm:w-14 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity">
-                                    <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
-                                </div>
-                            )}
-                            <div className="min-w-0">
-                                <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">{title}</h3>
-                                {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
-                                    <p className="text-xs text-muted-foreground/80 line-clamp-1 mt-0.5">{detailsData.titleJp}</p>
-                                )}
-                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{detailsData.genres?.join(', ') || detailsData.type || 'Anime'}</p>
-                            </div>
-                        </Link>
-                        <div className="flex-shrink-0">
-                            <LibraryButton animeId={detailsData.id || animeId} title={title} image={detailsData.image || ""} type={detailsData.type || "TV"} slug={slug} className="w-full sm:w-auto h-10 text-xs px-4" />
-                        </div>
-                    </div>
-
                     <CommentSection animeId={slug} episodeNum={currentEpNum} animeTitle={title} />
                 </div>
 
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-6">
                     <EpisodeListClient
                         animeId={slug}
                         episodes={episodesData.episodes}
@@ -384,6 +400,78 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         initialRange={episodeRange}
                         onSelectEpisode={(epNum, rangeStr) => changeEpisode(epNum, rangeStr)}
                     />
+
+                    <div className="p-4 sm:p-5 rounded-xl bg-card border border-border/50 space-y-4">
+                        <div className="flex flex-col gap-3">
+                            <Link href={`/anime/${slug}`} className="flex items-start gap-3 group">
+                                {detailsData.image && (
+                                    <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity shadow-md">
+                                        <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
+                                    </div>
+                                )}
+                                <div className="min-w-0 space-y-1 flex-1">
+                                    <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight line-clamp-2">{title}</h3>
+                                    {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
+                                        <p className="text-xs text-muted-foreground line-clamp-1">{detailsData.titleJp}</p>
+                                    )}
+
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
+                                        {detailsData.status && (
+                                            <span>Status: <strong className="text-foreground font-medium">{detailsData.status}</strong></span>
+                                        )}
+                                        {detailsData.duration && detailsData.duration !== "?" && (
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="w-3 h-3 text-primary" /> {detailsData.duration}
+                                            </span>
+                                        )}
+                                        {detailsData.studios && detailsData.studios.length > 0 && (
+                                            <span>Studio: <strong className="text-foreground font-medium">{detailsData.studios.join(', ')}</strong></span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+
+                            {genresList.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                    {genresList.map((genre) => (
+                                        <Badge key={genre} variant="secondary" className="text-[11px] py-0 px-2 font-normal">
+                                            {genre}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-1">
+                                <Button variant="outline" size="sm" asChild className="flex-1 h-9 text-xs gap-1.5 border-border/60">
+                                    <Link href={`/anime/${slug}`}>
+                                        <Info className="w-3.5 h-3.5 text-primary" /> Details
+                                    </Link>
+                                </Button>
+                                <LibraryButton animeId={detailsData.id || animeId} title={title} image={detailsData.image || ""} type={detailsData.type || "TV"} slug={slug} className="flex-1 h-9 text-xs px-3" />
+                            </div>
+                        </div>
+
+                        {detailsData.synopsis && (
+                            <div className="pt-3 border-t border-border/40 text-xs text-muted-foreground leading-relaxed">
+                                <p className={showFullSynopsis ? "" : "line-clamp-3"}>
+                                    {detailsData.synopsis}
+                                </p>
+                                {detailsData.synopsis.length > 150 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowFullSynopsis(!showFullSynopsis)}
+                                        className="mt-1 text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                                    >
+                                        {showFullSynopsis ? (
+                                            <>Show Less <ChevronUp className="w-3 h-3" /></>
+                                        ) : (
+                                            <>Read More <ChevronDown className="w-3 h-3" /></>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
