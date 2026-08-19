@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useAuth, PRESET_AVATARS, PRESET_THEMES } from "@/lib/auth-context";
+import { useAuth, PRESET_AVATARS, PRESET_THEMES, applyThemeColor } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { compressImage } from "@/lib/image-utils";
@@ -51,6 +51,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Info,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -172,6 +173,7 @@ function LibraryPageContent() {
   const [displayName, setDisplayName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("");
   const [selectedTheme, setSelectedTheme] = useState("");
+  const [customThemeHex, setCustomThemeHex] = useState("#ec4899");
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
@@ -266,7 +268,11 @@ function LibraryPageContent() {
     if (user) {
       setDisplayName(user.displayName || "");
       setSelectedAvatar(user.photoURL || "");
-      setSelectedTheme(user.themeColor || "violet");
+      const userTheme = user.themeColor || "violet";
+      setSelectedTheme(userTheme);
+      if (userTheme.startsWith("#")) {
+        setCustomThemeHex(userTheme);
+      }
     }
   }, [user]);
 
@@ -722,23 +728,11 @@ function LibraryPageContent() {
   };
 
   const getThemeAccentClass = () => {
-    switch (viewedUser?.themeColor) {
-      case "rose": return "text-rose-500 border-rose-500 hover:text-rose-400";
-      case "amber": return "text-amber-500 border-amber-500 hover:text-amber-400";
-      case "emerald": return "text-emerald-500 border-emerald-500 hover:text-emerald-400";
-      case "indigo": return "text-indigo-500 border-indigo-500 hover:text-indigo-400";
-      default: return "text-violet-500 border-violet-500 hover:text-violet-400";
-    }
+    return "text-primary border-primary hover:opacity-80";
   };
 
   const getThemeBgClass = () => {
-    switch (viewedUser?.themeColor) {
-      case "rose": return "bg-rose-600 hover:bg-rose-700 text-white";
-      case "amber": return "bg-amber-500 hover:bg-amber-600 text-black font-bold";
-      case "emerald": return "bg-emerald-600 hover:bg-emerald-700 text-white";
-      case "indigo": return "bg-indigo-600 hover:bg-indigo-700 text-white";
-      default: return "bg-violet-600 hover:bg-violet-700 text-white";
-    }
+    return "bg-primary text-primary-foreground hover:opacity-90";
   };
 
   if (authLoading || (targetUserId && loadingViewedUser)) {
@@ -969,7 +963,8 @@ function LibraryPageContent() {
               viewedUser?.themeColor === "rose" && "border-rose-500",
               viewedUser?.themeColor === "amber" && "border-amber-500",
               viewedUser?.themeColor === "emerald" && "border-emerald-500",
-              viewedUser?.themeColor === "indigo" && "border-indigo-500"
+              viewedUser?.themeColor === "indigo" && "border-indigo-500",
+              (!viewedUser?.themeColor || viewedUser?.themeColor.startsWith("#")) && "border-primary"
             )}
           />
 
@@ -1205,11 +1200,7 @@ function LibraryPageContent() {
                         className={cn(
                           "relative rounded-full aspect-square overflow-hidden border-2 bg-muted/20 transition-all hover:scale-105",
                           isSelected 
-                            ? user?.themeColor === "rose" && "border-rose-500 scale-105" ||
-                              user?.themeColor === "amber" && "border-amber-500 scale-105" ||
-                              user?.themeColor === "emerald" && "border-emerald-500 scale-105" ||
-                              user?.themeColor === "indigo" && "border-indigo-500 scale-105" ||
-                              "border-violet-500 scale-105"
+                            ? "border-primary scale-105"
                             : "border-border/50 hover:border-border"
                         )}
                         title={avatar.name}
@@ -1253,27 +1244,90 @@ function LibraryPageContent() {
             {/* Accent Theme Color Selection */}
             <div className="space-y-3">
               <Label>Theme Accent Color</Label>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                 {PRESET_THEMES.map((theme) => {
                   const isSelected = selectedTheme === theme.id;
                   return (
                     <button
                       key={theme.id}
                       type="button"
-                      onClick={() => setSelectedTheme(theme.id)}
+                      onClick={() => {
+                        setSelectedTheme(theme.id);
+                        applyThemeColor(theme.id);
+                      }}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all hover:scale-[1.02]",
+                        "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold border transition-all hover:scale-[1.02]",
                         isSelected
                           ? "bg-primary text-primary-foreground border-transparent shadow-md"
                           : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted"
                       )}
-                      style={isSelected ? { backgroundColor: theme.color } : {}}
+                      style={isSelected ? { backgroundColor: theme.color, color: "#ffffff" } : {}}
                     >
                       <span className="w-3.5 h-3.5 rounded-full border border-black/20" style={{ backgroundColor: theme.color }} />
                       {theme.name}
                     </button>
                   );
                 })}
+
+                {/* Custom Color Picker Option */}
+                {(() => {
+                  const isPreset = PRESET_THEMES.some((t) => t.id === selectedTheme);
+                  const isCustom = !isPreset && (selectedTheme.startsWith("#") || selectedTheme.startsWith("custom:"));
+                  const currentCustomColor = isCustom ? (selectedTheme.startsWith("#") ? selectedTheme : selectedTheme.replace("custom:", "")) : (customThemeHex || "#ec4899");
+
+                  return (
+                    <React.Fragment key="custom-theme-option">
+                      <label
+                        className={cn(
+                          "relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold border transition-all hover:scale-[1.02] cursor-pointer select-none",
+                          isCustom
+                            ? "bg-primary text-primary-foreground border-transparent shadow-md"
+                            : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted"
+                        )}
+                        style={isCustom ? { backgroundColor: currentCustomColor, color: "#ffffff" } : {}}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-sm flex-shrink-0"
+                          style={{ backgroundColor: currentCustomColor }}
+                        />
+                        <span>Custom</span>
+                        <input
+                          type="color"
+                          value={currentCustomColor.startsWith("#") ? currentCustomColor : "#ec4899"}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            setCustomThemeHex(newColor);
+                            setSelectedTheme(newColor);
+                            applyThemeColor(newColor);
+                          }}
+                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          title="Click to pick a custom theme accent color"
+                        />
+                      </label>
+
+                      {isCustom && (
+                        <div className="flex items-center gap-1.5 bg-muted/40 border border-border/60 rounded-xl px-2.5 sm:px-3 py-1.5 shadow-inner">
+                          <Palette className="w-3.5 h-3.5 text-primary" />
+                          <input
+                            type="text"
+                            value={selectedTheme}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSelectedTheme(val);
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomThemeHex(val);
+                                applyThemeColor(val);
+                              }
+                            }}
+                            className="w-16 bg-transparent text-xs font-mono font-bold text-foreground focus:outline-none uppercase"
+                            placeholder="#HEX"
+                            maxLength={7}
+                          />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })()}
               </div>
             </div>
 

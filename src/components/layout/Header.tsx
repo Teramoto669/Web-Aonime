@@ -227,7 +227,8 @@ export default function Header() {
                         user.themeColor === "rose" && "border-rose-500",
                         user.themeColor === "amber" && "border-amber-500",
                         user.themeColor === "emerald" && "border-emerald-500",
-                        user.themeColor === "indigo" && "border-indigo-500"
+                        user.themeColor === "indigo" && "border-indigo-500",
+                        (!user.themeColor || user.themeColor.startsWith("#")) && "border-primary"
                       )}>
                         <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
                         <AvatarFallback className="text-xs bg-muted text-foreground">
