@@ -476,57 +476,101 @@ function HlsPlayer({
             },
             controls: [
                 {
-                    name: "volume-horizontal",
+                    name: "volume-custom",
                     position: "left",
                     index: 15,
                     html: `
-                        <div class="art-volume-horizontal" style="display: flex; align-items: center; gap: 4px; cursor: pointer; height: 100%; padding-inline: 4px;">
-                            <div class="art-volume-horizontal-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
+                        <div class="art-volume-custom" style="position: relative; display: flex; align-items: center; justify-content: center; height: 100%; cursor: pointer; padding-inline: 4px;">
+                            <div class="art-volume-custom-icon" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">
                                 ${volumeIcon}
                             </div>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="1" 
-                                step="0.05" 
-                                value="0.8" 
-                                class="art-volume-horizontal-slider" 
-                                style="height: 4px; border-radius: 2px; outline: none; margin: 0; padding: 0; cursor: pointer;"
-                            />
+                            <!-- Desktop Horizontal Slider -->
+                            <div class="art-volume-horizontal-wrapper">
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.05" 
+                                    value="0.8" 
+                                    class="art-volume-horizontal-slider" 
+                                    style="height: 4px; border-radius: 2px; outline: none; margin: 0; padding: 0; cursor: pointer;"
+                                />
+                            </div>
+                            <!-- Mobile Vertical Slider Popup -->
+                            <div class="art-volume-vertical-popup">
+                                <div class="art-volume-vertical-inner">
+                                    <span class="art-volume-vertical-val">80%</span>
+                                    <div class="art-volume-vertical-track">
+                                        <input 
+                                            type="range" 
+                                            min="0" 
+                                            max="1" 
+                                            step="0.02" 
+                                            value="0.8" 
+                                            class="art-volume-vertical-slider"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `,
                     mounted: function (element) {
                         const art = this;
                         const $el = element;
-                        const $icon = $el.querySelector(".art-volume-horizontal-icon") as HTMLElement;
-                        const $slider = $el.querySelector(".art-volume-horizontal-slider") as HTMLInputElement;
+                        const $icon = $el.querySelector(".art-volume-custom-icon") as HTMLElement;
+                        const $sliderDesktop = $el.querySelector(".art-volume-horizontal-slider") as HTMLInputElement;
+                        const $sliderMobile = $el.querySelector(".art-volume-vertical-slider") as HTMLInputElement;
+                        const $valLbl = $el.querySelector(".art-volume-vertical-val") as HTMLElement;
 
-                        const updateSliderBackground = (val: number) => {
-                            const pct = val * 100;
-                            $slider.style.background = `linear-gradient(to right, hsl(var(--primary)) ${pct}%, rgba(255, 255, 255, 0.2) ${pct}%)`;
+                        const updateUI = (val: number) => {
+                            const pct = Math.round(val * 100);
+                            const themeColor = art.option.theme || "hsl(var(--primary))";
+                            if ($sliderDesktop) {
+                                $sliderDesktop.value = String(val);
+                                $sliderDesktop.style.background = `linear-gradient(to right, ${themeColor} ${pct}%, rgba(255, 255, 255, 0.2) ${pct}%)`;
+                            }
+                            if ($sliderMobile) {
+                                $sliderMobile.value = String(val);
+                                $sliderMobile.style.background = `linear-gradient(to right, ${themeColor} ${pct}%, rgba(255, 255, 255, 0.25) ${pct}%)`;
+                            }
+                            if ($valLbl) {
+                                $valLbl.textContent = `${pct}%`;
+                                $valLbl.style.color = "#ffffff";
+                            }
+                            if ($icon) {
+                                if (art.muted || val === 0) {
+                                    $icon.innerHTML = muteIcon;
+                                } else {
+                                    $icon.innerHTML = volumeIcon;
+                                }
+                            }
                         };
 
                         // Initial volume sync
-                        $slider.value = String(art.volume);
-                        updateSliderBackground(art.volume);
+                        updateUI(art.muted ? 0 : art.volume);
+
+                        const $innerContainer = $el.querySelector(".art-volume-custom") as HTMLElement;
 
                         let hideTimer: any = null;
-                        const showSlider = () => {
+                        const showControl = () => {
                             $el.classList.add("art-volume-show");
+                            if ($innerContainer) $innerContainer.classList.add("art-volume-show");
                             if (hideTimer) clearTimeout(hideTimer);
                             hideTimer = setTimeout(() => {
                                 $el.classList.remove("art-volume-show");
-                            }, 2000);
+                                if ($innerContainer) $innerContainer.classList.remove("art-volume-show");
+                            }, 4000);
                         };
 
-                        // Collapse slider when clicking/touching outside
                         const handleOutsideTouch = (e: Event) => {
                             const target = e.target as HTMLElement;
-                            if (!target.closest(".art-volume-horizontal")) {
+                            if (!target.closest(".art-control-volume-custom") && !target.closest(".art-volume-custom")) {
                                 $el.classList.remove("art-volume-show");
+                                if ($innerContainer) $innerContainer.classList.remove("art-volume-show");
                                 if (hideTimer) clearTimeout(hideTimer);
                             }
                         };
+
                         document.addEventListener("touchstart", handleOutsideTouch, { passive: true });
                         document.addEventListener("click", handleOutsideTouch);
 
@@ -535,59 +579,59 @@ function HlsPlayer({
                             document.removeEventListener("click", handleOutsideTouch);
                         });
 
-                        // Show slider on container touch/interaction on mobile
-                        $el.addEventListener("touchstart", () => {
-                            showSlider();
-                        }, { passive: true });
+                        let lastInteractionTime = 0;
+                        const handleIconInteraction = (e: Event) => {
+                            e.stopPropagation();
+                            const now = Date.now();
+                            if (now - lastInteractionTime < 500) {
+                                return;
+                            }
+                            lastInteractionTime = now;
 
-                        $slider.addEventListener("input", (e) => {
-                            showSlider();
-                            const val = parseFloat((e.target as HTMLInputElement).value);
+                            const isShown = $el.classList.contains("art-volume-show");
+                            if (!isShown) {
+                                showControl();
+                            } else {
+                                art.muted = !art.muted;
+                                showControl();
+                            }
+                        };
+
+                        $icon.addEventListener("touchstart", handleIconInteraction, { passive: true });
+                        $icon.addEventListener("click", handleIconInteraction);
+
+                        const handleSliderInput = (val: number) => {
+                            showControl();
                             art.volume = val;
                             art.muted = val === 0;
-                            updateSliderBackground(val);
-                        });
+                            updateUI(val);
+                        };
 
-                        $icon.addEventListener("click", (e) => {
-                            e.stopPropagation();
-                            // Check if the slider is currently visible (either via hover or active class)
-                            const isExpanded = $slider.offsetWidth > 0;
-                            if (!isExpanded) {
-                                // First click on mobile/touch: just expand, don't mute
-                                showSlider();
-                            } else {
-                                // Subsequent click: mute/unmute
-                                art.muted = !art.muted;
-                                showSlider();
-                            }
-                        });
+                        if ($sliderDesktop) {
+                            $sliderDesktop.addEventListener("input", (e) => {
+                                handleSliderInput(parseFloat((e.target as HTMLInputElement).value));
+                            });
+                            $sliderDesktop.addEventListener("click", (e) => e.stopPropagation());
+                        }
 
-                        // Prevent slider interactions from bubbling up to player controls/gestures
-                        $slider.addEventListener("click", (e) => {
-                            e.stopPropagation();
-                        });
-                        $slider.addEventListener("touchstart", (e) => {
-                            e.stopPropagation();
-                            showSlider();
-                        }, { passive: true });
-                        $slider.addEventListener("touchmove", (e) => {
-                            e.stopPropagation();
-                            showSlider();
-                        }, { passive: true });
-                        $slider.addEventListener("touchend", (e) => {
-                            e.stopPropagation();
-                            showSlider();
-                        }, { passive: true });
+                        if ($sliderMobile) {
+                            $sliderMobile.addEventListener("input", (e) => {
+                                handleSliderInput(parseFloat((e.target as HTMLInputElement).value));
+                            });
+                            $sliderMobile.addEventListener("click", (e) => e.stopPropagation());
+                            $sliderMobile.addEventListener("touchstart", (e) => {
+                                e.stopPropagation();
+                                showControl();
+                            }, { passive: true });
+                            $sliderMobile.addEventListener("touchmove", (e) => {
+                                e.stopPropagation();
+                                showControl();
+                            }, { passive: true });
+                        }
 
                         art.on("video:volumechange", () => {
                             const val = art.muted ? 0 : art.volume;
-                            $slider.value = String(val);
-                            updateSliderBackground(val);
-                            if (art.muted || art.volume === 0) {
-                                $icon.innerHTML = muteIcon;
-                            } else {
-                                $icon.innerHTML = volumeIcon;
-                            }
+                            updateUI(val);
                         });
                     }
                 },
@@ -648,7 +692,7 @@ function HlsPlayer({
                     html: `
                         <div class="art-control-autoplay-toggle" title="Toggle Auto Play Next Episode" style="display: flex; align-items: center; justify-content: center; height: 100%; cursor: pointer; padding-inline: 6px;">
                             <div class="art-autoplay-badge" style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s ease;">
-                                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 11px; height: 11px; max-width: 11px; max-height: 11px; flex-shrink: 0; display: inline-block; vertical-align: middle;">
                                     <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"></polygon>
                                     <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor"></line>
                                 </svg>
@@ -1210,9 +1254,22 @@ function HlsPlayer({
                     min-width: 150px !important;
                 }
             }
-            /* Hide the default vertical volume panel */
-            .art-control-volume {
+            /* Hide the default vertical volume panel completely */
+            .art-video-player .art-controls .art-control-volume,
+            .art-video-player .art-controls .art-control.art-control-volume,
+            .art-video-player .art-control-volume,
+            .art-control-volume,
+            .art-volume-panel {
                 display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                visibility: hidden !important;
             }
             /* Scope non-fullscreen z-index below sticky header (z-50) */
             .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) {
@@ -1244,87 +1301,380 @@ function HlsPlayer({
             .art-setting-toggle input:checked + i {
                 background: hsl(var(--primary)) !important;
             }
-            /* Style custom horizontal volume slider range input */
-            .art-volume-horizontal-slider {
-                -webkit-appearance: none;
-                width: 0px !important;
-                opacity: 0 !important;
-                visibility: hidden !important;
-                transition: width 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
-                background: rgba(255, 255, 255, 0.2);
-                touch-action: none;
+            /* Style custom volume control */
+            .art-control-volume-custom,
+            .art-volume-custom {
+                position: relative !important;
+                overflow: visible !important;
             }
-            .art-volume-horizontal:hover .art-volume-horizontal-slider,
-            .art-volume-horizontal.art-volume-show .art-volume-horizontal-slider {
-                width: 60px !important;
-                opacity: 1 !important;
-                visibility: visible !important;
-                margin-left: 6px !important;
-                margin-right: 6px !important;
+
+            /* --- Desktop Horizontal Volume Slider --- */
+            @media screen and (min-width: 769px) {
+                .art-volume-vertical-popup {
+                    display: none !important;
+                }
+                .art-volume-horizontal-wrapper {
+                    display: flex;
+                    align-items: center;
+                }
+                .art-volume-horizontal-slider {
+                    -webkit-appearance: none;
+                    width: 0px !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    transition: width 0.2s ease, opacity 0.2s ease, visibility 0.2s !important;
+                    background: rgba(255, 255, 255, 0.2);
+                    touch-action: none;
+                }
+                .art-control-volume-custom:hover .art-volume-horizontal-slider,
+                .art-control-volume-custom.art-volume-show .art-volume-horizontal-slider,
+                .art-volume-custom:hover .art-volume-horizontal-slider,
+                .art-volume-custom.art-volume-show .art-volume-horizontal-slider,
+                .art-volume-show .art-volume-horizontal-slider {
+                    width: 60px !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    margin-left: 6px !important;
+                    margin-right: 6px !important;
+                }
+                .art-volume-horizontal-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: white;
+                    cursor: pointer;
+                    border: none;
+                }
+                .art-volume-horizontal-slider::-moz-range-thumb {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: white;
+                    cursor: pointer;
+                    border: none;
+                }
             }
-            .art-volume-horizontal-slider::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background: white;
-                cursor: pointer;
-                border: none;
-                transition: transform 0.1s ease;
+
+            /* --- Mobile Vertical Volume Popup --- */
+            @media screen and (max-width: 768px) {
+                .art-volume-horizontal-wrapper {
+                    display: none !important;
+                }
+                .art-volume-vertical-popup {
+                    position: absolute !important;
+                    bottom: calc(var(--art-control-height, 40px) + 4px) !important;
+                    left: 50% !important;
+                    transform: translateX(-50%) translateY(10px) !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    transition: opacity var(--art-transition-duration, 0.2s) ease, transform var(--art-transition-duration, 0.2s) ease, visibility var(--art-transition-duration, 0.2s) !important;
+                    z-index: 100 !important;
+                }
+                .art-control-volume-custom.art-volume-show .art-volume-vertical-popup,
+                .art-volume-custom.art-volume-show .art-volume-vertical-popup,
+                .art-volume-show .art-volume-vertical-popup {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    pointer-events: auto !important;
+                    transform: translateX(-50%) translateY(0) !important;
+                }
+                .art-volume-vertical-inner {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    padding: 10px 6px 12px !important;
+                    background-color: var(--art-widget-background, rgba(0, 0, 0, 0.85)) !important;
+                    -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+                    backdrop-filter: saturate(180%) blur(20px) !important;
+                    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                    border-radius: var(--art-border-radius, 6px) !important;
+                    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+                    min-width: 36px !important;
+                }
+                .art-volume-vertical-val {
+                    font-size: 11px !important;
+                    font-weight: 700 !important;
+                    color: #ffffff !important;
+                    font-family: PingFang SC, Helvetica Neue, Microsoft YaHei, Roboto, Arial, sans-serif !important;
+                    line-height: 1 !important;
+                    user-select: none !important;
+                }
+                .art-volume-vertical-track {
+                    position: relative !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    height: 100px !important;
+                    width: 28px !important;
+                }
+                .art-volume-vertical-slider {
+                    -webkit-appearance: none !important;
+                    appearance: none !important;
+                    transform: rotate(-90deg) !important;
+                    width: 90px !important;
+                    height: 5px !important;
+                    border-radius: 3px !important;
+                    outline: none !important;
+                    background: rgba(255, 255, 255, 0.25);
+                    cursor: pointer !important;
+                    margin: 0 !important;
+                    touch-action: none !important;
+                }
+                .art-volume-vertical-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none !important;
+                    width: 12px !important;
+                    height: 12px !important;
+                    border-radius: 50% !important;
+                    background: #ffffff !important;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+                    cursor: pointer !important;
+                    transition: transform 0.1s ease !important;
+                }
+                .art-volume-vertical-slider::-moz-range-thumb {
+                    width: 12px !important;
+                    height: 12px !important;
+                    border-radius: 50% !important;
+                    background: #ffffff !important;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+                    cursor: pointer !important;
+                    border: none !important;
+                    transition: transform 0.1s ease !important;
+                }
             }
-            .art-volume-horizontal-slider::-webkit-slider-thumb:hover {
-                transform: scale(1.2);
-            }
-            .art-volume-horizontal-slider::-moz-range-thumb {
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background: white;
-                cursor: pointer;
-                border: none;
-                transition: transform 0.1s ease;
-            }
-            .art-volume-horizontal-slider::-moz-range-thumb:hover {
-                transform: scale(1.2);
-            }
+
             :root {
                 --subtitle-font-size: clamp(16px, 3.8vw, 24px);
             }
             .art-fullscreen, :fullscreen {
                 --subtitle-font-size: clamp(20px, 3.5vw, 36px) !important;
             }
-            @media screen and (max-width: 370px) {
-                .art-progress {
-                    padding-bottom: 5px !important;
+
+            /* Responsive control bar layout & overflow prevention */
+            .art-video-player .art-bottom {
+                box-sizing: border-box !important;
+                padding-left: var(--art-padding, 10px) !important;
+                padding-right: var(--art-padding, 10px) !important;
+                overflow: visible !important;
+            }
+            .art-video-player .art-controls {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                gap: 4px !important;
+                overflow: visible !important;
+            }
+            .art-video-player .art-controls .art-controls-left {
+                display: flex !important;
+                align-items: center !important;
+                flex-shrink: 1 !important;
+                min-width: 0 !important;
+                gap: 2px !important;
+            }
+            .art-video-player .art-controls .art-controls-right {
+                display: flex !important;
+                align-items: center !important;
+                flex-shrink: 0 !important;
+                gap: 2px !important;
+                margin-left: auto !important;
+            }
+            .art-video-player .art-controls .art-control:not(.art-control-volume) {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+            }
+
+            @media screen and (max-width: 768px) {
+                .art-video-player {
+                    --art-padding: 8px !important;
+                    --art-control-height: 40px !important;
                 }
-                .art-controls-left .art-control {
-                    justify-content: flex-start !important;
+                .art-video-player .art-bottom {
+                    padding: 0 8px !important;
                 }
-                .art-controls-right .art-control {
-                    justify-content: flex-end !important;
+                .art-video-player .art-controls .art-control:not(.art-control-volume) {
+                    min-width: 32px !important;
+                    min-height: 38px !important;
+                    padding: 0 2px !important;
                 }
-                .art-controls-right .art-control svg {
-                    width: 22px;
-                    height: 22px;
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle) .art-icon,
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle):not(.art-control-autoplay-switch) > svg,
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle) .art-icon svg {
+                    width: 20px !important;
+                    height: 20px !important;
                 }
-                .art-controls-left .art-control svg {
-                    width: 22px;
-                    height: 22px;
+                .art-control-prev-ep,
+                .art-control-next-ep {
+                    width: 28px !important;
                 }
-                .art-state .art-icon svg {
-                    width: 50px;
-                    height: 50px;
+                .art-control-prev-ep svg,
+                .art-control-next-ep svg {
+                    width: 20px !important;
+                    height: 20px !important;
+                }
+                .art-control-time {
+                    font-size: 11px !important;
+                    padding: 0 4px !important;
+                    white-space: nowrap !important;
+                }
+                .art-control-pip {
+                    display: none !important;
+                }
+                .art-autoplay-badge {
+                    padding: 2px 7px !important;
+                    font-size: 10.5px !important;
+                    gap: 3px !important;
+                }
+                .art-video-player .art-controls .art-autoplay-badge svg,
+                .art-autoplay-badge svg {
+                    width: 10px !important;
+                    height: 10px !important;
+                    max-width: 10px !important;
+                    max-height: 10px !important;
+                    flex-shrink: 0 !important;
+                }
+                .art-volume-custom {
+                    padding-inline: 2px !important;
+                }
+                .art-volume-custom-icon {
+                    width: 22px !important;
+                    height: 22px !important;
                 }
             }
-            @media screen and (max-width: 350px) {
-                .art-controls-right .art-control svg {
-                    width: 20px;
-                    height: 20px;
+
+            @media screen and (max-width: 500px) {
+                .art-video-player {
+                    --art-padding: 6px !important;
+                    --art-control-height: 36px !important;
                 }
-                .art-controls-left .art-control svg {
-                    width: 20px;
-                    height: 20px;
+                .art-video-player .art-bottom {
+                    padding: 0 6px !important;
                 }
+                .art-video-player .art-controls {
+                    gap: 2px !important;
+                }
+                .art-video-player .art-controls .art-controls-left {
+                    gap: 1px !important;
+                }
+                .art-video-player .art-controls .art-controls-right {
+                    gap: 1px !important;
+                }
+                .art-video-player .art-controls .art-control:not(.art-control-volume) {
+                    min-width: 28px !important;
+                    min-height: 36px !important;
+                    padding: 0 1px !important;
+                }
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle) .art-icon,
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle):not(.art-control-autoplay-switch) > svg,
+                .art-video-player .art-controls .art-control:not(.art-control-volume):not(.art-control-autoplay-toggle) .art-icon svg {
+                    width: 18px !important;
+                    height: 18px !important;
+                }
+                .art-control-prev-ep,
+                .art-control-next-ep {
+                    width: 24px !important;
+                }
+                .art-control-prev-ep svg,
+                .art-control-next-ep svg {
+                    width: 18px !important;
+                    height: 18px !important;
+                }
+                .art-control-time {
+                    font-size: 10.5px !important;
+                    padding: 0 2px !important;
+                    letter-spacing: -0.3px !important;
+                }
+                .art-control-autoplay-toggle {
+                    padding-inline: 2px !important;
+                }
+                .art-autoplay-badge {
+                    padding: 2px 5px !important;
+                    font-size: 9.5px !important;
+                    gap: 2px !important;
+                }
+                .art-video-player .art-controls .art-autoplay-badge svg,
+                .art-autoplay-badge svg {
+                    width: 9px !important;
+                    height: 9px !important;
+                    max-width: 9px !important;
+                    max-height: 9px !important;
+                    flex-shrink: 0 !important;
+                }
+                .art-volume-custom-icon {
+                    width: 20px !important;
+                    height: 20px !important;
+                }
+            }
+
+            @media screen and (max-width: 380px) {
+                .art-video-player {
+                    --art-padding: 4px !important;
+                }
+                .art-video-player .art-bottom {
+                    padding: 0 4px !important;
+                }
+                .art-video-player .art-controls .art-control:not(.art-control-volume) {
+                    min-width: 24px !important;
+                    padding: 0 !important;
+                }
+                .art-control-time {
+                    font-size: 10px !important;
+                    padding: 0 1px !important;
+                    letter-spacing: -0.4px !important;
+                }
+                .art-control-prev-ep,
+                .art-control-next-ep {
+                    width: 22px !important;
+                }
+                .art-autoplay-badge {
+                    padding: 1.5px 4px !important;
+                    font-size: 8.5px !important;
+                }
+                .art-video-player .art-controls .art-autoplay-badge svg,
+                .art-autoplay-badge svg {
+                    width: 8px !important;
+                    height: 8px !important;
+                    max-width: 8px !important;
+                    max-height: 8px !important;
+                    flex-shrink: 0 !important;
+                }
+            }
+
+            /* Fullscreen controls restoration */
+            .art-video-player.art-fullscreen .art-control-pip,
+            .art-video-player.art-fullscreen-web .art-control-pip {
+                display: flex !important;
+            }
+            .art-video-player.art-fullscreen .art-volume-horizontal,
+            .art-video-player.art-fullscreen-web .art-volume-horizontal {
+                display: flex !important;
+            }
+            .art-video-player.art-fullscreen .art-controls .art-control:not(.art-control-volume),
+            .art-video-player.art-fullscreen-web .art-controls .art-control:not(.art-control-volume) {
+                min-width: var(--art-control-height, 60px) !important;
+                padding: 0 6px !important;
+            }
+            .art-video-player.art-fullscreen .art-control-time,
+            .art-video-player.art-fullscreen-web .art-control-time {
+                font-size: 13px !important;
+                padding: 0 8px !important;
+            }
+            .art-video-player.art-fullscreen .art-autoplay-badge,
+            .art-video-player.art-fullscreen-web .art-autoplay-badge {
+                padding: 3px 8px !important;
+                font-size: 11px !important;
+            }
+            .art-video-player.art-fullscreen .art-autoplay-badge svg,
+            .art-video-player.art-fullscreen-web .art-autoplay-badge svg {
+                width: 12px !important;
+                height: 12px !important;
+                max-width: 12px !important;
+                max-height: 12px !important;
             }
             .art-skip-btn {
                 display: flex;
