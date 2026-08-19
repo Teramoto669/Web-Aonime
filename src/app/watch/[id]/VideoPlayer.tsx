@@ -1214,6 +1214,24 @@ function HlsPlayer({
             .art-control-volume {
                 display: none !important;
             }
+            /* Scope non-fullscreen z-index below sticky header (z-50) */
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) {
+                z-index: 10 !important;
+            }
+            .art-video-player.art-fullscreen,
+            .art-video-player.art-fullscreen-web {
+                z-index: 99999 !important;
+            }
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-controls,
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-bottom,
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-mask,
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-layers {
+                z-index: 20 !important;
+            }
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-settings,
+            .art-video-player:not(.art-fullscreen):not(.art-fullscreen-web) .art-contextmenu {
+                z-index: 30 !important;
+            }
             /* Match seekbar/settings accent to theme primary HSL */
             .art-progress-played {
                 background: hsl(var(--primary)) !important;
@@ -1710,7 +1728,7 @@ function HlsPlayer({
             <div className="w-full aspect-video bg-black relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
                 <div ref={artRef} className="w-full h-full" />
                 {showNextOverlay && nextEpisode && isAutoNavigating && countdown >= 0 && artInstance?.template?.$player && createPortal(
-                    <div className="absolute inset-0 z-[50] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
                         <div className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100">
                             <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">

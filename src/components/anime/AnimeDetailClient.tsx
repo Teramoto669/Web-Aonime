@@ -110,7 +110,14 @@ export function AnimeDetailClient({
           </div>
         </div>
         <div className="flex-1 space-y-4">
-          <h1 className="text-4xl font-black">{detailsData.title ?? slug}</h1>
+          <div>
+            <h1 className="text-4xl font-black">{detailsData.title ?? slug}</h1>
+            {detailsData.titleJp && detailsData.titleJp.trim() !== (detailsData.title || "").trim() && (
+              <p className="text-base sm:text-lg text-muted-foreground font-medium mt-1">
+                {detailsData.titleJp}
+              </p>
+            )}
+          </div>
           {genresList.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {genresList.map((genre) => (

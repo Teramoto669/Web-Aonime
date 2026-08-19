@@ -91,7 +91,7 @@ const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAni
 
     if (isExternal) {
         return (
-            <AnimeTooltip id={item.id} fallbackTitle={item.title}>
+            <AnimeTooltip id={item.id} fallbackTitle={item.title} fallbackTitleJp={item.titleJp}>
                 <a href={href} target="_blank" rel="noopener noreferrer" className="block select-none" draggable={false}>
                     {content}
                 </a>
@@ -100,7 +100,7 @@ const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAni
     }
 
     return (
-        <AnimeTooltip id={item.id} fallbackTitle={item.title}>
+        <AnimeTooltip id={item.id} fallbackTitle={item.title} fallbackTitleJp={item.titleJp}>
             <Link href={href} className="block select-none" draggable={false}>
                 {content}
             </Link>

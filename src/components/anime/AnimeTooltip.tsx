@@ -58,40 +58,60 @@ function prefetchTooltip(id: string): Promise<AnimeTooltipData> {
 interface AnimeTooltipProps {
   id?: string;
   fallbackTitle: string;
+  fallbackTitleJp?: string;
   children: React.ReactNode;
 }
 
-export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps) {
+export function AnimeTooltip({ id, fallbackTitle, fallbackTitleJp, children }: AnimeTooltipProps) {
   const [open, setOpen] = useState(false);
   const [hasHovered, setHasHovered] = useState(false);
   const prefetchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const openTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const isHoveredRef = React.useRef(false);
 
-  // Clear prefetch timeout on unmount
+  // Clear timeouts on unmount
   useEffect(() => {
     return () => {
-      if (prefetchTimeoutRef.current) {
-        clearTimeout(prefetchTimeoutRef.current);
-      }
+      if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current);
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
     };
   }, []);
 
   const handlePointerEnter = () => {
     isHoveredRef.current = true;
     if (!hasHovered) setHasHovered(true);
-    if (isGlobalScrolling || !id) return;
 
-    prefetchTimeoutRef.current = setTimeout(() => {
-      if (isGlobalScrolling) return;
-      prefetchTooltip(id);
-    }, 150); // 150ms debounce to prevent spamming on fast swipes
+    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+    if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current);
+
+    if (isGlobalScrolling) return;
+
+    if (id) {
+      prefetchTimeoutRef.current = setTimeout(() => {
+        if (isGlobalScrolling) return;
+        prefetchTooltip(id);
+      }, 100);
+    }
+
+    // Schedule tooltip opening with 100ms debounce
+    openTimeoutRef.current = setTimeout(() => {
+      if (isHoveredRef.current && !isGlobalScrolling) {
+        setOpen(true);
+      }
+    }, 100);
   };
 
   const handlePointerLeave = () => {
     isHoveredRef.current = false;
-    if (prefetchTimeoutRef.current) {
-      clearTimeout(prefetchTimeoutRef.current);
-    }
+    if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current);
+    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+
+    // Defer closing slightly so moving mouse onto tooltip content or adjacent trigger doesn't flicker
+    openTimeoutRef.current = setTimeout(() => {
+      if (!isHoveredRef.current) {
+        setOpen(false);
+      }
+    }, 60);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -99,13 +119,11 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
       if (isGlobalScrolling) return;
       setOpen(true);
     } else {
-      // Defer closing slightly to check if user moved mouse back onto the trigger card
       setTimeout(() => {
-        if (isHoveredRef.current) {
-          return;
+        if (!isHoveredRef.current) {
+          setOpen(false);
         }
-        setOpen(false);
-      }, 50);
+      }, 60);
     }
   };
 
@@ -121,16 +139,29 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
   // If there's no ID, we fall back to a simple, title-only tooltip
   if (!id) {
     return (
-      <Tooltip open={open} onOpenChange={setOpen}>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <Tooltip open={open} onOpenChange={handleOpenChange}>
+        <TooltipTrigger
+          asChild
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+        >
+          {children}
+        </TooltipTrigger>
         <TooltipContent
           side="right"
           align="start"
           sideOffset={10}
           alignOffset={50}
+          onPointerEnter={() => { isHoveredRef.current = true; }}
+          onPointerLeave={handlePointerLeave}
           className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
         >
           <p className="font-semibold">{fallbackTitle}</p>
+          {fallbackTitleJp && fallbackTitleJp.trim() !== fallbackTitle.trim() && (
+            <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={fallbackTitleJp}>
+              {fallbackTitleJp}
+            </p>
+          )}
         </TooltipContent>
       </Tooltip>
     );
@@ -151,16 +182,18 @@ export function AnimeTooltip({ id, fallbackTitle, children }: AnimeTooltipProps)
           align="start"
           sideOffset={10}
           alignOffset={50}
+          onPointerEnter={() => { isHoveredRef.current = true; }}
+          onPointerLeave={handlePointerLeave}
           className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-[100]"
         >
-          <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} />
+          <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} fallbackTitleJp={fallbackTitleJp} />
         </TooltipContent>
       )}
     </Tooltip>
   );
 }
 
-function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: string }) {
+function AnimeTooltipDetail({ id, fallbackTitle, fallbackTitleJp }: { id: string; fallbackTitle: string; fallbackTitleJp?: string }) {
   const [data, setData] = useState<AnimeTooltipData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -198,6 +231,11 @@ function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: 
     return (
       <div className="space-y-2">
         <h4 className="font-bold text-sm text-white">{fallbackTitle}</h4>
+        {fallbackTitleJp && fallbackTitleJp.trim() !== fallbackTitle.trim() && (
+          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={fallbackTitleJp}>
+            {fallbackTitleJp}
+          </p>
+        )}
         <p className="text-xs text-destructive">Failed to load preview details.</p>
       </div>
     );
@@ -208,16 +246,18 @@ function AnimeTooltipDetail({ id, fallbackTitle }: { id: string; fallbackTitle: 
   const totalEpisodes = Number(data.episodes?.total) || 0;
 
   const isNotYetAired = data.status?.toLowerCase().includes("not yet aired");
+  const titleJp = data.titleJp || fallbackTitleJp;
+  const mainTitle = data.title || fallbackTitle;
 
   return (
     <div className="space-y-3">
       <div>
-        <h4 className="font-bold text-sm text-white leading-tight line-clamp-2" title={data.title}>
-          {data.title}
+        <h4 className="font-bold text-sm text-white leading-tight line-clamp-2" title={mainTitle}>
+          {mainTitle}
         </h4>
-        {data.titleJp && data.titleJp !== data.title && (
-          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={data.titleJp}>
-            {data.titleJp}
+        {titleJp && titleJp.trim() !== mainTitle.trim() && (
+          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={titleJp}>
+            {titleJp}
           </p>
         )}
       </div>

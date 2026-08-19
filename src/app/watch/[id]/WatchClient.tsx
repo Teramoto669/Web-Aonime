@@ -289,7 +289,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
             <div className={`grid grid-cols-1 lg:grid-cols-4 gap-8 ${isBlocked && !revealed ? "blur-md opacity-30 select-none pointer-events-none transition-all duration-300" : ""}`}>
                 <div className="lg:col-span-3 space-y-4">
-                    <div className="w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
+                    <div className="relative z-10 w-full bg-black rounded-lg shadow-lg overflow-hidden border border-border/20">
                         {currentSource ? (
                             <VideoPlayer
                                 key="aonime-player"
@@ -318,6 +318,9 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
                             <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
+                            {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
+                                <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
+                            )}
                             <p className="text-lg text-muted-foreground mt-1">Episode {currentEpNum}</p>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
@@ -357,6 +360,9 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             )}
                             <div className="min-w-0">
                                 <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">{title}</h3>
+                                {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
+                                    <p className="text-xs text-muted-foreground/80 line-clamp-1 mt-0.5">{detailsData.titleJp}</p>
+                                )}
                                 <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{detailsData.genres?.join(', ') || detailsData.type || 'Anime'}</p>
                             </div>
                         </Link>

@@ -53,7 +53,7 @@ const RecommendationCard = React.memo(function RecommendationCard({ item }: { it
     );
 
     return (
-        <AnimeTooltip id={item.id} fallbackTitle={item.title}>
+        <AnimeTooltip id={item.id} fallbackTitle={item.title} fallbackTitleJp={item.titleJp}>
             <Link href={href} className="block select-none" draggable={false}>
                 {content}
             </Link>

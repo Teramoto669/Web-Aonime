@@ -77,7 +77,7 @@ function TopRatedItem({ anime, rank }: { anime: AnimeListItem; rank: number }) {
   };
 
   return (
-    <AnimeTooltip id={animeId} fallbackTitle={anime.title}>
+    <AnimeTooltip id={animeId} fallbackTitle={anime.title} fallbackTitleJp={anime.titleJp}>
       <div onClick={handleCardClick} className="group block cursor-pointer">
         <Card className="relative overflow-hidden p-2 bg-card/60 hover:bg-accent/40 border-border/40 hover:border-primary/40 transition-all duration-200 shadow-xs hover:shadow-md flex items-center gap-3 rounded-xl">
           {/* Rank Badge */}
