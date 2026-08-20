@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider, CustomProvider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -24,25 +24,22 @@ if (typeof window !== "undefined") {
   const useEnterprise = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_USE_ENTERPRISE === "true";
 
   try {
-    const isDev = process.env.NODE_ENV === "development" || (typeof window !== "undefined" && window.location.hostname === "localhost");
+    const isDev =
+      process.env.NODE_ENV === "development" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
 
-    if (isDev && debugToken) {
-      // Use debug token for local development
-      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
-      initializeAppCheck(app, {
-        provider: new CustomProvider({
-          getToken: async () => ({
-            token: debugToken,
-            expireTimeMillis: Date.now() + 3600 * 1000,
-          }),
-        }),
-        isTokenAutoRefreshEnabled: true,
-      });
-    } else if (recaptchaKey) {
-      // Use reCAPTCHA Enterprise or v3 based on flag
+    if (isDev) {
+      // Setting FIREBASE_APPCHECK_DEBUG_TOKEN on global self allows Firebase App Check 
+      // to exchange the debug token for a valid App Check JWT token via exchangeDebugToken endpoint in local dev.
+      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken || true;
+    }
+
+    const siteKey = recaptchaKey || (isDev ? "debug-key" : undefined);
+    if (siteKey) {
       const provider = useEnterprise
-        ? new ReCaptchaEnterpriseProvider(recaptchaKey)
-        : new ReCaptchaV3Provider(recaptchaKey);
+        ? new ReCaptchaEnterpriseProvider(siteKey)
+        : new ReCaptchaV3Provider(siteKey);
 
       initializeAppCheck(app, {
         provider,
