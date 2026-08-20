@@ -29,25 +29,26 @@ if (typeof window !== "undefined") {
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1";
 
-    if (isDev) {
+    if (isDev && debugToken) {
       // Setting FIREBASE_APPCHECK_DEBUG_TOKEN on global self allows Firebase App Check 
       // to exchange the debug token for a valid App Check JWT token via exchangeDebugToken endpoint in local dev.
-      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken || true;
+      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
     }
 
-    const siteKey = recaptchaKey || (isDev ? "debug-key" : undefined);
-    if (siteKey) {
+    if (recaptchaKey && recaptchaKey !== "debug-key" && !recaptchaKey.startsWith("YOUR_")) {
       const provider = useEnterprise
-        ? new ReCaptchaEnterpriseProvider(siteKey)
-        : new ReCaptchaV3Provider(siteKey);
+        ? new ReCaptchaEnterpriseProvider(recaptchaKey)
+        : new ReCaptchaV3Provider(recaptchaKey);
 
       initializeAppCheck(app, {
         provider,
         isTokenAutoRefreshEnabled: true,
       });
+    } else if (isDev) {
+      console.info("[Firebase App Check] Dev mode active. Set NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN or a valid reCAPTCHA site key if App Check enforcement is enabled in Firebase Console.");
     }
   } catch (err) {
-    console.warn("App Check initialization skipped/failed:", err);
+    console.warn("[Firebase App Check] Initialization skipped/failed:", err);
   }
 }
 

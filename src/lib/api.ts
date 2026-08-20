@@ -79,11 +79,36 @@ export const getAnimeRecommendations = (slug: string, refresh = true): Promise<A
   return fetcher<AnimeListItem[]>(path);
 };
 
-export const getAnimeTooltip = (id: string, refresh = true): Promise<AnimeTooltipData> => {
+export const getAnimeTooltip = async (id: string, refresh = true): Promise<AnimeTooltipData> => {
   const params = new URLSearchParams();
   if (refresh) params.set('refresh', '1');
   const path = `/anime/tooltip/${encodeURIComponent(id)}${params.toString() ? `?${params.toString()}` : ''}`;
-  return fetcher<AnimeTooltipData>(path);
+  try {
+    return await fetcher<AnimeTooltipData>(path);
+  } catch {
+    // Fallback: If tooltip API endpoint on scrap server fails/404s, use full anime details
+    const detail = await getAnimeDetails(id, refresh);
+    return {
+      id: detail.id || id,
+      slug: detail.slug || id,
+      title: detail.title || id,
+      titleJp: detail.titleJp,
+      rating: detail.rating,
+      quality: detail.quality,
+      episodes: {
+        sub: detail.hasSub ? (detail.episodeCount ?? undefined) : undefined,
+        dub: detail.hasDub ? (detail.episodeCount ?? undefined) : undefined,
+        total: detail.episodeCount ?? undefined,
+      },
+      synopsis: detail.synopsis,
+      otherNames: detail.alternativeTitles?.join(', '),
+      score: detail.malScore,
+      status: detail.status,
+      genres: detail.genres,
+      duration: detail.duration,
+      href: `/anime/${detail.slug || id}`,
+    };
+  }
 };
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────

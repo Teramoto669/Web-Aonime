@@ -129,6 +129,8 @@ export default function AuthModal() {
       let desc = "Please check your email and password.";
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
         desc = "Incorrect email or password.";
+      } else if (error.code === "auth/firebase-app-check-token-is-invalid" || error?.message?.includes("app-check")) {
+        desc = "Firebase App Check verification failed. Please check your App Check and reCAPTCHA settings in Firebase Console.";
       }
       toast({
         variant: "destructive",

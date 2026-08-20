@@ -21,7 +21,7 @@ export async function GET(
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, message: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      { status: 404 }
     );
   }
 }
