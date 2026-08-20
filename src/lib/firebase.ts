@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,34 +16,5 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Initialize App Check (client-side only)
-if (typeof window !== "undefined") {
-  const debugToken = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN;
-  const recaptchaKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_RECAPTCHA_KEY;
-  const useEnterprise = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_USE_ENTERPRISE === "true";
-
-  if (recaptchaKey && recaptchaKey !== "debug-key" && !recaptchaKey.startsWith("YOUR_")) {
-    try {
-      const isDev =
-        process.env.NODE_ENV === "development" ||
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-
-      if (isDev && debugToken) {
-        (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
-      }
-
-      const provider = useEnterprise
-        ? new ReCaptchaEnterpriseProvider(recaptchaKey)
-        : new ReCaptchaV3Provider(recaptchaKey);
-
-      initializeAppCheck(app, {
-        provider,
-        isTokenAutoRefreshEnabled: true,
-      });
-    } catch (err) {
-      console.warn("[Firebase App Check] Initialization skipped/failed:", err);
-    }
-  }
-}
+// Firebase App Check disabled — using standard reCAPTCHA v2 on forms
 
