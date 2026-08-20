@@ -338,27 +338,6 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                     <Badge className="bg-primary text-primary-foreground font-bold text-xs px-2.5 py-0.5">
                                         Episode {currentEpNum}
                                     </Badge>
-                                    {detailsData.malScore != null && (
-                                        <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
-                                            <Star className="w-3.5 h-3.5 fill-current" />
-                                            <span>{detailsData.malScore.toFixed(2)}</span>
-                                        </div>
-                                    )}
-                                    {detailsData.type && (
-                                        <Badge variant="outline" className="text-xs font-semibold gap-1">
-                                            <Tv className="w-3 h-3 text-primary" /> {detailsData.type}
-                                        </Badge>
-                                    )}
-                                    {detailsData.rating && (
-                                        <Badge variant="secondary" className="text-xs font-normal">
-                                            {detailsData.rating}
-                                        </Badge>
-                                    )}
-                                    {detailsData.aired && (
-                                        <span className="text-muted-foreground text-xs flex items-center gap-1">
-                                            <Calendar className="w-3 h-3 text-primary" /> {detailsData.aired}
-                                        </span>
-                                    )}
                                 </div>
                             </div>
 
@@ -422,27 +401,51 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                             <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
                                         </div>
                                     )}
-                                    <div className="min-w-0 space-y-1 flex-1">
+                                    <div className="min-w-0 space-y-1.5 flex-1">
                                         <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight line-clamp-2">{title}</h3>
                                         {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
                                             <p className="text-xs text-muted-foreground line-clamp-1">{detailsData.titleJp}</p>
                                         )}
 
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
-                                            {detailsData.status && (
-                                                <span>Status: <strong className="text-foreground font-medium">{detailsData.status}</strong></span>
+                                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+                                            {detailsData.malScore != null && (
+                                                <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 text-[11px] shrink-0">
+                                                    <Star className="w-3 h-3 fill-current" />
+                                                    <span>{detailsData.malScore.toFixed(2)}</span>
+                                                </div>
                                             )}
-                                            {detailsData.duration && detailsData.duration !== "?" && (
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-3 h-3 text-primary" /> {detailsData.duration}
+                                            {detailsData.type && (
+                                                <Badge variant="outline" className="text-[11px] font-semibold gap-1 px-1.5 py-0 shrink-0">
+                                                    <Tv className="w-3 h-3 text-primary" /> {detailsData.type}
+                                                </Badge>
+                                            )}
+                                            {detailsData.rating && (
+                                                <Badge variant="secondary" className="text-[11px] font-normal px-1.5 py-0 shrink-0">
+                                                    {detailsData.rating}
+                                                </Badge>
+                                            )}
+                                            {detailsData.aired && (
+                                                <span className="text-muted-foreground text-[11px] flex items-center gap-1 shrink-0">
+                                                    <Calendar className="w-3 h-3 text-primary" /> {detailsData.aired}
                                                 </span>
-                                            )}
-                                            {detailsData.studios && detailsData.studios.length > 0 && (
-                                                <span>Studio: <strong className="text-foreground font-medium">{detailsData.studios.join(', ')}</strong></span>
                                             )}
                                         </div>
                                     </div>
                                 </Link>
+
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-2 border-t border-border/40">
+                                    {detailsData.status && (
+                                        <span>Status: <strong className="text-foreground font-medium">{detailsData.status}</strong></span>
+                                    )}
+                                    {detailsData.duration && detailsData.duration !== "?" && (
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-primary" /> {detailsData.duration}
+                                        </span>
+                                    )}
+                                    {detailsData.studios && detailsData.studios.length > 0 && (
+                                        <span>Studio: <strong className="text-foreground font-medium">{detailsData.studios.join(', ')}</strong></span>
+                                    )}
+                                </div>
 
                                 {genresList.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 pt-0.5">

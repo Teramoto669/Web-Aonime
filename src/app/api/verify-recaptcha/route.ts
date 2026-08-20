@@ -72,11 +72,11 @@ export async function POST(request: NextRequest) {
     }
 
     const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    const apiKey = process.env.RECAPTCHA_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const apiKey = process.env.RECAPTCHA_API_KEY;
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "aonime-f9084";
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
-    // 4. Primary: Try reCAPTCHA Enterprise Assessments API (Unlocks Account & Fraud Defense)
+    // 4. Primary: Try reCAPTCHA Enterprise Assessments API (if explicit RECAPTCHA_API_KEY is provided)
     if (apiKey && apiKey !== "your-api-key" && projectId && siteKey) {
       try {
         const enterpriseUrl = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${apiKey}`;
