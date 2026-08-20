@@ -19,36 +19,47 @@ export const db = getFirestore(app);
 
 // Initialize App Check (client-side only)
 if (typeof window !== "undefined") {
+  const isAppCheckEnabled = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_ENABLED === "true";
   const debugToken = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN;
   const recaptchaKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_RECAPTCHA_KEY;
   const useEnterprise = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_USE_ENTERPRISE === "true";
+  const forceDevAppCheck = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_ENABLE_IN_DEV === "true";
 
-  try {
-    const isDev =
-      process.env.NODE_ENV === "development" ||
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
+  if (isAppCheckEnabled) {
+    try {
+      const isDev =
+        process.env.NODE_ENV === "development" ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
 
-    if (isDev && debugToken) {
-      // Setting FIREBASE_APPCHECK_DEBUG_TOKEN on global self allows Firebase App Check 
-      // to exchange the debug token for a valid App Check JWT token via exchangeDebugToken endpoint in local dev.
-      (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      if (isDev) {
+        if (forceDevAppCheck && debugToken) {
+          (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+          const siteKey = recaptchaKey || "debug-key";
+          const provider = useEnterprise
+            ? new ReCaptchaEnterpriseProvider(siteKey)
+            : new ReCaptchaV3Provider(siteKey);
+
+          initializeAppCheck(app, {
+            provider,
+            isTokenAutoRefreshEnabled: true,
+          });
+        } else {
+          console.info("[Firebase App Check] Skipping App Check on localhost in dev mode to prevent auth token invalidation. Set NEXT_PUBLIC_FIREBASE_APPCHECK_ENABLE_IN_DEV=true and configure your registered debug token in Firebase Console if testing App Check locally.");
+        }
+      } else if (recaptchaKey && recaptchaKey !== "debug-key" && !recaptchaKey.startsWith("YOUR_")) {
+        const provider = useEnterprise
+          ? new ReCaptchaEnterpriseProvider(recaptchaKey)
+          : new ReCaptchaV3Provider(recaptchaKey);
+
+        initializeAppCheck(app, {
+          provider,
+          isTokenAutoRefreshEnabled: true,
+        });
+      }
+    } catch (err) {
+      console.warn("[Firebase App Check] Initialization skipped/failed:", err);
     }
-
-    if (recaptchaKey && recaptchaKey !== "debug-key" && !recaptchaKey.startsWith("YOUR_")) {
-      const provider = useEnterprise
-        ? new ReCaptchaEnterpriseProvider(recaptchaKey)
-        : new ReCaptchaV3Provider(recaptchaKey);
-
-      initializeAppCheck(app, {
-        provider,
-        isTokenAutoRefreshEnabled: true,
-      });
-    } else if (isDev) {
-      console.info("[Firebase App Check] Dev mode active. Set NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN or a valid reCAPTCHA site key if App Check enforcement is enabled in Firebase Console.");
-    }
-  } catch (err) {
-    console.warn("[Firebase App Check] Initialization skipped/failed:", err);
   }
 }
 
