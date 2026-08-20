@@ -64,12 +64,12 @@ export default function AuthModal() {
   });
 
   // Helper to verify reCAPTCHA token with backend API
-  const verifyRecaptchaToken = async (token: string): Promise<boolean> => {
+  const verifyRecaptchaToken = async (token: string, action?: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/verify-recaptcha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, action }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -105,7 +105,7 @@ export default function AuthModal() {
       }
 
       setIsSubmitting(true);
-      const isVerified = await verifyRecaptchaToken(recaptchaToken);
+      const isVerified = await verifyRecaptchaToken(recaptchaToken, "login");
       if (!isVerified) {
         setRecaptchaToken(null);
         setIsSubmitting(false);
@@ -153,7 +153,7 @@ export default function AuthModal() {
       }
 
       setIsSubmitting(true);
-      const isVerified = await verifyRecaptchaToken(recaptchaToken);
+      const isVerified = await verifyRecaptchaToken(recaptchaToken, "signup");
       if (!isVerified) {
         setRecaptchaToken(null);
         setIsSubmitting(false);
@@ -317,6 +317,7 @@ export default function AuthModal() {
 
               {IS_RECAPTCHA_ENABLED && (
                 <ReCaptcha
+                  action="login"
                   onVerify={(token) => setRecaptchaToken(token)}
                   onExpire={() => setRecaptchaToken(null)}
                 />
@@ -394,6 +395,7 @@ export default function AuthModal() {
 
               {IS_RECAPTCHA_ENABLED && (
                 <ReCaptcha
+                  action="signup"
                   onVerify={(token) => setRecaptchaToken(token)}
                   onExpire={() => setRecaptchaToken(null)}
                 />
