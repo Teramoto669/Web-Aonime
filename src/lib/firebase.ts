@@ -24,7 +24,9 @@ if (typeof window !== "undefined") {
   const useEnterprise = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_USE_ENTERPRISE === "true";
 
   try {
-    if (debugToken) {
+    const isDev = process.env.NODE_ENV === "development" || (typeof window !== "undefined" && window.location.hostname === "localhost");
+
+    if (isDev && debugToken) {
       // Use debug token for local development
       (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
       initializeAppCheck(app, {

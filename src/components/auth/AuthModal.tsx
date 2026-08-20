@@ -63,18 +63,58 @@ export default function AuthModal() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
-  // Submit Login
-  const onLogin = async (data: LoginFormValues) => {
-    if (IS_RECAPTCHA_ENABLED && !recaptchaToken) {
+  // Helper to verify reCAPTCHA token with backend API
+  const verifyRecaptchaToken = async (token: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/verify-recaptcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast({
+          variant: "destructive",
+          title: "CAPTCHA Verification Failed",
+          description: data.error || "Failed to verify reCAPTCHA token with server. Please try again.",
+        });
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("reCAPTCHA Verification error:", err);
       toast({
         variant: "destructive",
-        title: "CAPTCHA Verification Required",
-        description: "Please complete the reCAPTCHA verification.",
+        title: "CAPTCHA Verification Error",
+        description: "An error occurred while verifying CAPTCHA with server.",
       });
-      return;
+      return false;
+    }
+  };
+
+  // Submit Login
+  const onLogin = async (data: LoginFormValues) => {
+    if (IS_RECAPTCHA_ENABLED) {
+      if (!recaptchaToken) {
+        toast({
+          variant: "destructive",
+          title: "CAPTCHA Verification Required",
+          description: "Please complete the reCAPTCHA verification.",
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+      const isVerified = await verifyRecaptchaToken(recaptchaToken);
+      if (!isVerified) {
+        setRecaptchaToken(null);
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      setIsSubmitting(true);
     }
 
-    setIsSubmitting(true);
     try {
       await login(data.email, data.password, rememberMe);
       toast({
@@ -102,16 +142,27 @@ export default function AuthModal() {
 
   // Submit Register
   const onRegister = async (data: RegisterFormValues) => {
-    if (IS_RECAPTCHA_ENABLED && !recaptchaToken) {
-      toast({
-        variant: "destructive",
-        title: "CAPTCHA Verification Required",
-        description: "Please complete the reCAPTCHA verification.",
-      });
-      return;
+    if (IS_RECAPTCHA_ENABLED) {
+      if (!recaptchaToken) {
+        toast({
+          variant: "destructive",
+          title: "CAPTCHA Verification Required",
+          description: "Please complete the reCAPTCHA verification.",
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+      const isVerified = await verifyRecaptchaToken(recaptchaToken);
+      if (!isVerified) {
+        setRecaptchaToken(null);
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      setIsSubmitting(true);
     }
 
-    setIsSubmitting(true);
     try {
       await register(data.email, data.password);
       toast({
