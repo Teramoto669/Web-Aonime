@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, AlertCircle, Play, RotateCcw, Sparkles, ChevronRight, X } from "lucide-react";
 import HLS from "hls.js";
@@ -1127,13 +1127,13 @@ function HlsPlayer({
         }
     }, []);
 
-    const updateSubConfig = (newConfig: Partial<typeof subConfig>) => {
+    const updateSubConfig = useCallback((newConfig: Partial<typeof subConfig>) => {
         setSubConfig(prev => {
             const updated = { ...prev, ...newConfig };
             localStorage.setItem("subtitle-config", JSON.stringify(updated));
             return updated;
         });
-    };
+    }, []);
 
     // Global window functions for the subtitle size slider to avoid React re-render lags
     useEffect(() => {

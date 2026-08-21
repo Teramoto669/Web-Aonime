@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { EpisodeListClient } from "@/components/anime/EpisodeListClient";
 import { RelatedSection } from "@/components/anime/RelatedSection";
 import { VideoPlayer } from "./VideoPlayer";
@@ -238,14 +238,20 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     }, [selectedServer, allSources, servers]);
 
     const { user } = useAuth();
+    const lastSavedRef = useRef<string>("");
 
     useEffect(() => {
-        if (!user) return;
+        if (!user?.uid) return;
+
+        const targetId = detailsData.id || animeId;
+        if (!targetId) return;
+
+        const saveKey = `${user.uid}_${targetId}_${currentEpNum}`;
+        if (lastSavedRef.current === saveKey) return;
+        lastSavedRef.current = saveKey;
 
         const saveWatchHistory = async () => {
             try {
-                const targetId = detailsData.id || animeId;
-                if (!targetId) return;
                 // 1. Save/update watch history entry
                 const historyRef = doc(db, "watch_history", `${user.uid}_${targetId}`);
                 await setDoc(historyRef, {
@@ -273,7 +279,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         };
 
         saveWatchHistory();
-    }, [user, detailsData.id, animeId, currentEpNum, detailsData.title, detailsData.image, detailsData.type, detailsData.slug]);
+    }, [user?.uid, detailsData.id, animeId, currentEpNum, detailsData.title, detailsData.image, detailsData.slug]);
 
     return (
         <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">

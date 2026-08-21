@@ -64,7 +64,7 @@ export function NotificationBell() {
 
   // 1. Real-time notifications listener with max-5 cap
   useEffect(() => {
-    if (!user) {
+    if (!user?.uid) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -74,7 +74,6 @@ export function NotificationBell() {
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
       limit(20)
     );
 
@@ -112,11 +111,11 @@ export function NotificationBell() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   // 2. Background library update checker
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
 
     const checkLibraryUpdates = async () => {
       try {
@@ -182,7 +181,7 @@ export function NotificationBell() {
     // Check every 5 minutes
     const interval = setInterval(checkLibraryUpdates, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.uid]);
 
   // Mark a single notification as read and route
   const handleNotificationClick = async (notif: NotificationType) => {

@@ -51,7 +51,7 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
   const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.uid) {
       setStatus(null);
       return;
     }
@@ -74,7 +74,7 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
     };
 
     checkLibrary();
-  }, [user, animeId]);
+  }, [user?.uid, animeId]);
 
   const handleAdd = async () => {
     if (!user) {

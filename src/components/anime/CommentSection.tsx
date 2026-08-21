@@ -924,7 +924,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
   // Listen to user's comment reactions
   useEffect(() => {
-    if (!user) {
+    if (!user?.uid) {
       setReactions({});
       return;
     }
@@ -946,7 +946,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   // Real-time comments listener
   useEffect(() => {

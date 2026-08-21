@@ -274,7 +274,7 @@ function LibraryPageContent() {
         setCustomThemeHex(userTheme);
       }
     }
-  }, [user]);
+  }, [user?.photoURL, user?.themeColor]);
 
   // Load viewed user details
   useEffect(() => {
@@ -313,7 +313,7 @@ function LibraryPageContent() {
         setViewedUser(null);
         setLoadingViewedUser(false);
       });
-  }, [user, targetUserId, isOwnLibrary]);
+  }, [user?.uid, user?.displayName, user?.photoURL, user?.themeColor, targetUserId, isOwnLibrary]);
 
   // Real-time Firestore sync
   useEffect(() => {
