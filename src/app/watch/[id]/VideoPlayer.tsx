@@ -1779,15 +1779,22 @@ function HlsPlayer({
     useEffect(() => {
         if (!artInstance) return;
 
+        // Helper to safely remove a setting item without throwing or aborting subsequent removals
+        const safeRemove = (name: string) => {
+            try {
+                if (artInstance.setting?.find?.(name)) {
+                    artInstance.setting.remove(name);
+                }
+            } catch (e) { }
+        };
+
         // Remove all first to ensure clean state and correct ordering
-        try {
-            artInstance.setting.remove("subtitles-list");
-            artInstance.setting.remove("subtitle-sync");
-            artInstance.setting.remove("subtitle-size");
-            artInstance.setting.remove("subtitle-color");
-            artInstance.setting.remove("subtitle-style");
-            artInstance.setting.remove("autoplay-next");
-        } catch (e) { }
+        safeRemove("subtitles-list");
+        safeRemove("subtitle-sync");
+        safeRemove("subtitle-size");
+        safeRemove("subtitle-color");
+        safeRemove("subtitle-style");
+        safeRemove("autoplay-next");
 
         // Add Auto Play Next setting menu item
         artInstance.setting.add({
@@ -1956,7 +1963,7 @@ function HlsPlayer({
                 ]
             });
         }
-    }, [tracksKey, artInstance, selectedSubtitleIndex, tracks, subConfig, subDelay]);
+    }, [tracksKey, artInstance, selectedSubtitleIndex, tracks, subConfig, subDelay, autoPlay]);
 
 
 

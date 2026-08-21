@@ -16,6 +16,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 export const metadata: Metadata = {
   title: 'Aonime Stream',
   description: 'Anime Streaming Website',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

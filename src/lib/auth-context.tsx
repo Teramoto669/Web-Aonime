@@ -280,12 +280,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.themeColor]);
 
   const login = async (email: string, password: string, rememberMe: boolean = true) => {
-    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
-    await setPersistence(auth, persistence);
+    try {
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
+    } catch (e) {
+      console.warn("Failed to set persistence:", e);
+    }
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string) => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch (e) {}
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     const defaultName = email.split("@")[0];
     const defaultAvatar = PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)].url;
@@ -312,6 +319,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch (e) {}
     const provider = new GoogleAuthProvider();
     const cred = await signInWithPopup(auth, provider);
 
