@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
@@ -13,8 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bookmark, BookmarkCheck, Plus, Trash, Loader2, ChevronDown } from "lucide-react";
+import { BookmarkCheck, Plus, Trash, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserLibrary, type LibraryStatus, statusLabels } from "@/lib/library-context";
 
 interface LibraryButtonProps {
   animeId: string;
@@ -24,16 +25,6 @@ interface LibraryButtonProps {
   slug: string;
   className?: string;
 }
-
-type LibraryStatus = "watching" | "plan_to_watch" | "completed" | "on_hold" | "dropped";
-
-const statusLabels: Record<LibraryStatus, string> = {
-  watching: "Watching",
-  plan_to_watch: "Plan to Watch",
-  completed: "Completed",
-  on_hold: "On Hold",
-  dropped: "Dropped",
-};
 
 const statusColors: Record<LibraryStatus, string> = {
   watching: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600",
@@ -46,35 +37,21 @@ const statusColors: Record<LibraryStatus, string> = {
 export default function LibraryButton({ animeId, title, image, type, slug, className }: LibraryButtonProps) {
   const { user, openAuthModal } = useAuth();
   const { toast } = useToast();
-  const [status, setStatus] = useState<LibraryStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const { getLibraryStatus, getLibraryDocId, loading: libraryLoading } = useUserLibrary();
+  const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user?.uid) {
-      setStatus(null);
-      return;
-    }
+  // Status is resolved reactively from LibraryContext across slug, animeId, and title
+  const currentStatus: LibraryStatus | null =
+    getLibraryStatus(slug) ||
+    getLibraryStatus(animeId) ||
+    getLibraryStatus(title) ||
+    null;
 
-    const checkLibrary = async () => {
-      setFetching(true);
-      try {
-        const docRef = doc(db, "libraries", `${user.uid}_${animeId}`);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          setStatus(snap.data().status as LibraryStatus);
-        } else {
-          setStatus(null);
-        }
-      } catch (error) {
-        console.error("Error reading library status:", error);
-      } finally {
-        setFetching(false);
-      }
-    };
-
-    checkLibrary();
-  }, [user?.uid, animeId]);
+  const targetDocId =
+    getLibraryDocId(slug) ||
+    getLibraryDocId(animeId) ||
+    getLibraryDocId(title) ||
+    (user?.uid ? `${user.uid}_${slug || animeId}` : "");
 
   const handleAdd = async () => {
     if (!user) {
@@ -91,47 +68,55 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
       return;
     }
 
-    setLoading(true);
+    setActionLoading(true);
     try {
+      const docKey = targetDocId || `${user.uid}_${slug || animeId}`;
+
       // Check if watch history exists for this anime to inherit lastEpisodeWatched
-      const historyRef = doc(db, "watch_history", `${user.uid}_${animeId}`);
-      const historySnap = await getDoc(historyRef);
       let lastEp = null;
       let lastEpAt = null;
-      if (historySnap.exists()) {
-        const histData = historySnap.data();
-        lastEp = histData.episodeNum || null;
-        lastEpAt = histData.watchedAt || null;
-      }
+      try {
+        const historyRef = doc(db, "watch_history", `${user.uid}_${slug || animeId}`);
+        const historySnap = await getDoc(historyRef);
+        if (historySnap.exists()) {
+          const histData = historySnap.data();
+          lastEp = histData.episodeNum || null;
+          lastEpAt = histData.watchedAt || null;
+        }
+      } catch (_) {}
 
-      const docRef = doc(db, "libraries", `${user.uid}_${animeId}`);
-      await setDoc(docRef, {
-        userId: user.uid,
-        animeId,
-        title,
-        image: image || "",
-        type: type || "TV",
-        slug,
-        status: "watching" as LibraryStatus,
-        addedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        ...(lastEp ? { lastEpisodeWatched: lastEp } : {}),
-        ...(lastEpAt ? { lastEpisodeWatchedAt: lastEpAt } : {}),
-      });
-      setStatus("watching");
+      const docRef = doc(db, "libraries", docKey);
+      await setDoc(
+        docRef,
+        {
+          userId: user.uid,
+          animeId: animeId || slug,
+          title: title || slug,
+          image: image || "",
+          type: type || "TV",
+          slug: slug || animeId,
+          status: "watching" as LibraryStatus,
+          addedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          ...(lastEp ? { lastEpisodeWatched: lastEp } : {}),
+          ...(lastEpAt ? { lastEpisodeWatchedAt: lastEpAt } : {}),
+        },
+        { merge: true }
+      );
+
       toast({
         title: "Added to Library",
         description: `"${title}" has been added to your library.`,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error adding anime to library:", error);
       toast({
         variant: "destructive",
         title: "Failed to Add",
         description: "An error occurred. Please try again.",
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -147,9 +132,10 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
       return;
     }
 
-    setLoading(true);
+    setActionLoading(true);
     try {
-      const docRef = doc(db, "libraries", `${user.uid}_${animeId}`);
+      const docKey = targetDocId || `${user.uid}_${slug || animeId}`;
+      const docRef = doc(db, "libraries", docKey);
       await setDoc(
         docRef,
         {
@@ -158,20 +144,20 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
         },
         { merge: true }
       );
-      setStatus(newStatus);
+
       toast({
         title: "Status Updated",
         description: `"${title}" status updated to ${statusLabels[newStatus]}.`,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error updating status:", error);
       toast({
         variant: "destructive",
         title: "Update Failed",
         description: "Failed to update anime status.",
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -187,28 +173,40 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
       return;
     }
 
-    setLoading(true);
+    setActionLoading(true);
     try {
-      const docRef = doc(db, "libraries", `${user.uid}_${animeId}`);
-      await deleteDoc(docRef);
-      setStatus(null);
+      if (targetDocId) {
+        await deleteDoc(doc(db, "libraries", targetDocId));
+      }
+      // Clean up alternate doc IDs if any exist
+      if (slug && `${user.uid}_${slug}` !== targetDocId) {
+        try {
+          await deleteDoc(doc(db, "libraries", `${user.uid}_${slug}`));
+        } catch (_) {}
+      }
+      if (animeId && `${user.uid}_${animeId}` !== targetDocId) {
+        try {
+          await deleteDoc(doc(db, "libraries", `${user.uid}_${animeId}`));
+        } catch (_) {}
+      }
+
       toast({
         title: "Removed from Library",
         description: `"${title}" has been removed from your library.`,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error removing from library:", error);
       toast({
         variant: "destructive",
         title: "Failed to Remove",
         description: "Failed to remove anime from your library.",
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
-  if (fetching) {
+  if (libraryLoading && user) {
     return (
       <Button disabled variant="outline" className={cn("gap-2", className)}>
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -217,21 +215,21 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
     );
   }
 
-  if (status) {
+  if (currentStatus) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            disabled={loading}
-            className={cn("gap-2 font-semibold border-2 transition-all shadow-md pr-3", statusColors[status], className)}
+            disabled={actionLoading}
+            className={cn("gap-2 font-semibold border-2 transition-all shadow-md pr-3", statusColors[currentStatus], className)}
           >
-            {loading ? (
+            {actionLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <BookmarkCheck className="h-4 w-4" />
             )}
-            <span>{statusLabels[status]}</span>
+            <span>{statusLabels[currentStatus]}</span>
             <ChevronDown className="h-3.5 w-3.5 opacity-80 ml-0.5" />
           </Button>
         </DropdownMenuTrigger>
@@ -242,7 +240,7 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
               onClick={() => handleUpdateStatus(key as LibraryStatus)}
               className={cn(
                 "cursor-pointer font-medium",
-                status === key && "text-primary bg-primary/10 font-bold"
+                currentStatus === key && "text-primary bg-primary/10 font-bold"
               )}
             >
               {label}
@@ -265,10 +263,10 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
     <Button
       variant="outline"
       onClick={handleAdd}
-      disabled={loading}
+      disabled={actionLoading}
       className={cn("gap-2 font-semibold border-primary/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-sm", className)}
     >
-      {loading ? (
+      {actionLoading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <Plus className="h-4 w-4" />

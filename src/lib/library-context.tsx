@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -25,14 +25,18 @@ export const statusBadgeStyles: Record<LibraryStatus, string> = {
 
 interface LibraryContextType {
   libraryMap: Record<string, LibraryStatus>;
+  docIdMap: Record<string, string>;
   getLibraryStatus: (idOrSlug?: string | null) => LibraryStatus | null;
+  getLibraryDocId: (idOrSlug?: string | null) => string | null;
   isInLibrary: (idOrSlug?: string | null) => boolean;
   loading: boolean;
 }
 
 const LibraryContext = createContext<LibraryContextType>({
   libraryMap: {},
+  docIdMap: {},
   getLibraryStatus: () => null,
+  getLibraryDocId: () => null,
   isInLibrary: () => false,
   loading: false,
 });
@@ -40,11 +44,13 @@ const LibraryContext = createContext<LibraryContextType>({
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [libraryMap, setLibraryMap] = useState<Record<string, LibraryStatus>>({});
+  const [docIdMap, setDocIdMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (!user) {
       setLibraryMap({});
+      setDocIdMap({});
       setLoading(false);
       return;
     }
@@ -58,20 +64,31 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const map: Record<string, LibraryStatus> = {};
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
+        const sMap: Record<string, LibraryStatus> = {};
+        const dMap: Record<string, string> = {};
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
           const status = data.status as LibraryStatus;
           if (status) {
-            if (data.animeId) {
-              map[String(data.animeId).toLowerCase()] = status;
-            }
-            if (data.slug) {
-              map[String(data.slug).toLowerCase()] = status;
-            }
+            const keys: string[] = [];
+            if (data.animeId) keys.push(String(data.animeId).toLowerCase().trim());
+            if (data.slug) keys.push(String(data.slug).toLowerCase().trim());
+            if (data.title) keys.push(String(data.title).toLowerCase().trim());
+            const idAfterUid = docSnap.id.replace(`${user.uid}_`, "").toLowerCase().trim();
+            if (idAfterUid) keys.push(idAfterUid);
+
+            keys.forEach((k) => {
+              if (k) {
+                sMap[k] = status;
+                dMap[k] = docSnap.id;
+              }
+            });
           }
         });
-        setLibraryMap(map);
+
+        setLibraryMap(sMap);
+        setDocIdMap(dMap);
         setLoading(false);
       },
       (error) => {
@@ -86,10 +103,18 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const getLibraryStatus = useMemo(() => {
     return (idOrSlug?: string | null): LibraryStatus | null => {
       if (!idOrSlug) return null;
-      const key = String(idOrSlug).toLowerCase();
+      const key = String(idOrSlug).toLowerCase().trim();
       return libraryMap[key] || null;
     };
   }, [libraryMap]);
+
+  const getLibraryDocId = useMemo(() => {
+    return (idOrSlug?: string | null): string | null => {
+      if (!idOrSlug) return null;
+      const key = String(idOrSlug).toLowerCase().trim();
+      return docIdMap[key] || null;
+    };
+  }, [docIdMap]);
 
   const isInLibrary = useMemo(() => {
     return (idOrSlug?: string | null): boolean => {
@@ -101,7 +126,9 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     <LibraryContext.Provider
       value={{
         libraryMap,
+        docIdMap,
         getLibraryStatus,
+        getLibraryDocId,
         isInLibrary,
         loading,
       }}
