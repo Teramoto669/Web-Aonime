@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -22,6 +22,11 @@ export const statusBadgeStyles: Record<LibraryStatus, string> = {
   on_hold: "bg-amber-500 text-white border-0 shadow-sm",
   dropped: "bg-rose-600 text-white border-0 shadow-sm",
 };
+
+export function normalizeLibraryKey(key?: string | null): string {
+  if (!key) return "";
+  return String(key).toLowerCase().trim().replace(/\//g, "_");
+}
 
 interface LibraryContextType {
   libraryMap: Record<string, LibraryStatus>;
@@ -71,14 +76,13 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
           const data = docSnap.data();
           const status = data.status as LibraryStatus;
           if (status) {
-            const keys: string[] = [];
-            if (data.animeId) keys.push(String(data.animeId).toLowerCase().trim());
-            if (data.slug) keys.push(String(data.slug).toLowerCase().trim());
-            if (data.title) keys.push(String(data.title).toLowerCase().trim());
-            const idAfterUid = docSnap.id.replace(`${user.uid}_`, "").toLowerCase().trim();
-            if (idAfterUid) keys.push(idAfterUid);
+            const uniqueKeys: string[] = [];
+            if (data.animeId) uniqueKeys.push(normalizeLibraryKey(data.animeId));
+            if (data.slug) uniqueKeys.push(normalizeLibraryKey(data.slug));
+            const idAfterUid = normalizeLibraryKey(docSnap.id.replace(`${user.uid}_`, ""));
+            if (idAfterUid) uniqueKeys.push(idAfterUid);
 
-            keys.forEach((k) => {
+            uniqueKeys.forEach((k) => {
               if (k) {
                 sMap[k] = status;
                 dMap[k] = docSnap.id;
@@ -102,16 +106,16 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const getLibraryStatus = useMemo(() => {
     return (idOrSlug?: string | null): LibraryStatus | null => {
-      if (!idOrSlug) return null;
-      const key = String(idOrSlug).toLowerCase().trim();
+      const key = normalizeLibraryKey(idOrSlug);
+      if (!key) return null;
       return libraryMap[key] || null;
     };
   }, [libraryMap]);
 
   const getLibraryDocId = useMemo(() => {
     return (idOrSlug?: string | null): string | null => {
-      if (!idOrSlug) return null;
-      const key = String(idOrSlug).toLowerCase().trim();
+      const key = normalizeLibraryKey(idOrSlug);
+      if (!key) return null;
       return docIdMap[key] || null;
     };
   }, [docIdMap]);

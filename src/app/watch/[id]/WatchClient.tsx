@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "@/hooks/use-router";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { normalizeLibraryKey } from "@/lib/library-context";
 
 interface WatchClientProps {
     animeId: string;
@@ -243,35 +244,48 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     useEffect(() => {
         if (!user?.uid) return;
 
-        const targetId = detailsData.id || animeId;
-        if (!targetId) return;
+        const rawTargetId = detailsData.slug || detailsData.id || animeId;
+        if (!rawTargetId) return;
+        const cleanTargetId = normalizeLibraryKey(rawTargetId);
+        if (!cleanTargetId) return;
+        const epNumStr = String(currentEpNum || "1");
 
-        const saveKey = `${user.uid}_${targetId}_${currentEpNum}`;
+        const saveKey = `${user.uid}_${cleanTargetId}_${epNumStr}`;
         if (lastSavedRef.current === saveKey) return;
         lastSavedRef.current = saveKey;
 
         const saveWatchHistory = async () => {
             try {
-                // 1. Save/update watch history entry
-                const historyRef = doc(db, "watch_history", `${user.uid}_${targetId}`);
+                // 1. Save/update watch history entry (safe fields, no undefined values)
+                const historyRef = doc(db, "watch_history", `${user.uid}_${cleanTargetId}`);
                 await setDoc(historyRef, {
                     userId: user.uid,
-                    animeId: targetId,
-                    title: detailsData.title || animeId,
-                    image: detailsData.image || "",
-                    slug: detailsData.slug || animeId,
-                    episodeNum: currentEpNum,
+                    animeId: cleanTargetId,
+                    title: String(detailsData.title || animeId || cleanTargetId).trim(),
+                    image: typeof detailsData.image === "string" ? detailsData.image.trim() : "",
+                    slug: cleanTargetId,
+                    episodeNum: epNumStr,
                     watchedAt: serverTimestamp()
                 }, { merge: true });
 
                 // 2. Update library item if it exists
-                const libraryRef = doc(db, "libraries", `${user.uid}_${targetId}`);
+                const libraryRef = doc(db, "libraries", `${user.uid}_${cleanTargetId}`);
                 const librarySnap = await getDoc(libraryRef);
                 if (librarySnap.exists()) {
-                    await updateDoc(libraryRef, {
-                        lastEpisodeWatched: currentEpNum,
+                    await setDoc(libraryRef, {
+                        lastEpisodeWatched: epNumStr,
                         lastEpisodeWatchedAt: serverTimestamp()
-                    });
+                    }, { merge: true });
+                } else if (detailsData.id && normalizeLibraryKey(detailsData.id) !== cleanTargetId) {
+                    const cleanAltId = normalizeLibraryKey(detailsData.id);
+                    const altLibRef = doc(db, "libraries", `${user.uid}_${cleanAltId}`);
+                    const altSnap = await getDoc(altLibRef);
+                    if (altSnap.exists()) {
+                        await setDoc(altLibRef, {
+                            lastEpisodeWatched: epNumStr,
+                            lastEpisodeWatchedAt: serverTimestamp()
+                        }, { merge: true });
+                    }
                 }
             } catch (error) {
                 console.error("Error saving watch history:", error);

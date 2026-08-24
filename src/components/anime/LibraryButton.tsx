@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookmarkCheck, Plus, Trash, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUserLibrary, type LibraryStatus, statusLabels } from "@/lib/library-context";
+import { useUserLibrary, type LibraryStatus, statusLabels, normalizeLibraryKey } from "@/lib/library-context";
 
 interface LibraryButtonProps {
   animeId: string;
@@ -40,18 +40,20 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
   const { getLibraryStatus, getLibraryDocId, loading: libraryLoading } = useUserLibrary();
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Status is resolved reactively from LibraryContext across slug, animeId, and title
+  const cleanSlug = normalizeLibraryKey(slug);
+  const cleanAnimeId = normalizeLibraryKey(animeId);
+  const fallbackKey = user?.uid ? `${user.uid}_${cleanSlug || cleanAnimeId}` : "";
+
+  // Status is resolved reactively from LibraryContext across slug, animeId
   const currentStatus: LibraryStatus | null =
     getLibraryStatus(slug) ||
     getLibraryStatus(animeId) ||
-    getLibraryStatus(title) ||
     null;
 
   const targetDocId =
     getLibraryDocId(slug) ||
     getLibraryDocId(animeId) ||
-    getLibraryDocId(title) ||
-    (user?.uid ? `${user.uid}_${slug || animeId}` : "");
+    fallbackKey;
 
   const handleAdd = async () => {
     if (!user) {
@@ -70,13 +72,15 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
 
     setActionLoading(true);
     try {
-      const docKey = targetDocId || `${user.uid}_${slug || animeId}`;
+      const docKey = targetDocId || fallbackKey;
+      if (!docKey) return;
 
       // Check if watch history exists for this anime to inherit lastEpisodeWatched
       let lastEp = null;
       let lastEpAt = null;
       try {
-        const historyRef = doc(db, "watch_history", `${user.uid}_${slug || animeId}`);
+        const historyKey = `${user.uid}_${cleanSlug || cleanAnimeId}`;
+        const historyRef = doc(db, "watch_history", historyKey);
         const historySnap = await getDoc(historyRef);
         if (historySnap.exists()) {
           const histData = historySnap.data();
@@ -90,15 +94,15 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
         docRef,
         {
           userId: user.uid,
-          animeId: animeId || slug,
-          title: title || slug,
-          image: image || "",
-          type: type || "TV",
-          slug: slug || animeId,
+          animeId: cleanAnimeId || cleanSlug,
+          title: String(title || slug).trim(),
+          image: typeof image === "string" ? image.trim() : "",
+          type: String(type || "TV").trim(),
+          slug: cleanSlug || cleanAnimeId,
           status: "watching" as LibraryStatus,
           addedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          ...(lastEp ? { lastEpisodeWatched: lastEp } : {}),
+          ...(lastEp ? { lastEpisodeWatched: String(lastEp) } : {}),
           ...(lastEpAt ? { lastEpisodeWatchedAt: lastEpAt } : {}),
         },
         { merge: true }
@@ -134,7 +138,8 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
 
     setActionLoading(true);
     try {
-      const docKey = targetDocId || `${user.uid}_${slug || animeId}`;
+      const docKey = targetDocId || fallbackKey;
+      if (!docKey) return;
       const docRef = doc(db, "libraries", docKey);
       await setDoc(
         docRef,
@@ -179,14 +184,14 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
         await deleteDoc(doc(db, "libraries", targetDocId));
       }
       // Clean up alternate doc IDs if any exist
-      if (slug && `${user.uid}_${slug}` !== targetDocId) {
+      if (cleanSlug && `${user.uid}_${cleanSlug}` !== targetDocId) {
         try {
-          await deleteDoc(doc(db, "libraries", `${user.uid}_${slug}`));
+          await deleteDoc(doc(db, "libraries", `${user.uid}_${cleanSlug}`));
         } catch (_) {}
       }
-      if (animeId && `${user.uid}_${animeId}` !== targetDocId) {
+      if (cleanAnimeId && `${user.uid}_${cleanAnimeId}` !== targetDocId) {
         try {
-          await deleteDoc(doc(db, "libraries", `${user.uid}_${animeId}`));
+          await deleteDoc(doc(db, "libraries", `${user.uid}_${cleanAnimeId}`));
         } catch (_) {}
       }
 

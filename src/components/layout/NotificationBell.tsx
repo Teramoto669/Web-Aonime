@@ -10,16 +10,12 @@ import {
   where,
   onSnapshot,
   doc,
-  getDoc,
   setDoc,
   writeBatch,
-  getDocs,
-  serverTimestamp,
   orderBy,
   limit,
   type Timestamp,
 } from "firebase/firestore";
-import { getAnimeSlug, type AnimeListItem } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import {
   Bell,
@@ -62,7 +58,17 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  // 1. Real-time notifications listener with max-5 cap
+  // Helper to validate internal relative navigation links (prevents open redirect & phishing)
+  const getSafeInternalLink = (url?: string): string => {
+    if (!url || typeof url !== "string") return "/";
+    const trimmed = url.trim();
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//") && !trimmed.startsWith("/\\")) {
+      return trimmed;
+    }
+    return "/";
+  };
+
+  // Real-time listener for user's notifications
   useEffect(() => {
     if (!user?.uid) {
       setNotifications([]);
@@ -74,38 +80,22 @@ export function NotificationBell() {
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
+      orderBy("createdAt", "desc"),
       limit(20)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as NotificationType[];
-
-        // Sort items by createdAt descending (newest first)
-        const now = Date.now();
-        items.sort((a, b) => {
-          const timeA = a.createdAt
-            ? (typeof a.createdAt.toDate === "function"
-              ? a.createdAt.toDate().getTime()
-              : new Date(a.createdAt as any).getTime())
-            : now;
-          const timeB = b.createdAt
-            ? (typeof b.createdAt.toDate === "function"
-              ? b.createdAt.toDate().getTime()
-              : new Date(b.createdAt as any).getTime())
-            : now;
-          return timeB - timeA;
+        const items: NotificationType[] = [];
+        snapshot.forEach((d) => {
+          items.push({ id: d.id, ...d.data() } as NotificationType);
         });
-
         setNotifications(items);
         setLoading(false);
       },
       (error) => {
-        console.error("Error syncing notifications:", error);
+        console.error("Error listening to notifications:", error);
         setLoading(false);
       }
     );
@@ -113,77 +103,7 @@ export function NotificationBell() {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // 2. Background library update checker
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const checkLibraryUpdates = async () => {
-      try {
-        // Fetch library items marked as "watching"
-        const libQuery = query(
-          collection(db, "libraries"),
-          where("userId", "==", user.uid),
-          where("status", "==", "watching")
-        );
-        const libSnap = await getDocs(libQuery);
-        const watchingAnimes = libSnap.docs.map((d) => d.data());
-        if (watchingAnimes.length === 0) return;
-
-        // Fetch latest updated episodes via internal proxy (avoids CORS)
-        const latestRes = await fetch("/api/updated?type=Latest+Updated&sort=latest-updated&refresh=1");
-        if (!latestRes.ok) throw new Error("Failed to fetch latest episodes");
-        const latestJson = await latestRes.json();
-        const latestEpisodes: AnimeListItem[] = Array.isArray(latestJson.data)
-          ? latestJson.data
-          : latestJson.data?.results || [];
-        if (!latestEpisodes || latestEpisodes.length === 0) return;
-
-        // Compare and write notifications for new episodes
-        for (const apiAnime of latestEpisodes) {
-          const apiSlug = getAnimeSlug(apiAnime);
-          const matchedLib = watchingAnimes.find(
-            (la) =>
-              la.animeId === apiAnime.id ||
-              (apiSlug && la.slug === apiSlug)
-          );
-
-          if (matchedLib) {
-            const latestEpNum = apiAnime.episodes?.sub || 0;
-
-            if (latestEpNum > 0) {
-              // Use deterministic notifId — getDoc is faster & more reliable than a query
-              const notifId = `lib_update_${user.uid}_${matchedLib.animeId}_${latestEpNum}`;
-              const notifRef = doc(db, "notifications", notifId);
-              const notifSnap = await getDoc(notifRef);
-
-              if (!notifSnap.exists()) {
-                await setDoc(notifRef, {
-                  userId: user.uid,
-                  type: "library_update",
-                  title: "Library Update",
-                  message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
-                  link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
-                  isRead: false,
-                  createdAt: serverTimestamp(),
-                  animeId: matchedLib.animeId,
-                  episodeNum: latestEpNum,
-                });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error in library update checker:", error);
-      }
-    };
-
-    checkLibraryUpdates();
-    // Check every 5 minutes
-    const interval = setInterval(checkLibraryUpdates, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.uid]);
-
-  // Mark a single notification as read and route
+  // Mark a single notification as read and route safely
   const handleNotificationClick = async (notif: NotificationType) => {
     setIsOpen(false);
     if (!notif.isRead) {
@@ -197,7 +117,7 @@ export function NotificationBell() {
         console.error("Error marking notification as read:", err);
       }
     }
-    router.push(notif.link);
+    router.push(getSafeInternalLink(notif.link));
   };
 
   // Mark all notifications as read using a Firestore batch
