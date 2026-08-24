@@ -1021,11 +1021,12 @@ function HlsPlayer({
             if (e.touches.length !== 1) return;
 
             const target = e.target as HTMLElement;
-            // Ignore touches on settings, controls, selectors, control bar, volume bar, etc.
+            // Ignore touches on settings, controls, selectors, control bar, volume bar, and next overlay
             if (target.closest('.art-controls') ||
                 target.closest('.art-settings') ||
                 target.closest('.art-volume-panel') ||
-                target.closest('.art-control')) {
+                target.closest('.art-control') ||
+                target.closest('.art-next-overlay')) {
                 return;
             }
 
@@ -2082,15 +2083,36 @@ function HlsPlayer({
         }
     }, [selectedSubtitleIndex, subDelay, originalSubContents, artInstance, tracks]);
 
+    const handlePlayNow = useCallback((e?: React.SyntheticEvent | Event) => {
+        if (e) {
+            e.stopPropagation();
+            if ('preventDefault' in e && typeof e.preventDefault === 'function') {
+                e.preventDefault();
+            }
+        }
+        if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
+            sessionStorage.setItem("preferred-fullscreen", "true");
+        }
+        setShowNextOverlay(false);
+        setIsAutoNavigating(false);
+        if (artInstance) {
+            try {
+                artInstance.template.$player?.classList.remove("art-next-overlay-active");
+                artInstance.template.$mask?.style.removeProperty("display");
+                artInstance.template.$state?.style.removeProperty("display");
+                artInstance.template.$bottom?.style.removeProperty("display");
+                artInstance.template.$layer?.style.removeProperty("display");
+            } catch (_) {}
+        }
+        onNavigateNextRef.current?.();
+    }, [artInstance]);
+
     // Countdown timer for Auto Play Next
     useEffect(() => {
         if (!showNextOverlay || !isAutoNavigating) return;
 
         if (countdown < 0) {
-            if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
-                sessionStorage.setItem("preferred-fullscreen", "true");
-            }
-            onNavigateNextRef.current?.();
+            handlePlayNow();
             return;
         }
 
@@ -2099,7 +2121,7 @@ function HlsPlayer({
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [showNextOverlay, isAutoNavigating, countdown, artInstance]);
+    }, [showNextOverlay, isAutoNavigating, countdown, handlePlayNow]);
 
     // Toggle active class on player container and hide internal elements directly via DOM & Artplayer API
     useEffect(() => {
@@ -2152,13 +2174,21 @@ function HlsPlayer({
                 <div ref={artRef} className="w-full h-full" />
                 {showNextOverlay && nextEpisode && isAutoNavigating && countdown >= 0 && artInstance?.template?.$player && createPortal(
                     <div 
-                        className="absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300 pointer-events-auto select-none"
+                        className="art-next-overlay absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300 pointer-events-auto select-none"
                         onClick={(e) => e.stopPropagation()}
                         onDoubleClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onPointerUp={(e) => e.stopPropagation()}
                     >
                         <div 
-                            className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100"
+                            className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100 relative z-20 pointer-events-auto"
                             onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
                         >
                             <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -2210,20 +2240,20 @@ function HlsPlayer({
                                             } catch (_) {}
                                         }
                                     }}
-                                    className="px-4 py-2 text-xs font-semibold rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onTouchStart={(e) => e.stopPropagation()}
+                                    className="relative z-30 px-4 py-2 text-xs font-semibold rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer pointer-events-auto"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
-                                            sessionStorage.setItem("preferred-fullscreen", "true");
-                                        }
-                                        onNavigateNextRef.current?.();
-                                    }}
-                                    className="px-5 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                                    onClick={handlePlayNow}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onTouchStart={(e) => e.stopPropagation()}
+                                    className="relative z-30 px-5 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/30 flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto"
                                 >
                                     <Play className="w-3.5 h-3.5 fill-current" /> Play Now
                                 </button>
