@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "@/hooks/use-router";
@@ -75,13 +75,10 @@ export function NotificationBell() {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(20)
+      where("userId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -91,6 +88,22 @@ export function NotificationBell() {
         snapshot.forEach((d) => {
           items.push({ id: d.id, ...d.data() } as NotificationType);
         });
+
+        // Deduplicate & sort in-memory descending by createdAt
+        items.sort((a, b) => {
+          const timeA = a.createdAt
+            ? typeof a.createdAt.toDate === "function"
+              ? a.createdAt.toDate().getTime()
+              : new Date(a.createdAt as any).getTime()
+            : 0;
+          const timeB = b.createdAt
+            ? typeof b.createdAt.toDate === "function"
+              ? b.createdAt.toDate().getTime()
+              : new Date(b.createdAt as any).getTime()
+            : 0;
+          return timeB - timeA;
+        });
+
         setNotifications(items);
         setLoading(false);
       },
@@ -202,7 +215,7 @@ export function NotificationBell() {
               </div>
             </div>
           ) : (
-            notifications.slice(0, 5).map((notif) => {
+            notifications.map((notif) => {
               const formattedTime = notif.createdAt
                 ? formatDistanceToNow(
                     typeof notif.createdAt.toDate === "function"

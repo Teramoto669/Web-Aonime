@@ -1,4 +1,4 @@
-rules_version = '2';
+﻿rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -108,22 +108,29 @@ service cloud.firestore {
     }
 
     // Strict rules for the "notifications" collection
+    // Strict rules for the "notifications" collection
     match /notifications/{notificationId} {
       // User can only read their own notifications (or Admin)
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       
-      // Logged-in users can only create 'reply' notifications to another user (system notifications are written via Admin SDK)
-      allow create: if isAuthenticated()
-        && request.resource.data.senderId == request.auth.uid
-        && request.resource.data.userId is string
-        && request.resource.data.userId != request.auth.uid
-        && request.resource.data.type == 'reply'
-        && request.resource.data.createdAt == request.time;
+      // Allow creating:
+      // 1) 'reply' notification directed to another user
+      // 2) 'library_update' / 'episode_release' notifications for their own account
+      allow create: if isAuthenticated() && (
+        (
+          request.resource.data.senderId == request.auth.uid
+          && request.resource.data.userId is string
+          && request.resource.data.userId != request.auth.uid
+          && request.resource.data.type == 'reply'
+        ) || (
+          request.resource.data.userId == request.auth.uid
+          && request.resource.data.type in ['library_update', 'episode_release', 'library']
+        )
+      );
       
       // User can update/delete their own notifications (e.g. mark as read or dismiss)
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
-
     // Strict rules for the "watch_history" collection
     match /watch_history/{historyId} {
       // Users can only read their own watch history items (or Admin)
