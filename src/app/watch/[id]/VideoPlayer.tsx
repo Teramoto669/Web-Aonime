@@ -786,8 +786,14 @@ function HlsPlayer({
                         $btn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             if (skipTargetTimeRef.current !== null) {
-                                art.seek = skipTargetTimeRef.current;
+                                const target = skipTargetTimeRef.current;
+                                art.seek = target;
                                 $btn.classList.remove("show");
+                                if (nextEpisodeRef.current && autoPlayRef.current && (target >= (art.duration - 2) || target >= art.duration)) {
+                                    setCountdown(5);
+                                    setIsAutoNavigating(true);
+                                    setShowNextOverlay(true);
+                                }
                             }
                         });
                     }
@@ -1744,6 +1750,17 @@ function HlsPlayer({
                 z-index: 25 !important;
                 border-radius: 2px !important;
             }
+            /* Autoplay next overlay active state - hide overlapping elements */
+            .art-video-player.art-next-overlay-active .art-mask,
+            .art-video-player.art-next-overlay-active .art-state,
+            .art-video-player.art-next-overlay-active .art-bottom,
+            .art-video-player.art-next-overlay-active .art-layers,
+            .art-video-player.art-next-overlay-active .art-skip-btn,
+            .art-video-player.art-next-overlay-active .art-loading {
+                display: none !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
         `;
     }, [subConfig]);
 
@@ -2066,6 +2083,16 @@ function HlsPlayer({
         return () => clearTimeout(timer);
     }, [showNextOverlay, isAutoNavigating, countdown, artInstance]);
 
+    // Toggle active class on player container to hide play icon, bottom bar, and mask when next overlay is open
+    useEffect(() => {
+        if (!artInstance?.template?.$player) return;
+        if (showNextOverlay && isAutoNavigating && nextEpisode) {
+            artInstance.template.$player.classList.add("art-next-overlay-active");
+        } else {
+            artInstance.template.$player.classList.remove("art-next-overlay-active");
+        }
+    }, [showNextOverlay, isAutoNavigating, nextEpisode, artInstance]);
+
     // Reset subtitle states & overlay when URL/episode changes
     useEffect(() => {
         setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks));
@@ -2088,8 +2115,15 @@ function HlsPlayer({
             <div className="w-full aspect-video bg-black relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
                 <div ref={artRef} className="w-full h-full" />
                 {showNextOverlay && nextEpisode && isAutoNavigating && countdown >= 0 && artInstance?.template?.$player && createPortal(
-                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
-                        <div className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100">
+                    <div 
+                        className="absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300 pointer-events-auto select-none"
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                    >
+                        <div 
+                            className="max-w-md w-full rounded-2xl bg-card/90 border border-white/15 p-6 shadow-2xl text-center space-y-5 transform transition-all scale-100"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
                                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                                     <path
@@ -2124,7 +2158,8 @@ function HlsPlayer({
                             <div className="flex items-center justify-center gap-3 pt-2">
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         setShowNextOverlay(false);
                                         setIsAutoNavigating(false);
                                     }}
@@ -2134,7 +2169,8 @@ function HlsPlayer({
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         if (typeof window !== "undefined" && (artInstance?.fullscreen || document.fullscreenElement)) {
                                             sessionStorage.setItem("preferred-fullscreen", "true");
                                         }
