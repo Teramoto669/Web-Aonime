@@ -99,4 +99,25 @@ iframe[title*="recaptcha"],
 iframe[src*="recaptcha"] {
     z-index: 2147483647 !important;
     pointer-events: auto !important;
+}
+
+/* Autoplay Next Overlay Active - Hide Artplayer Mask, State (Play Icon), Bottom Bar, and Layers */
+.art-video-player.art-next-overlay-active .art-mask,
+.art-video-player.art-next-overlay-active .art-state,
+.art-video-player.art-next-overlay-active .art-icon-state,
+.art-video-player.art-next-overlay-active .art-bottom,
+.art-video-player.art-next-overlay-active .art-controls,
+.art-video-player.art-next-overlay-active .art-progress,
+.art-video-player.art-next-overlay-active .art-layers,
+.art-video-player.art-next-overlay-active .art-skip-btn,
+.art-video-player.art-next-overlay-active .art-loading,
+.art-video-player.art-next-overlay-active.art-mask-show .art-mask,
+.art-video-player.art-next-overlay-active.art-mask-show .art-state,
+.art-video-player.art-next-overlay-active.art-control-show .art-bottom,
+.art-video-player.art-next-overlay-active.art-hover .art-bottom {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: none !important;
 }

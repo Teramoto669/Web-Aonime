@@ -790,6 +790,15 @@ function HlsPlayer({
                                 art.seek = target;
                                 $btn.classList.remove("show");
                                 if (nextEpisodeRef.current && autoPlayRef.current && (target >= (art.duration - 2) || target >= art.duration)) {
+                                    try {
+                                        art.template.$player?.classList.add("art-next-overlay-active");
+                                        art.template.$mask?.style.setProperty("display", "none", "important");
+                                        art.template.$state?.style.setProperty("display", "none", "important");
+                                        art.template.$bottom?.style.setProperty("display", "none", "important");
+                                        art.template.$layer?.style.setProperty("display", "none", "important");
+                                        art.mask.show = false;
+                                        art.controls.show = false;
+                                    } catch (_) {}
                                     setCountdown(5);
                                     setIsAutoNavigating(true);
                                     setShowNextOverlay(true);
@@ -1055,6 +1064,15 @@ function HlsPlayer({
         // Listen for video end to trigger auto play overlay
         art.on('video:ended', () => {
             if (nextEpisodeRef.current && autoPlayRef.current) {
+                try {
+                    art.template.$player?.classList.add("art-next-overlay-active");
+                    art.template.$mask?.style.setProperty("display", "none", "important");
+                    art.template.$state?.style.setProperty("display", "none", "important");
+                    art.template.$bottom?.style.setProperty("display", "none", "important");
+                    art.template.$layer?.style.setProperty("display", "none", "important");
+                    art.mask.show = false;
+                    art.controls.show = false;
+                } catch (_) {}
                 setCountdown(5);
                 setIsAutoNavigating(true);
                 setShowNextOverlay(true);
@@ -2083,13 +2101,31 @@ function HlsPlayer({
         return () => clearTimeout(timer);
     }, [showNextOverlay, isAutoNavigating, countdown, artInstance]);
 
-    // Toggle active class on player container to hide play icon, bottom bar, and mask when next overlay is open
+    // Toggle active class on player container and hide internal elements directly via DOM & Artplayer API
     useEffect(() => {
-        if (!artInstance?.template?.$player) return;
+        if (!artInstance) return;
+        const $player = artInstance.template?.$player;
+        const $mask = artInstance.template?.$mask;
+        const $state = artInstance.template?.$state;
+        const $bottom = artInstance.template?.$bottom;
+        const $layers = artInstance.template?.$layer;
+
         if (showNextOverlay && isAutoNavigating && nextEpisode) {
-            artInstance.template.$player.classList.add("art-next-overlay-active");
+            if ($player) $player.classList.add("art-next-overlay-active");
+            if ($mask) $mask.style.setProperty("display", "none", "important");
+            if ($state) $state.style.setProperty("display", "none", "important");
+            if ($bottom) $bottom.style.setProperty("display", "none", "important");
+            if ($layers) $layers.style.setProperty("display", "none", "important");
+            try {
+                artInstance.mask.show = false;
+                artInstance.controls.show = false;
+            } catch (_) {}
         } else {
-            artInstance.template.$player.classList.remove("art-next-overlay-active");
+            if ($player) $player.classList.remove("art-next-overlay-active");
+            if ($mask) $mask.style.removeProperty("display");
+            if ($state) $state.style.removeProperty("display");
+            if ($bottom) $bottom.style.removeProperty("display");
+            if ($layers) $layers.style.removeProperty("display");
         }
     }, [showNextOverlay, isAutoNavigating, nextEpisode, artInstance]);
 
@@ -2162,6 +2198,17 @@ function HlsPlayer({
                                         e.stopPropagation();
                                         setShowNextOverlay(false);
                                         setIsAutoNavigating(false);
+                                        if (artInstance) {
+                                            try {
+                                                artInstance.template.$player?.classList.remove("art-next-overlay-active");
+                                                artInstance.template.$mask?.style.removeProperty("display");
+                                                artInstance.template.$state?.style.removeProperty("display");
+                                                artInstance.template.$bottom?.style.removeProperty("display");
+                                                artInstance.template.$layer?.style.removeProperty("display");
+                                                artInstance.mask.show = true;
+                                                artInstance.controls.show = true;
+                                            } catch (_) {}
+                                        }
                                     }}
                                     className="px-4 py-2 text-xs font-semibold rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
                                 >
