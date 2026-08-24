@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -8,7 +8,7 @@ import type { Source, Track, SkipData } from "@/lib/types";
 import Artplayer from "artplayer";
 import artplayerPluginHlsControl from "artplayer-plugin-hls-control";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type VideoPlayerProps = {
     source: Source;
@@ -23,7 +23,7 @@ type VideoPlayerProps = {
     onNavigateNext?: () => void;
 };
 
-// ─── Custom Player Icons (Zenime Style) ───────────────────────────────────────
+// â”€â”€â”€ Custom Player Icons (Zenime Style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const backward10Icon = `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
 <path d="M11.9199 45H7.20508V26.5391L2.60645 28.3154V24.3975L11.4219 20.7949H11.9199V45ZM30.1013 35.0059C30.1013 38.3483 29.4926 40.9049 28.2751 42.6758C27.0687 44.4466 25.3422 45.332 23.0954 45.332C20.8708 45.332 19.1498 44.4743 17.9323 42.7588C16.726 41.0322 16.1006 38.5641 16.0564 35.3545V30.7891C16.0564 27.4577 16.6596 24.9121 17.8659 23.1523C19.0723 21.3815 20.8044 20.4961 23.0622 20.4961C25.32 20.4961 27.0521 21.3704 28.2585 23.1191C29.4649 24.8678 30.0792 27.3636 30.1013 30.6064V35.0059ZM25.3864 30.1084C25.3864 28.2048 25.1983 26.777 24.822 25.8252C24.4457 24.8734 23.8591 24.3975 23.0622 24.3975C21.5681 24.3975 20.7933 26.1406 20.738 29.627V35.6533C20.738 37.6012 20.9262 39.0511 21.3025 40.0029C21.6898 40.9548 22.2875 41.4307 23.0954 41.4307C23.8591 41.4307 24.4236 40.988 24.7888 40.1025C25.1651 39.2061 25.3643 37.8392 25.3864 36.002V30.1084Z" fill="white"/>
@@ -66,7 +66,7 @@ const logo = `<p style="display: flex; gap: 7px; align-items: center; background
     </span>
 </p>`;
 
-// ─── Inline Settings Submenu Icons ──────────────────────────────────────────
+// â”€â”€â”€ Inline Settings Submenu Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const clockIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
 
@@ -101,7 +101,7 @@ function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
     return url;
 }
 
-// ─── Main export ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function VideoPlayer({
     source,
@@ -195,7 +195,7 @@ export function VideoPlayer({
     );
 }
 
-// ─── WebVTT Shift Utility Functions ──────────────────────────────────────────
+// â”€â”€â”€ WebVTT Shift Utility Functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function timeToSeconds(timeStr: string): number {
     const parts = timeStr.trim().split(':');
@@ -248,7 +248,7 @@ function shiftWebVTT(vttText: string, delay: number): string {
     return shiftedLines.join('\n');
 }
 
-// ─── Subtitle Language Preference Helper ────────────────────────────────────
+// â”€â”€â”€ Subtitle Language Preference Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getInitialSubtitleIndex(trackList: Track[]): number {
     if (!trackList || trackList.length === 0) return -1;
@@ -275,7 +275,7 @@ function getInitialSubtitleIndex(trackList: Track[]): number {
     return 0;
 }
 
-// ─── HLS Player (Artplayer-based) ───────────────────────────────────────────
+// â”€â”€â”€ HLS Player (Artplayer-based) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function HlsPlayer({
     m3u8Url,
@@ -377,7 +377,7 @@ function HlsPlayer({
     const skipDataRef = useRef(skipData);
     skipDataRef.current = skipData;
 
-    // ── Setup Artplayer ──
+    // â”€â”€ Setup Artplayer â”€â”€
     useEffect(() => {
         isDestroyedRef.current = false;
         if (!artRef.current) return;
@@ -851,11 +851,14 @@ function HlsPlayer({
                 const intro = currentSkipData.intro;
                 const outro = currentSkipData.outro;
 
-                if (intro && currentTime >= intro.start && currentTime <= intro.end) {
+                const isValidIntro = intro && typeof intro.start === "number" && typeof intro.end === "number" && intro.end > intro.start && intro.end > 0;
+                const isValidOutro = outro && typeof outro.start === "number" && typeof outro.end === "number" && outro.end > outro.start && outro.end > 0;
+
+                if (isValidIntro && currentTime >= intro.start && currentTime < intro.end) {
                     showBtn = true;
                     btnText = "Skip Intro";
                     targetTime = intro.end;
-                } else if (outro && currentTime >= outro.start && currentTime <= outro.end) {
+                } else if (isValidOutro && currentTime >= outro.start && currentTime < outro.end) {
                     showBtn = true;
                     btnText = "Skip Outro";
                     targetTime = outro.end;
@@ -904,10 +907,10 @@ function HlsPlayer({
                 $trackContainer.appendChild(marker);
             };
 
-            if (currentSkipData.intro) {
+            if (currentSkipData.intro && currentSkipData.intro.end > currentSkipData.intro.start && currentSkipData.intro.end > 0) {
                 createMarker(currentSkipData.intro.start, currentSkipData.intro.end);
             }
-            if (currentSkipData.outro) {
+            if (currentSkipData.outro && currentSkipData.outro.end > currentSkipData.outro.start && currentSkipData.outro.end > 0) {
                 createMarker(currentSkipData.outro.start, currentSkipData.outro.end);
             }
         };
@@ -1111,7 +1114,7 @@ function HlsPlayer({
         }
     }, [m3u8Url, artInstance]);
 
-    // ── Load/Save Subtitle Config ──
+    // â”€â”€ Load/Save Subtitle Config â”€â”€
     useEffect(() => {
         const saved = localStorage.getItem("subtitle-config");
         if (saved) {
@@ -1158,7 +1161,7 @@ function HlsPlayer({
         };
     }, [updateSubConfig]);
 
-    // ── Inject/Sync subtitle styling into Artplayer ──
+    // â”€â”€ Inject/Sync subtitle styling into Artplayer â”€â”€
     useEffect(() => {
         const styleId = 'artplayer-subtitle-styles';
         let style = document.getElementById(styleId) as HTMLStyleElement;
@@ -1775,7 +1778,7 @@ function HlsPlayer({
         }
     }, [autoPlay, artInstance]);
 
-    // ── Update Artplayer subtitles settings menus dynamically when tracks/subConfig/subDelay change ──
+    // â”€â”€ Update Artplayer subtitles settings menus dynamically when tracks/subConfig/subDelay change â”€â”€
     useEffect(() => {
         if (!artInstance) return;
 
@@ -1967,7 +1970,7 @@ function HlsPlayer({
 
 
 
-    // ── Cleanup Blob URLs on unmount ──
+    // â”€â”€ Cleanup Blob URLs on unmount â”€â”€
     useEffect(() => {
         return () => {
             setProcessedTrackUrls(prev => {
@@ -1979,7 +1982,7 @@ function HlsPlayer({
         };
     }, []);
 
-    // ── Fetch original subtitle text on-demand ──
+    // â”€â”€ Fetch original subtitle text on-demand â”€â”€
     useEffect(() => {
         if (selectedSubtitleIndex < 0 || !tracks[selectedSubtitleIndex]) {
             if (artInstance) {
@@ -2009,7 +2012,7 @@ function HlsPlayer({
         }
     }, [selectedSubtitleIndex, tracksKey, originalSubContents, artInstance, tracks]);
 
-    // ── Apply timing shift to WebVTT content and load into Artplayer ──
+    // â”€â”€ Apply timing shift to WebVTT content and load into Artplayer â”€â”€
     useEffect(() => {
         if (selectedSubtitleIndex < 0) {
             if (artInstance) {
