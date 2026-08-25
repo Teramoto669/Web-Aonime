@@ -88,9 +88,11 @@ export function NotificationBell() {
         snapshot.forEach((d) => {
           items.push({ id: d.id, ...d.data() } as NotificationType);
         });
-
-        // Deduplicate & sort in-memory descending by createdAt
+        // Sort: unread first, then newer timestamp
         items.sort((a, b) => {
+          if (a.isRead !== b.isRead) {
+            return a.isRead ? 1 : -1;
+          }
           const timeA = a.createdAt
             ? typeof a.createdAt.toDate === "function"
               ? a.createdAt.toDate().getTime()
@@ -104,7 +106,24 @@ export function NotificationBell() {
           return timeB - timeA;
         });
 
-        setNotifications(items);
+        // Deduplicate notifications by anime title/slug and episode
+        const titleRegex = /of\s+"([^"]+)"/i;
+        const seenKeys = new Set<string>();
+        const deduplicated: NotificationType[] = [];
+
+        for (const notif of items) {
+          const extractedTitle = notif.message?.match(titleRegex)?.[1]?.toLowerCase()?.trim() || "";
+          const slugKey = (notif.animeId || notif.link?.replace('/watch/', '')?.split('?')[0] || extractedTitle || notif.id).toLowerCase().trim();
+          const epKey = notif.episodeNum !== undefined && notif.episodeNum !== null ? String(notif.episodeNum) : "";
+          const dedupKey = `${slugKey}_${epKey}`;
+
+          if (!seenKeys.has(dedupKey)) {
+            seenKeys.add(dedupKey);
+            deduplicated.push(notif);
+          }
+        }
+
+        setNotifications(deduplicated);
         setLoading(false);
       },
       (error) => {
@@ -121,11 +140,26 @@ export function NotificationBell() {
     setIsOpen(false);
     if (!notif.isRead) {
       try {
-        await setDoc(
-          doc(db, "notifications", notif.id),
-          { isRead: true },
-          { merge: true }
-        );
+        const titleRegex = /of\s+"([^"]+)"/i;
+        const extractedTitle = notif.message?.match(titleRegex)?.[1]?.toLowerCase()?.trim() || "";
+        const targetSlug = (notif.animeId || notif.link?.replace('/watch/', '')?.split('?')[0] || extractedTitle).toLowerCase().trim();
+        const targetEp = notif.episodeNum !== undefined ? String(notif.episodeNum) : "";
+
+        const batch = writeBatch(db);
+        batch.set(doc(db, "notifications", notif.id), { isRead: true }, { merge: true });
+
+        // Also mark any duplicate docs in state as read
+        notifications.forEach((other) => {
+          if (!other.isRead && other.id !== notif.id) {
+            const oTitle = other.message?.match(titleRegex)?.[1]?.toLowerCase()?.trim() || "";
+            const oSlug = (other.animeId || other.link?.replace('/watch/', '')?.split('?')[0] || oTitle).toLowerCase().trim();
+            const oEp = other.episodeNum !== undefined ? String(other.episodeNum) : "";
+            if (oSlug === targetSlug && oEp === targetEp) {
+              batch.set(doc(db, "notifications", other.id), { isRead: true }, { merge: true });
+            }
+          }
+        });
+        await batch.commit();
       } catch (err) {
         console.error("Error marking notification as read:", err);
       }

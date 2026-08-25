@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { adminDb, FieldValue } from '@/lib/firebase-admin';
 import { getAnimeSlug, type AnimeListItem } from '@/lib/types';
 
@@ -81,21 +81,25 @@ export async function GET(request: Request) {
       for (const matchedLib of matchedLibs) {
         const userId = matchedLib.userId;
         if (!userId) continue;
+        const safeSlug = String(matchedLib.slug || matchedLib.animeId || "anime").replace(/\//g, "_").toLowerCase().trim();
+        const notifId = `lib_update_${userId}_${safeSlug}_${latestEpNum}`;
+        const altId = `lib_update_${userId}_${String(matchedLib.animeId || "").replace(/\//g, "_")}_${latestEpNum}`;
 
-        const notifId = `lib_update_${userId}_${matchedLib.animeId}_${latestEpNum}`;
         const notifRef = adminDb.collection('notifications').doc(notifId);
-        const notifSnap = await notifRef.get();
+        const altRef = adminDb.collection('notifications').doc(altId);
 
-        if (!notifSnap.exists) {
+        const [notifSnap, altSnap] = await Promise.all([notifRef.get(), altRef.get()]);
+
+        if (!notifSnap.exists && !altSnap.exists) {
           batch.set(notifRef, {
             userId,
             type: 'library_update',
             title: 'Library Update',
             message: `Episode ${latestEpNum} of "${matchedLib.title}" is now available!`,
-            link: `/watch/${matchedLib.slug}?ep=${latestEpNum}`,
+            link: `/watch/${matchedLib.slug || safeSlug}?ep=${latestEpNum}`,
             isRead: false,
             createdAt: FieldValue.serverTimestamp(),
-            animeId: matchedLib.animeId,
+            animeId: matchedLib.slug || matchedLib.animeId,
             episodeNum: latestEpNum,
           });
           createdCount++;
