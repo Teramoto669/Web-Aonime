@@ -10,10 +10,11 @@ import {
   where,
   onSnapshot,
   doc,
+  getDoc,
+  getDocs,
   setDoc,
   writeBatch,
-  orderBy,
-  limit,
+  serverTimestamp,
   type Timestamp,
 } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
@@ -35,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { getAnimeSlug, type AnimeListItem } from "@/lib/types";
 
 interface NotificationType {
   id: string;
@@ -43,6 +45,7 @@ interface NotificationType {
   title: string;
   message: string;
   link: string;
+  image?: string;
   isRead: boolean;
   createdAt: Timestamp | null;
   animeId?: string;
@@ -88,6 +91,7 @@ export function NotificationBell() {
         snapshot.forEach((d) => {
           items.push({ id: d.id, ...d.data() } as NotificationType);
         });
+
         // Sort: unread first, then newer timestamp
         items.sort((a, b) => {
           if (a.isRead !== b.isRead) {
@@ -133,6 +137,116 @@ export function NotificationBell() {
     );
 
     return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Periodic background check for new episodes of anime in user's watching library
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const checkLibraryUpdates = async () => {
+      try {
+        // 1. Fetch user's watching items from Firestore
+        const libQuery = query(
+          collection(db, "libraries"),
+          where("userId", "==", user.uid),
+          where("status", "==", "watching")
+        );
+        const libSnap = await getDocs(libQuery);
+        if (libSnap.empty) return;
+
+        const watchingAnimes = libSnap.docs.map((d) => d.data());
+
+        // 2. Fetch latest updated episodes from /api/updated and /api/home
+        let latestEpisodes: AnimeListItem[] = [];
+        try {
+          const resUpdated = await fetch("/api/updated?refresh=1", { cache: "no-store" });
+          if (resUpdated.ok) {
+            const data = await resUpdated.json();
+            const list = Array.isArray(data.data) ? data.data : data.data?.results || [];
+            latestEpisodes = [...latestEpisodes, ...list];
+          }
+        } catch (_) {}
+
+        try {
+          const resHome = await fetch("/api/home?refresh=1", { cache: "no-store" });
+          if (resHome.ok) {
+            const data = await resHome.json();
+            const list = Array.isArray(data.data?.latestEpisodes) ? data.data.latestEpisodes : [];
+            latestEpisodes = [...latestEpisodes, ...list];
+          }
+        } catch (_) {}
+
+        if (latestEpisodes.length === 0) return;
+
+        // Deduplicate cards by slug/id + episode number
+        const uniqueCards = new Map<string, AnimeListItem>();
+        for (const item of latestEpisodes) {
+          const slug = getAnimeSlug(item) || item.id || "";
+          const ep = (item.episodes?.sub || (item as any).totalEpisodes || (item as any).episode || 0);
+          const key = `${slug}_${ep}`;
+          if (slug && !uniqueCards.has(key)) {
+            uniqueCards.set(key, item);
+          }
+        }
+
+        // 3. Match against watching items and create notifications
+        for (const apiAnime of Array.from(uniqueCards.values())) {
+          const apiSlug = getAnimeSlug(apiAnime).toLowerCase().trim();
+          const apiId = (apiAnime.id || "").toLowerCase().trim();
+          const apiTitle = (apiAnime.title || "").toLowerCase().trim();
+          const latestEpNum = (apiAnime.episodes?.sub || (apiAnime as any).totalEpisodes || (apiAnime as any).episode || 0);
+
+          if (latestEpNum <= 0) continue;
+
+          const matchedLib = watchingAnimes.find((la) => {
+            const lSlug = (la.slug || "").toLowerCase().trim();
+            const lId = (la.animeId || "").toLowerCase().trim();
+            const lTitle = (la.title || "").toLowerCase().trim();
+
+            const matchSlug = apiSlug && lSlug && (lSlug === apiSlug || lSlug.includes(apiSlug) || apiSlug.includes(lSlug));
+            const matchId = (apiId && lId && lId === apiId) || (apiId && lSlug && lSlug === apiId);
+            const matchTitle = apiTitle && lTitle && (lTitle === apiTitle || lTitle.includes(apiTitle) || apiTitle.includes(lTitle));
+
+            return matchSlug || matchId || matchTitle;
+          });
+
+          if (matchedLib) {
+            const safeSlug = String(matchedLib.slug || apiSlug || matchedLib.animeId || "anime")
+              .replace(/\//g, "_")
+              .toLowerCase()
+              .trim();
+            const notifId = `lib_update_${user.uid}_${safeSlug}_${latestEpNum}`;
+            const altId = `lib_update_${user.uid}_${String(matchedLib.animeId || "").replace(/\//g, "_")}_${latestEpNum}`;
+
+            const notifRef = doc(db, "notifications", notifId);
+            const altRef = doc(db, "notifications", altId);
+
+            const [notifSnap, altSnap] = await Promise.all([getDoc(notifRef), getDoc(altRef)]);
+
+            if (!notifSnap.exists() && !altSnap.exists()) {
+              await setDoc(notifRef, {
+                userId: user.uid,
+                type: "library_update",
+                title: "Library Update",
+                message: `Episode ${latestEpNum} of "${matchedLib.title || apiAnime.title || "Anime"}" is now available!`,
+                link: `/watch/${matchedLib.slug || safeSlug}?ep=${latestEpNum}`,
+                image: matchedLib.image || apiAnime.image || "",
+                isRead: false,
+                createdAt: serverTimestamp(),
+                animeId: safeSlug,
+                episodeNum: latestEpNum,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking library updates:", err);
+      }
+    };
+
+    checkLibraryUpdates();
+    const interval = setInterval(checkLibraryUpdates, 3 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [user?.uid]);
 
   // Mark a single notification as read and route safely
@@ -193,12 +307,12 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full hover:bg-muted/50"
+          className="relative h-9 w-9 rounded-full hover:bg-muted/50 overflow-visible focus-visible:ring-1"
         >
           <Bell className="h-5 w-5 text-foreground/80" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-rose-50 animate-in zoom-in-50 duration-200">
-              {unreadCount}
+            <span className="absolute -top-1 -right-1 flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-sm ring-2 ring-background z-10 pointer-events-none animate-in zoom-in-50 duration-200">
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
@@ -311,3 +425,4 @@ export function NotificationBell() {
     </DropdownMenu>
   );
 }
+
