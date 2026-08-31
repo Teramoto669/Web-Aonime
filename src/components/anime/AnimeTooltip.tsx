@@ -13,9 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-// Session-based in-memory cache to prevent redundant API calls
-const tooltipCache = new Map<string, AnimeTooltipData>();
-const tooltipPromises = new Map<string, Promise<AnimeTooltipData>>();
 
 // Global scrolling flag to prevent tooltips from prefetching/opening during swipe/scroll
 let isGlobalScrolling = false;
