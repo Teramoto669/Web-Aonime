@@ -61,13 +61,15 @@ const SpotlightSlide = React.memo(function SpotlightSlide({
             sizes="(max-width: 1024px) 100vw, 1280px"
             quality={65}
             className={cn(
-              "object-cover brightness-50 blur-sm transition-all duration-500",
-              shouldBlur && "brightness-20 blur-xl opacity-20"
+              "object-cover transition-opacity duration-300",
+              shouldBlur ? "opacity-10" : "opacity-100"
             )}
             priority={index === 0}
             loading={index === 0 ? "eager" : "lazy"}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
+          {/* Dark overlay — replaces expensive CSS blur */}
+          <div className="absolute inset-0 bg-black/55 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
         </div>
         <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 lg:py-20 flex items-center justify-between gap-8 min-h-[440px] md:min-h-[520px] lg:min-h-[580px]">
           {shouldBlur ? (
@@ -270,11 +272,9 @@ export function SpotlightCarousel({ animes }: SpotlightCarouselProps) {
             const slug = getAnimeSlug(anime);
             const isBlocked = isAnimeBlocked(anime);
             const blockedReason = getBlockedReason(anime);
-
             const libraryStatus =
-              getLibraryStatus(anime.id) ||
-              getLibraryStatus(anime.slug) ||
-              getLibraryStatus(slug);
+              getLibraryStatus(anime.id ?? slug) ||
+              (anime.slug ? getLibraryStatus(anime.slug) : null);
 
             return (
               <SpotlightSlide
