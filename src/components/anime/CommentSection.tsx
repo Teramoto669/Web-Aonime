@@ -145,7 +145,7 @@ function CommentContentRenderer({ content }: { content: string }) {
   const segments = content.split(spoilerRegex);
 
   return (
-    <div className="space-y-1 text-sm text-foreground/90 leading-relaxed break-words">
+    <div className="space-y-1 text-sm text-foreground/90 leading-relaxed break-words whitespace-pre-wrap">
       {segments.map((segment, idx) => {
         if (!segment) return null;
 
@@ -628,93 +628,128 @@ function FormattingToolbar({
   onInsert,
   onInsertGif,
   disabled = false,
+  showPreview = true,
+  onTogglePreview,
 }: {
   onInsert: (type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler") => void;
   onInsertGif: (url: string) => void;
   disabled?: boolean;
+  showPreview?: boolean;
+  onTogglePreview?: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-muted/30 border border-border/50 rounded-t-lg border-b-0">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={() => onInsert("bold")}
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground font-bold"
-        title="Bold (**text**)"
-      >
-        <Bold className="w-3.5 h-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={() => onInsert("italic")}
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground italic"
-        title="Italic (*text*)"
-      >
-        <Italic className="w-3.5 h-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={() => onInsert("underline")}
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground underline"
-        title="Underline (<u>text</u>)"
-      >
-        <Underline className="w-3.5 h-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={() => onInsert("strikethrough")}
-        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground line-through"
-        title="Strikethrough (~~text~~)"
-      >
-        <Strikethrough className="w-3.5 h-3.5" />
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-muted/30 border border-border/50 rounded-t-lg border-b-0">
+      <div className="flex flex-wrap items-center gap-0.5 sm:gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onInsert("bold")}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground font-bold"
+          title="Bold (**text**)"
+        >
+          <Bold className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onInsert("italic")}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground italic"
+          title="Italic (*text*)"
+        >
+          <Italic className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onInsert("underline")}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground underline"
+          title="Underline (<u>text</u>)"
+        >
+          <Underline className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onInsert("strikethrough")}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground line-through"
+          title="Strikethrough (~~text~~)"
+        >
+          <Strikethrough className="w-3.5 h-3.5" />
+        </Button>
 
-      {Boolean(process.env.NEXT_PUBLIC_KLIPY_API_KEY && process.env.NEXT_PUBLIC_KLIPY_API_KEY.trim()) && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              className="h-7 px-1.5 text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1"
-              title="Insert GIF"
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>GIF</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="start" className="w-[min(calc(100vw-32px),360px)] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
-            <KlipyGifPicker onSelectGif={onInsertGif} />
-          </PopoverContent>
-        </Popover>
+        {Boolean(process.env.NEXT_PUBLIC_KLIPY_API_KEY && process.env.NEXT_PUBLIC_KLIPY_API_KEY.trim()) && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled}
+                className="h-7 px-1.5 text-xs font-bold text-muted-foreground hover:text-foreground flex items-center gap-1"
+                title="Insert GIF"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>GIF</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="start" className="w-[min(calc(100vw-32px),360px)] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
+              <KlipyGifPicker onSelectGif={onInsertGif} />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        <div className="h-3.5 w-[1px] bg-border/60 mx-0.5 sm:mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onClick={() => onInsert("spoiler")}
+          className="h-7 px-1.5 sm:px-2 text-[11px] sm:text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1 font-semibold"
+          title="Add Spoiler (||text||)"
+        >
+          <EyeOff className="w-3.5 h-3.5" />
+          <span>Spoiler</span>
+        </Button>
+      </div>
+
+      {onTogglePreview && (
+        <Button
+          type="button"
+          variant={showPreview ? "secondary" : "ghost"}
+          size="sm"
+          disabled={disabled}
+          onClick={onTogglePreview}
+          className={cn(
+            "h-7 px-2 text-xs font-semibold gap-1.5 transition-all ml-auto",
+            showPreview
+              ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+          title={showPreview ? "Sembunyikan preview" : "Tampilkan live preview"}
+        >
+          {showPreview ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5" />
+              <span>Hide Preview</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5" />
+              <span>Live Preview</span>
+            </>
+          )}
+        </Button>
       )}
-
-      <div className="h-3.5 w-[1px] bg-border/60 mx-0.5 sm:mx-1" />
-
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        onClick={() => onInsert("spoiler")}
-        className="h-7 px-1.5 sm:px-2 text-[11px] sm:text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1 font-semibold"
-        title="Add Spoiler (||text||)"
-      >
-        <EyeOff className="w-3.5 h-3.5" />
-        <span>Spoiler</span>
-      </Button>
     </div>
   );
 }
@@ -728,6 +763,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   const [comments, setComments] = useState<CommentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
+  const [showMainPreview, setShowMainPreview] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [commentToDelete, setCommentToDelete] = useState<{ id: string; isReply?: boolean } | null>(null);
@@ -736,6 +772,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   // Reply states
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [showReplyPreview, setShowReplyPreview] = useState(true);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   // Reaction states
@@ -792,12 +829,14 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   // Edit states
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [showEditPreview, setShowEditPreview] = useState(true);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editTextareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const handleStartEdit = (comment: CommentType) => {
     setEditingId(comment.id);
     setEditText(comment.content);
+    setShowEditPreview(true);
   };
 
   const handleEditSave = async (commentId: string) => {
@@ -816,6 +855,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
       setEditingId(null);
       setEditText("");
+      setShowEditPreview(true);
       toast({
         title: "Comment updated!",
         description: "Your comment has been edited successfully.",
@@ -1034,6 +1074,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
       const localTime = new Date();
       updateLastCommentedAt(localTime);
       setCommentText("");
+      setShowMainPreview(false);
       
       toast({
         title: "Comment posted!",
@@ -1120,6 +1161,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
       updateLastCommentedAt(localTime);
       setReplyText("");
       setReplyToId(null);
+      setShowReplyPreview(false);
       
       toast({
         title: "Reply posted!",
@@ -1274,10 +1316,10 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
       </div>
 
       {/* Write Comment Form */}
-      <div className="p-1 rounded-xl bg-gradient-to-br from-card/30 to-card/10 border border-border/40 shadow-inner">
+      <div className="rounded-xl bg-card/60 border border-border/50 overflow-hidden">
         {!user ? (
-          <div className="p-6 text-center space-y-4 rounded-lg bg-card/20 backdrop-blur-sm">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center shadow-inner">
+          <div className="p-6 text-center space-y-4 rounded-lg bg-card/40">
+            <div className="mx-auto w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center">
               <Lock className="w-5 h-5 text-muted-foreground" />
             </div>
             <div className="space-y-1">
@@ -1295,7 +1337,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-4 space-y-4 rounded-lg bg-card/25 backdrop-blur-sm">
+          <form onSubmit={handleSubmit} className="p-4 space-y-4">
             {/* Countdown / Cooldown Warning */}
             {remainingMs > 0 && (
               <div className="flex items-center gap-3 p-3 text-xs bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg animate-pulse">
@@ -1329,6 +1371,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               <div className="space-y-0 w-full">
                 <FormattingToolbar
                   disabled={isSubmitting || remainingMs > 0}
+                  showPreview={showMainPreview}
+                  onTogglePreview={() => setShowMainPreview(!showMainPreview)}
                   onInsert={(type) => handleInsertFormatting(type, false)}
                   onInsertGif={(gifUrl) => handleInsertGif(gifUrl, false)}
                 />
@@ -1342,9 +1386,17 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
                   disabled={isSubmitting || remainingMs > 0}
-                  className="min-h-[85px] sm:min-h-[100px] text-xs sm:text-sm resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-b-lg rounded-t-none w-full"
+                  className={cn(
+                    "min-h-[85px] sm:min-h-[95px] text-xs sm:text-sm resize-none bg-background/50 border-border/60 focus-visible:ring-primary focus-visible:border-primary/60 transition-all rounded-t-none w-full custom-scrollbar",
+                    showMainPreview && commentText.trim() ? "rounded-b-none border-b border-border/40" : "rounded-b-lg"
+                  )}
                   required
                 />
+                {showMainPreview && Boolean(commentText.trim()) && (
+                  <div className="border border-t-0 border-border/60 rounded-b-lg bg-background/30 p-3 text-xs sm:text-sm min-h-[55px] max-h-[220px] overflow-y-auto custom-scrollbar">
+                    <CommentContentRenderer content={commentText} />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end pt-1">
@@ -1476,6 +1528,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                           <div className="space-y-0">
                             <FormattingToolbar
                               disabled={isSavingEdit}
+                              showPreview={showEditPreview}
+                              onTogglePreview={() => setShowEditPreview(!showEditPreview)}
                               onInsert={(type) => handleInsertEditFormatting(type)}
                               onInsertGif={(gifUrl) => handleInsertEditGif(gifUrl)}
                             />
@@ -1484,15 +1538,26 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               value={editText}
                               onChange={(e) => setEditText(e.target.value.slice(0, 500))}
                               disabled={isSavingEdit}
-                              className="min-h-[80px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-b-lg rounded-t-none"
+                              className={cn(
+                                "min-h-[75px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-t-none custom-scrollbar",
+                                showEditPreview && editText.trim() ? "rounded-b-none border-b border-border/40" : "rounded-b-lg"
+                              )}
                             />
+                            {showEditPreview && Boolean(editText.trim()) && (
+                              <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[180px] overflow-y-auto custom-scrollbar">
+                                <CommentContentRenderer content={editText} />
+                              </div>
+                            )}
                           </div>
                           <div className="flex justify-end gap-2 pt-1">
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => setEditingId(null)}
+                              onClick={() => {
+                                setEditingId(null);
+                                setShowEditPreview(false);
+                              }}
                               disabled={isSavingEdit}
                               className="text-xs h-8 px-3 font-semibold"
                             >
@@ -1533,6 +1598,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                             }
                             setReplyToId(replyToId === comment.id ? null : comment.id);
                             setReplyText("");
+                            setShowReplyPreview(false);
                           }}
                           className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
                         >
@@ -1593,6 +1659,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               <div className="space-y-0">
                                 <FormattingToolbar
                                   disabled={isSubmittingReply || remainingMs > 0}
+                                  showPreview={showReplyPreview}
+                                  onTogglePreview={() => setShowReplyPreview(!showReplyPreview)}
                                   onInsert={(type) => handleInsertFormatting(type, true)}
                                   onInsertGif={(gifUrl) => handleInsertGif(gifUrl, true)}
                                 />
@@ -1602,15 +1670,26 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                   value={replyText}
                                   onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
                                   disabled={isSubmittingReply || remainingMs > 0}
-                                  className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-b-lg rounded-t-none"
+                                  className={cn(
+                                    "min-h-[65px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-t-none custom-scrollbar",
+                                    showReplyPreview && replyText.trim() ? "rounded-b-none border-b border-border/40" : "rounded-b-lg"
+                                  )}
                                 />
+                                {showReplyPreview && Boolean(replyText.trim()) && (
+                                  <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                    <CommentContentRenderer content={replyText} />
+                                  </div>
+                                )}
                               </div>
                               <div className="flex justify-end gap-2">
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => setReplyToId(null)}
+                                  onClick={() => {
+                                    setReplyToId(null);
+                                    setShowReplyPreview(false);
+                                  }}
                                   disabled={isSubmittingReply}
                                   className="text-xs h-8 font-semibold"
                                 >
@@ -1725,6 +1804,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                   <div className="space-y-0">
                                     <FormattingToolbar
                                       disabled={isSavingEdit}
+                                      showPreview={showEditPreview}
+                                      onTogglePreview={() => setShowEditPreview(!showEditPreview)}
                                       onInsert={(type) => handleInsertEditFormatting(type)}
                                       onInsertGif={(gifUrl) => handleInsertEditGif(gifUrl)}
                                     />
@@ -1733,15 +1814,26 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                       value={editText}
                                       onChange={(e) => setEditText(e.target.value.slice(0, 500))}
                                       disabled={isSavingEdit}
-                                      className="min-h-[70px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-b-lg rounded-t-none"
+                                      className={cn(
+                                        "min-h-[70px] text-xs resize-none bg-background/60 border-border/50 focus-visible:ring-primary rounded-t-none custom-scrollbar",
+                                        showEditPreview && editText.trim() ? "rounded-b-none border-b border-border/40" : "rounded-b-lg"
+                                      )}
                                     />
+                                    {showEditPreview && Boolean(editText.trim()) && (
+                                      <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                        <CommentContentRenderer content={editText} />
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex justify-end gap-2 pt-1">
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => setEditingId(null)}
+                                      onClick={() => {
+                                        setEditingId(null);
+                                        setShowEditPreview(false);
+                                      }}
                                       disabled={isSavingEdit}
                                       className="text-xs h-7 px-3 font-semibold"
                                     >
@@ -1785,6 +1877,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                     }
                                     setReplyToId(replyToId === reply.id ? null : reply.id);
                                     setReplyText("");
+                                    setShowReplyPreview(false);
                                   }}
                                   className="text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
                                 >
@@ -1845,6 +1938,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                       <div className="space-y-0">
                                         <FormattingToolbar
                                           disabled={isSubmittingReply || remainingMs > 0}
+                                          showPreview={showReplyPreview}
+                                          onTogglePreview={() => setShowReplyPreview(!showReplyPreview)}
                                           onInsert={(type) => handleInsertFormatting(type, true)}
                                           onInsertGif={(gifUrl) => handleInsertGif(gifUrl, true)}
                                         />
@@ -1854,15 +1949,26 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                           value={replyText}
                                           onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
                                           disabled={isSubmittingReply || remainingMs > 0}
-                                          className="min-h-[70px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-b-lg rounded-t-none"
+                                          className={cn(
+                                            "min-h-[65px] text-xs resize-none bg-background/50 border-border/50 focus-visible:ring-primary focus-visible:border-primary/50 rounded-t-none custom-scrollbar",
+                                            showReplyPreview && replyText.trim() ? "rounded-b-none border-b border-border/40" : "rounded-b-lg"
+                                          )}
                                         />
+                                        {showReplyPreview && Boolean(replyText.trim()) && (
+                                          <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                            <CommentContentRenderer content={replyText} />
+                                          </div>
+                                        )}
                                       </div>
                                       <div className="flex justify-end gap-2">
                                         <Button
                                           type="button"
                                           variant="ghost"
                                           size="sm"
-                                          onClick={() => setReplyToId(null)}
+                                          onClick={() => {
+                                            setReplyToId(null);
+                                            setShowReplyPreview(false);
+                                          }}
                                           disabled={isSubmittingReply}
                                           className="text-xs h-8 font-semibold"
                                         >
