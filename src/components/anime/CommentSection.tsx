@@ -178,7 +178,7 @@ function CommentContentRenderer({ content }: { content: string }) {
                 <img
                   src={gifUrl}
                   alt="GIF"
-                  className="max-w-[280px] max-h-[200px] rounded-lg object-cover border border-border/40 shadow-sm"
+                  className="w-auto h-auto max-w-full sm:max-w-[420px] max-h-[260px] sm:max-h-[300px] rounded-lg object-cover border border-border/40 shadow-sm"
                   loading="lazy"
                 />
               </div>
@@ -334,17 +334,16 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
 
             const apiUrls = list
               .map((item: any) => {
-                // Official KLIPY schema: prioritize small file sizes (sm / xs) for fast loading & low bandwidth
+                // Official KLIPY schema: prioritize medium file sizes (md) for crisp display, with sm fallback
                 const f = item.file || item.files;
                 if (f && typeof f === "object") {
                   return (
-                    f.sm?.gif?.url ||
-                    f.sm?.webp?.url ||
-                    f.xs?.gif?.url ||
-                    f.xs?.webp?.url ||
                     f.md?.gif?.url ||
                     f.md?.webp?.url ||
+                    f.sm?.gif?.url ||
+                    f.sm?.webp?.url ||
                     f.hd?.gif?.url ||
+                    f.xs?.gif?.url ||
                     f.url
                   );
                 }
@@ -418,13 +417,12 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
             const f = item.file || item.files;
             if (f && typeof f === "object") {
               return (
-                f.sm?.gif?.url ||
-                f.sm?.webp?.url ||
-                f.xs?.gif?.url ||
-                f.xs?.webp?.url ||
                 f.md?.gif?.url ||
                 f.md?.webp?.url ||
+                f.sm?.gif?.url ||
+                f.sm?.webp?.url ||
                 f.hd?.gif?.url ||
+                f.xs?.gif?.url ||
                 f.url
               );
             }
@@ -628,7 +626,7 @@ function FormattingToolbar({
   onInsert,
   onInsertGif,
   disabled = false,
-  showPreview = true,
+  showPreview = false,
   onTogglePreview,
 }: {
   onInsert: (type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler") => void;
@@ -763,7 +761,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   const [comments, setComments] = useState<CommentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
-  const [showMainPreview, setShowMainPreview] = useState(true);
+  const [showMainPreview, setShowMainPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [commentToDelete, setCommentToDelete] = useState<{ id: string; isReply?: boolean } | null>(null);
@@ -772,7 +770,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   // Reply states
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [showReplyPreview, setShowReplyPreview] = useState(true);
+  const [showReplyPreview, setShowReplyPreview] = useState(false);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   // Reaction states
@@ -829,14 +827,14 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   // Edit states
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [showEditPreview, setShowEditPreview] = useState(true);
+  const [showEditPreview, setShowEditPreview] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editTextareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const handleStartEdit = (comment: CommentType) => {
     setEditingId(comment.id);
     setEditText(comment.content);
-    setShowEditPreview(true);
+    setShowEditPreview(false);
   };
 
   const handleEditSave = async (commentId: string) => {
@@ -855,7 +853,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
       setEditingId(null);
       setEditText("");
-      setShowEditPreview(true);
+      setShowEditPreview(false);
       toast({
         title: "Comment updated!",
         description: "Your comment has been edited successfully.",
@@ -1393,7 +1391,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                   required
                 />
                 {showMainPreview && Boolean(commentText.trim()) && (
-                  <div className="border border-t-0 border-border/60 rounded-b-lg bg-background/30 p-3 text-xs sm:text-sm min-h-[55px] max-h-[220px] overflow-y-auto custom-scrollbar">
+                  <div className="border border-t-0 border-border/60 rounded-b-lg bg-background/30 p-3 text-xs sm:text-sm min-h-[55px] max-h-[320px] sm:max-h-[360px] overflow-y-auto custom-scrollbar">
                     <CommentContentRenderer content={commentText} />
                   </div>
                 )}
@@ -1544,7 +1542,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               )}
                             />
                             {showEditPreview && Boolean(editText.trim()) && (
-                              <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[180px] overflow-y-auto custom-scrollbar">
+                              <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
                                 <CommentContentRenderer content={editText} />
                               </div>
                             )}
@@ -1676,7 +1674,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                   )}
                                 />
                                 {showReplyPreview && Boolean(replyText.trim()) && (
-                                  <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                  <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
                                     <CommentContentRenderer content={replyText} />
                                   </div>
                                 )}
@@ -1820,7 +1818,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                       )}
                                     />
                                     {showEditPreview && Boolean(editText.trim()) && (
-                                      <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                      <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/40 p-2.5 text-xs min-h-[45px] max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
                                         <CommentContentRenderer content={editText} />
                                       </div>
                                     )}
@@ -1955,7 +1953,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                                           )}
                                         />
                                         {showReplyPreview && Boolean(replyText.trim()) && (
-                                          <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[160px] overflow-y-auto custom-scrollbar">
+                                          <div className="border border-t-0 border-border/50 rounded-b-lg bg-background/30 p-2.5 text-xs min-h-[45px] max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
                                             <CommentContentRenderer content={replyText} />
                                           </div>
                                         )}

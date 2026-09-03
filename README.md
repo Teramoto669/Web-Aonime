@@ -7,7 +7,7 @@ A modern web client to browse, search, and watch anime. Built with Next.js App R
 - **Browse & Search Anime**: Find your favorite anime with ease.
 - **View Anime Details**: Check episodes, descriptions, and show information.
 - **Watch Anime**: Seamless video playback using a custom `hls.js` video player.
-- **Robust APIs**: Integrates with `anikoto-scrap`.
+- **Robust APIs**: Integrates with `anikoto API`.
 
 ## Tech Stack
 
