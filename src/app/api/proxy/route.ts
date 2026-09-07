@@ -118,9 +118,23 @@ export async function GET(req: NextRequest) {
 
   const refererParam = searchParams.get('referer');
 
+  // Target URL Normalization & Stale Mirror Remapping
+  let targetUrl = target;
+  try {
+    const parsedTarget = new URL(targetUrl);
+    if (parsedTarget.hostname === 'bb.akirax.buzz' && parsedTarget.pathname.startsWith('/anime/')) {
+      parsedTarget.host = 'cdn.imgnex.top';
+      targetUrl = parsedTarget.toString();
+    }
+    if (parsedTarget.hostname === 'ncdn.imgnex.top' && !parsedTarget.pathname.endsWith('master.m3u8')) {
+      parsedTarget.host = 'cdn.imgnex.top';
+      targetUrl = parsedTarget.toString();
+    }
+  } catch (_) {}
+
   // Determine what this URL is
-  const isManifest = /\.m3u8/i.test(target) || /\/(master|playlist|index)/i.test(target);
-  const isSubtitle = /\.(vtt|srt|ass)$/i.test(target) || /subtitles\//i.test(target);
+  const isManifest = /\.m3u8/i.test(targetUrl) || /\/(master|playlist|index)/i.test(targetUrl);
+  const isSubtitle = /\.(vtt|srt|ass)$/i.test(targetUrl) || /subtitles\//i.test(targetUrl);
 
   // Build upstream headers — always inject Referer so CDNs like vidstream
   // don't 403 segment requests (which is what caused the "stuck at 0:00" bug).
@@ -148,7 +162,7 @@ export async function GET(req: NextRequest) {
   try {
     let upstreamRes;
     if (CF_PROXY) {
-      let workerUrl = `${CF_PROXY}/?url=${encodeURIComponent(target)}`;
+      let workerUrl = `${CF_PROXY}/?url=${encodeURIComponent(targetUrl)}`;
       if (refererParam) workerUrl += `&referer=${encodeURIComponent(refererParam)}`;
       if (customProxy)  workerUrl += `&proxy=${encodeURIComponent(customProxy)}`;
 
@@ -181,10 +195,30 @@ export async function GET(req: NextRequest) {
         headers: responseHeaders,
       });
     } else {
-      upstreamRes = await fetch(target, {
+      upstreamRes = await fetch(targetUrl, {
         headers: forwarded,
         cache: 'no-store',
       });
+
+      if (upstreamRes.status === 404) {
+        try {
+          const parsed = new URL(targetUrl);
+          if ((parsed.hostname === 'bb.akirax.buzz' || parsed.hostname === 'ncdn.imgnex.top') && parsed.pathname.startsWith('/anime/')) {
+            parsed.host = 'cdn.imgnex.top';
+            const fallbackUrl = parsed.toString();
+            if (fallbackUrl !== targetUrl) {
+              const fbRes = await fetch(fallbackUrl, {
+                headers: forwarded,
+                cache: 'no-store',
+              });
+              if (fbRes.ok) {
+                upstreamRes = fbRes;
+                targetUrl = fallbackUrl;
+              }
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     if (!upstreamRes.ok) {
@@ -230,14 +264,24 @@ export async function GET(req: NextRequest) {
           line = line.replace(/URI=["']([^"']+)["']/g, (match, uri) => {
             if (uri.startsWith('/api/proxy')) return match;
             try {
-              let absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
+              let absolute = uri.startsWith('http') ? uri : new URL(uri, targetUrl).toString();
               
               // Rewrite dead .buzz and .click hosts to match the target host (exclude active CDNs like akirax.buzz)
               try {
                 const parsedUri = new URL(absolute);
+                // Resolve child playlists / segments under ncdn.imgnex.top to cdn.imgnex.top
+                if (parsedUri.hostname === 'ncdn.imgnex.top' && !parsedUri.pathname.endsWith('master.m3u8')) {
+                  parsedUri.host = 'cdn.imgnex.top';
+                  absolute = parsedUri.toString();
+                }
+                // bb.akirax.buzz with /anime/ path is a dead mirror; active host is cdn.imgnex.top
+                if (parsedUri.hostname === 'bb.akirax.buzz' && parsedUri.pathname.startsWith('/anime/')) {
+                  parsedUri.host = 'cdn.imgnex.top';
+                  absolute = parsedUri.toString();
+                }
                 const isDeadBuzz = parsedUri.hostname.includes('zaplume.buzz') || parsedUri.hostname.includes('mewstream.buzz');
                 if (isDeadBuzz || (parsedUri.hostname.endsWith('.click') && !parsedUri.hostname.includes('akirax.buzz'))) {
-                  parsedUri.host = new URL(target).host;
+                  parsedUri.host = new URL(targetUrl).host;
                   absolute = parsedUri.toString();
                 }
               } catch (_) {}
@@ -257,14 +301,24 @@ export async function GET(req: NextRequest) {
         if (trimmed.startsWith('/api/proxy')) return line;
 
         try {
-          let resolved = new URL(trimmed, target).toString();
+          let resolved = new URL(trimmed, targetUrl).toString();
           
           // Rewrite dead .buzz and .click hosts to match the target host (exclude active CDNs like akirax.buzz)
           try {
             const parsedUri = new URL(resolved);
+            // Resolve child playlists / segments under ncdn.imgnex.top to cdn.imgnex.top
+            if (parsedUri.hostname === 'ncdn.imgnex.top' && !parsedUri.pathname.endsWith('master.m3u8')) {
+              parsedUri.host = 'cdn.imgnex.top';
+              resolved = parsedUri.toString();
+            }
+            // bb.akirax.buzz with /anime/ path is a dead mirror; active host is cdn.imgnex.top
+            if (parsedUri.hostname === 'bb.akirax.buzz' && parsedUri.pathname.startsWith('/anime/')) {
+              parsedUri.host = 'cdn.imgnex.top';
+              resolved = parsedUri.toString();
+            }
             const isDeadBuzz = parsedUri.hostname.includes('zaplume.buzz') || parsedUri.hostname.includes('mewstream.buzz');
             if (isDeadBuzz || (parsedUri.hostname.endsWith('.click') && !parsedUri.hostname.includes('akirax.buzz'))) {
-              parsedUri.host = new URL(target).host;
+              parsedUri.host = new URL(targetUrl).host;
               resolved = parsedUri.toString();
             }
           } catch (_) {}
