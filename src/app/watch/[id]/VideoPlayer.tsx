@@ -2020,7 +2020,7 @@ function HlsPlayer({
 
     // Fetch original subtitle text on-demand
     useEffect(() => {
-        if (selectedSubtitleIndex < 0 || !tracks[selectedSubtitleIndex]) {
+        if (selectedSubtitleIndex < 0 || !tracks || !tracks[selectedSubtitleIndex]) {
             if (artInstance) {
                 artInstance.subtitle.show = false;
             }
@@ -2050,7 +2050,7 @@ function HlsPlayer({
 
     // Apply timing shift to WebVTT content and load into Artplayer
     useEffect(() => {
-        if (selectedSubtitleIndex < 0) {
+        if (selectedSubtitleIndex < 0 || !tracks || !tracks[selectedSubtitleIndex]) {
             if (artInstance) {
                 artInstance.subtitle.show = false;
             }
@@ -2074,7 +2074,7 @@ function HlsPlayer({
             if (artInstance) {
                 artInstance.subtitle.show = true;
                 artInstance.subtitle.switch(newUrl, {
-                    name: tracks[selectedSubtitleIndex].label || `Track ${selectedSubtitleIndex + 1}`,
+                    name: tracks[selectedSubtitleIndex]?.label || `Track ${selectedSubtitleIndex + 1}`,
                     type: 'vtt',
                 });
             }
