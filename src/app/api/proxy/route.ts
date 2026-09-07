@@ -232,10 +232,11 @@ export async function GET(req: NextRequest) {
             try {
               let absolute = uri.startsWith('http') ? uri : new URL(uri, target).toString();
               
-              // Rewrite .buzz and .click hosts to match the target host
+              // Rewrite dead .buzz and .click hosts to match the target host (exclude active CDNs like akirax.buzz)
               try {
                 const parsedUri = new URL(absolute);
-                if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
+                const isDeadBuzz = parsedUri.hostname.includes('zaplume.buzz') || parsedUri.hostname.includes('mewstream.buzz');
+                if (isDeadBuzz || (parsedUri.hostname.endsWith('.click') && !parsedUri.hostname.includes('akirax.buzz'))) {
                   parsedUri.host = new URL(target).host;
                   absolute = parsedUri.toString();
                 }
@@ -258,10 +259,11 @@ export async function GET(req: NextRequest) {
         try {
           let resolved = new URL(trimmed, target).toString();
           
-          // Rewrite .buzz and .click hosts to match the target host
+          // Rewrite dead .buzz and .click hosts to match the target host (exclude active CDNs like akirax.buzz)
           try {
             const parsedUri = new URL(resolved);
-            if (parsedUri.hostname.endsWith('.buzz') || parsedUri.hostname.endsWith('.click')) {
+            const isDeadBuzz = parsedUri.hostname.includes('zaplume.buzz') || parsedUri.hostname.includes('mewstream.buzz');
+            if (isDeadBuzz || (parsedUri.hostname.endsWith('.click') && !parsedUri.hostname.includes('akirax.buzz'))) {
               parsedUri.host = new URL(target).host;
               resolved = parsedUri.toString();
             }
