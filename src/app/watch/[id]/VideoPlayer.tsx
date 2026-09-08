@@ -101,6 +101,13 @@ function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
     return url;
 }
 
+const hasValidSkipData = (sd?: SkipData | null): boolean => {
+    if (!sd) return false;
+    const isValidSegment = (seg?: { start?: number; end?: number } | null) =>
+        Boolean(seg && typeof seg.start === "number" && typeof seg.end === "number" && seg.end > seg.start && seg.end > 0);
+    return isValidSegment(sd.intro) || isValidSegment(sd.outro);
+};
+
 // Main export
 
 export function VideoPlayer({
@@ -161,7 +168,7 @@ export function VideoPlayer({
             <HlsPlayer
                 m3u8Url={playerUrl.m3u8}
                 tracks={tracks}
-                skipData={(source.skip_data && (source.skip_data.intro || source.skip_data.outro)) ? source.skip_data : skipData}
+                skipData={hasValidSkipData(source.skip_data) ? source.skip_data : skipData}
                 cfProxyUrl={cfProxyUrl}
                 autoPlay={autoPlay}
                 onAutoPlayChange={onAutoPlayChange}
@@ -1244,7 +1251,7 @@ function HlsPlayer({
         });
     }, []);
 
-    // Global window functions for the subtitle size slider to avoid React re-render lags
+    // Global window functions for subtitle size and sync sliders to avoid React re-render lags
     useEffect(() => {
         (window as any).updateArtSubtitleSizeDOM = (val: number) => {
             const playerEl = document.querySelector('.art-video-player') as HTMLElement;
@@ -1261,9 +1268,15 @@ function HlsPlayer({
             updateSubConfig({ size: val });
         };
 
+        (window as any).setArtSubtitleSync = (val: number) => {
+            const clamped = Math.min(5, Math.max(-5, parseFloat(val.toFixed(1))));
+            setSubDelay(clamped);
+        };
+
         return () => {
             delete (window as any).updateArtSubtitleSizeDOM;
             delete (window as any).saveArtSubtitleSize;
+            delete (window as any).setArtSubtitleSync;
         };
     }, [updateSubConfig]);
 
@@ -1308,8 +1321,9 @@ function HlsPlayer({
             .art-subtitle-line:empty {
                 display: none !important;
             }
-            /* Custom styling for subtitle size range input */
-            .art-subtitle-size-slider-input::-webkit-slider-thumb {
+            /* Custom styling for subtitle size & sync range input */
+            .art-subtitle-size-slider-input::-webkit-slider-thumb,
+            .art-subtitle-sync-slider-input::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 width: 12px;
                 height: 12px;
@@ -1319,10 +1333,12 @@ function HlsPlayer({
                 border: none;
                 transition: transform 0.1s ease;
             }
-            .art-subtitle-size-slider-input::-webkit-slider-thumb:hover {
+            .art-subtitle-size-slider-input::-webkit-slider-thumb:hover,
+            .art-subtitle-sync-slider-input::-webkit-slider-thumb:hover {
                 transform: scale(1.2);
             }
-            .art-subtitle-size-slider-input::-moz-range-thumb {
+            .art-subtitle-size-slider-input::-moz-range-thumb,
+            .art-subtitle-sync-slider-input::-moz-range-thumb {
                 width: 12px;
                 height: 12px;
                 border-radius: 50%;
@@ -1331,7 +1347,8 @@ function HlsPlayer({
                 border: none;
                 transition: transform 0.1s ease;
             }
-            .art-subtitle-size-slider-input::-moz-range-thumb:hover {
+            .art-subtitle-size-slider-input::-moz-range-thumb:hover,
+            .art-subtitle-sync-slider-input::-moz-range-thumb:hover {
                 transform: scale(1.2);
             }
             .art-volume-panel {
@@ -1358,7 +1375,8 @@ function HlsPlayer({
                     font-size: 13px !important;
                     min-height: 36px !important;
                 }
-                .art-subtitle-size-container {
+                .art-subtitle-size-container,
+                .art-subtitle-sync-container {
                     padding: 8px 12px !important;
                     min-width: 150px !important;
                 }
@@ -1899,6 +1917,33 @@ function HlsPlayer({
     useEffect(() => {
         if (!artInstance) return;
 
+        // Check if settings panel was open and what submenu was active before updating
+        const wasSettingOpen = Boolean(artInstance.setting?.show);
+        let activeSettingName: string | null = null;
+        try {
+            const active = (artInstance.setting as any)?.active;
+            if (active && Array.isArray(active) && active[0]?.$parent?.name) {
+                activeSettingName = active[0].$parent.name;
+            }
+            if (!activeSettingName && wasSettingOpen) {
+                const curPanel = artInstance.template?.$setting?.querySelector('.art-setting-panel.art-current');
+                if (curPanel) {
+                    if (curPanel.querySelector('.art-subtitle-size-container')) {
+                        activeSettingName = 'subtitle-size';
+                    } else if (curPanel.querySelector('.art-subtitle-sync-container')) {
+                        activeSettingName = 'subtitle-sync';
+                    } else if (curPanel.querySelector('.art-setting-item-back')) {
+                        const backText = curPanel.querySelector('.art-setting-item-left')?.textContent || '';
+                        if (backText.includes('Size')) activeSettingName = 'subtitle-size';
+                        else if (backText.includes('Sync')) activeSettingName = 'subtitle-sync';
+                        else if (backText.includes('Subtitles')) activeSettingName = 'subtitles-list';
+                        else if (backText.includes('Color')) activeSettingName = 'subtitle-color';
+                        else if (backText.includes('Style')) activeSettingName = 'subtitle-style';
+                    }
+                }
+            }
+        } catch (_) {}
+
         // Helper to safely remove a setting item without throwing or aborting subsequent removals
         const safeRemove = (name: string) => {
             try {
@@ -1965,6 +2010,9 @@ function HlsPlayer({
 
             // 2. Subtitle Sync
             const delayVal = subDelay || 0;
+            const syncPct = Math.min(100, Math.max(0, ((delayVal + 5) / 10) * 100));
+            const syncSliderBg = `linear-gradient(to right, hsl(var(--primary)) ${syncPct}%, rgba(255, 255, 255, 0.2) ${syncPct}%)`;
+
             artInstance.setting.add({
                 name: "subtitle-sync",
                 html: "Subtitle Sync",
@@ -1972,6 +2020,48 @@ function HlsPlayer({
                 position: "right",
                 tooltip: delayVal === 0 ? "Synced" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`,
                 selector: [
+                    {
+                        html: `
+                            <div class="art-subtitle-sync-container" 
+                                style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 190px; cursor: default;" 
+                                onclick="event.stopPropagation();" 
+                                onmousedown="event.stopPropagation();"
+                                onmouseup="event.stopPropagation();"
+                                ontouchstart="event.stopPropagation();"
+                                ontouchend="event.stopPropagation();"
+                                onpointerdown="event.stopPropagation();"
+                                onpointerup="event.stopPropagation();"
+                            >
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: white;">
+                                    <span>Sync Offset</span>
+                                    <span class="art-subtitle-sync-lbl">${delayVal === 0 ? "0.0s" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`}</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="-5" 
+                                    max="5" 
+                                    step="0.1" 
+                                    value="${delayVal}" 
+                                    class="art-subtitle-sync-slider-input" 
+                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${syncSliderBg}; cursor: pointer;"
+                                    oninput="const val = parseFloat(this.value); const pct = Math.min(100, Math.max(0, ((val + 5) / 10) * 100)); this.style.background = 'linear-gradient(to right, hsl(var(--primary)) ' + pct + '%, rgba(255, 255, 255, 0.2) ' + pct + '%)'; this.parentNode.querySelector('.art-subtitle-sync-lbl').textContent = (val === 0 ? '0.0s' : (val > 0 ? '+' : '') + val.toFixed(1) + 's');"
+                                    onchange="window.setArtSubtitleSync(parseFloat(this.value));"
+                                    onclick="event.stopPropagation();"
+                                    onmousedown="event.stopPropagation();"
+                                    onmouseup="event.stopPropagation();"
+                                    ontouchstart="event.stopPropagation();"
+                                    ontouchend="event.stopPropagation();"
+                                    onpointerdown="event.stopPropagation();"
+                                    onpointerup="event.stopPropagation();"
+                                />
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-top: -2px;">
+                                    <span>-5.0s</span>
+                                    <span>0.0s</span>
+                                    <span>+5.0s</span>
+                                </div>
+                            </div>
+                        `,
+                    },
                     { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
                     { html: "-0.5s", onClick: () => adjustDelay(-0.5) },
                     { html: "-0.1s", onClick: () => adjustDelay(-0.1) },
@@ -1996,7 +2086,16 @@ function HlsPlayer({
                 selector: [
                     {
                         html: `
-                            <div class="art-subtitle-size-container" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 170px; cursor: default;" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();">
+                            <div class="art-subtitle-size-container" 
+                                style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 170px; cursor: default;" 
+                                onclick="event.stopPropagation();" 
+                                onmousedown="event.stopPropagation();"
+                                onmouseup="event.stopPropagation();"
+                                ontouchstart="event.stopPropagation();"
+                                ontouchend="event.stopPropagation();"
+                                onpointerdown="event.stopPropagation();"
+                                onpointerup="event.stopPropagation();"
+                            >
                                 <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: white;">
                                     <span>Scale</span>
                                     <span class="art-subtitle-size-lbl">${Math.round(sizeVal * 100)}%</span>
@@ -2013,6 +2112,11 @@ function HlsPlayer({
                                     onchange="window.saveArtSubtitleSize(parseFloat(this.value));"
                                     onclick="event.stopPropagation();"
                                     onmousedown="event.stopPropagation();"
+                                    onmouseup="event.stopPropagation();"
+                                    ontouchstart="event.stopPropagation();"
+                                    ontouchend="event.stopPropagation();"
+                                    onpointerdown="event.stopPropagation();"
+                                    onpointerup="event.stopPropagation();"
                                 />
                             </div>
                         `,
@@ -2082,6 +2186,19 @@ function HlsPlayer({
                     }
                 ]
             });
+        }
+
+        // Restore active submenu panel if user was inside one (e.g. Subtitle Size or Subtitle Sync)
+        if (wasSettingOpen) {
+            artInstance.setting.show = true;
+            if (activeSettingName) {
+                try {
+                    const activeItem = artInstance.setting.find(activeSettingName);
+                    if (activeItem && activeItem.selector) {
+                        (artInstance.setting as any).render(activeItem.selector);
+                    }
+                } catch (_) {}
+            }
         }
     }, [tracksKey, artInstance, selectedSubtitleIndex, tracks, subConfig, subDelay, autoPlay]);
 

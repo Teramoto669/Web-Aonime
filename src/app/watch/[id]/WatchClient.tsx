@@ -6,7 +6,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import Link from 'next/link';
 import Image from "next/image";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AnimeDetail, AnimeEpisodes, WatchData, Source, RelatedAnime, AnimeListItem } from "@/lib/types";
+import type { AnimeDetail, AnimeEpisodes, WatchData, Source, RelatedAnime, AnimeListItem, SkipData } from "@/lib/types";
 import LibraryButton from "@/components/anime/LibraryButton";
 import { CommentSection } from "@/components/anime/CommentSection";
 import { RecommendationsSection } from "@/components/anime/RecommendationsSection";
@@ -299,20 +299,26 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         return allSources[0] ?? null;
     }, [selectedServer, allSources, servers]);
 
+    const hasValidSkipData = (sd?: SkipData | null): boolean => {
+        if (!sd) return false;
+        const isValidSegment = (seg?: { start?: number; end?: number } | null) =>
+            Boolean(seg && typeof seg.start === "number" && typeof seg.end === "number" && seg.end > seg.start && seg.end > 0);
+        return isValidSegment(sd.intro) || isValidSegment(sd.outro);
+    };
+
     const resolvedSkipData = useMemo(() => {
         if (!currentSource) return undefined;
-        // 1. If this source itself has valid skip_data, use it directly
-        if (currentSource.skip_data && (currentSource.skip_data.intro || currentSource.skip_data.outro)) {
+        // 1. If this source itself has valid, non-dummy skip_data, use it directly
+        if (hasValidSkipData(currentSource.skip_data)) {
             return currentSource.skip_data;
         }
 
         const currentType = getSourceType(currentSource);
 
-        // 2. Find another source of the exact SAME type that has skip_data
+        // 2. Find another source of the exact SAME type that has valid skip_data
         const sameTypeSourceWithSkip = allSources.find(s => {
             if (getSourceType(s) !== currentType) return false;
-            const sd = s.skip_data;
-            return Boolean(sd && (sd.intro || sd.outro));
+            return hasValidSkipData(s.skip_data);
         });
 
         if (sameTypeSourceWithSkip?.skip_data) {
@@ -320,7 +326,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         }
 
         // 3. Fallback to global watchDataState.skip_data ONLY if currentType is "sub"
-        if (currentType === "sub" && watchDataState.skip_data && (watchDataState.skip_data.intro || watchDataState.skip_data.outro)) {
+        if (currentType === "sub" && hasValidSkipData(watchDataState.skip_data)) {
             return watchDataState.skip_data;
         }
 
