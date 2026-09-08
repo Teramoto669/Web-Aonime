@@ -486,6 +486,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             {currentSource ? (
                                 <VideoPlayer
                                     key="aonime-player"
+                                    episodeKey={`${slug}-ep-${currentEpNum}`}
                                     source={currentSource}
                                     tracks={currentSource.tracks || watchDataState.tracks || []}
                                     cfProxyUrl={cfProxyUrl}

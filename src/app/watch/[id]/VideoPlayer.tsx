@@ -21,6 +21,7 @@ type VideoPlayerProps = {
     onNavigatePrev?: () => void;
     nextEpisode?: { number: string; url: string } | null;
     onNavigateNext?: () => void;
+    episodeKey?: string;
 };
 
 // Custom Player Icons (Zenime Style)
@@ -121,6 +122,7 @@ export function VideoPlayer({
     onNavigatePrev,
     nextEpisode,
     onNavigateNext,
+    episodeKey,
 }: VideoPlayerProps) {
     const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -176,6 +178,7 @@ export function VideoPlayer({
                 onNavigatePrev={onNavigatePrev}
                 nextEpisode={nextEpisode}
                 onNavigateNext={onNavigateNext}
+                episodeKey={episodeKey}
             />
         );
     }
@@ -295,6 +298,7 @@ function HlsPlayer({
     onNavigatePrev,
     nextEpisode,
     onNavigateNext,
+    episodeKey,
 }: {
     m3u8Url: string;
     tracks: Track[];
@@ -306,9 +310,11 @@ function HlsPlayer({
     onNavigatePrev?: () => void;
     nextEpisode?: { number: string; url: string } | null;
     onNavigateNext?: () => void;
+    episodeKey?: string;
 }) {
     const artRef = useRef<HTMLDivElement>(null);
     const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
+    const lastLoadedEpisodeKeyRef = useRef<string | undefined>(episodeKey);
 
     const [showNextOverlay, setShowNextOverlay] = useState(false);
     const [countdown, setCountdown] = useState(5);
@@ -1191,6 +1197,24 @@ function HlsPlayer({
 
     const lastLoadedUrlRef = useRef<string>(m3u8Url);
 
+    // Reset playback position and skip button immediately when episode changes
+    useEffect(() => {
+        if (!artInstance || isDestroyedRef.current) return;
+        if (episodeKey && lastLoadedEpisodeKeyRef.current && lastLoadedEpisodeKeyRef.current !== episodeKey) {
+            try {
+                artInstance.currentTime = 0;
+            } catch (_) {}
+            skipTargetTimeRef.current = null;
+            try {
+                const skipButtonLayer = artInstance.layers?.skipButton;
+                if (skipButtonLayer) {
+                    const $btn = skipButtonLayer.querySelector('.art-skip-btn') as HTMLElement;
+                    if ($btn) $btn.classList.remove('show');
+                }
+            } catch (_) {}
+        }
+    }, [episodeKey, artInstance]);
+
     // Switch video stream dynamically when source/category/episode changes without unmounting Artplayer or closing Fullscreen
     useEffect(() => {
         if (!artInstance || isDestroyedRef.current) return;
@@ -1199,12 +1223,32 @@ function HlsPlayer({
 
         lastLoadedUrlRef.current = m3u8Url;
 
+        const isNewEpisode = Boolean(
+            episodeKey &&
+            lastLoadedEpisodeKeyRef.current &&
+            lastLoadedEpisodeKeyRef.current !== episodeKey
+        );
+        lastLoadedEpisodeKeyRef.current = episodeKey;
+
+        if (isNewEpisode) {
+            skipTargetTimeRef.current = null;
+            try {
+                const skipButtonLayer = artInstance.layers?.skipButton;
+                if (skipButtonLayer) {
+                    const $btn = skipButtonLayer.querySelector('.art-skip-btn') as HTMLElement;
+                    if ($btn) $btn.classList.remove('show');
+                }
+            } catch (_) {}
+        }
+
         try {
-            const currentTime = artInstance.currentTime;
+            const currentTime = isNewEpisode ? 0 : artInstance.currentTime;
             // switchUrl cleanly resets the player customType pipeline, attaches fresh HLS, keeping Fullscreen active
             artInstance.switchUrl(m3u8Url).then(() => {
-                if (currentTime > 0) {
+                if (!isNewEpisode && currentTime > 0) {
                     artInstance.seek = currentTime;
+                } else {
+                    artInstance.seek = 0;
                 }
                 artInstance.play().catch(() => {});
             }).catch((err) => {
@@ -1215,8 +1259,10 @@ function HlsPlayer({
                 }
                 if (artInstance.video) {
                     playM3u8(artInstance.video, m3u8Url, artInstance);
-                    if (currentTime > 0) {
+                    if (!isNewEpisode && currentTime > 0) {
                         artInstance.seek = currentTime;
+                    } else {
+                        artInstance.seek = 0;
                     }
                     artInstance.video.play().catch(() => {});
                 }
@@ -1224,7 +1270,7 @@ function HlsPlayer({
         } catch (err) {
             console.error("Error switching video stream:", err);
         }
-    }, [m3u8Url, artInstance, playM3u8]);
+    }, [m3u8Url, artInstance, playM3u8, episodeKey]);
 
     // Resync selected subtitle track whenever tracks change (e.g. switching between sub and dub, or next episode)
     useEffect(() => {
@@ -1379,14 +1425,71 @@ function HlsPlayer({
             }
             .art-settings {
                 margin-bottom: 20px !important;
+                height: auto !important;
+                min-width: 210px !important;
                 max-width: calc(100% - 20px) !important;
                 max-height: calc(100% - 70px) !important;
                 overflow-y: auto !important;
+                overflow-x: hidden !important;
                 scrollbar-width: thin;
             }
             .art-setting-panel {
+                height: auto !important;
                 max-height: 100% !important;
-                overflow-y: auto !important;
+                overflow-y: visible !important;
+                overflow-x: hidden !important;
+            }
+            /* Prevent custom slider items in Artplayer settings from being cropped */
+            .art-setting-item:has(.art-subtitle-sync-container),
+            .art-setting-item:has(.art-subtitle-size-container),
+            .art-setting-item.art-setting-slider-item {
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                cursor: default !important;
+                background: transparent !important;
+                display: block !important;
+            }
+            .art-setting-item:has(.art-subtitle-sync-container):hover,
+            .art-setting-item:has(.art-subtitle-size-container):hover,
+            .art-setting-item.art-setting-slider-item:hover {
+                background: transparent !important;
+            }
+            .art-setting-item:has(.art-subtitle-sync-container) .art-setting-item-left,
+            .art-setting-item:has(.art-subtitle-size-container) .art-setting-item-left,
+            .art-setting-item.art-setting-slider-item .art-setting-item-left {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+                gap: 0 !important;
+            }
+            .art-setting-item:has(.art-subtitle-sync-container) .art-setting-item-left-text,
+            .art-setting-item:has(.art-subtitle-size-container) .art-setting-item-left-text,
+            .art-setting-item.art-setting-slider-item .art-setting-item-left-text {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+            }
+            .art-setting-item:has(.art-subtitle-sync-container) .art-setting-item-left-icon,
+            .art-setting-item:has(.art-subtitle-size-container) .art-setting-item-left-icon,
+            .art-setting-item.art-setting-slider-item .art-setting-item-left-icon,
+            .art-setting-item:has(.art-subtitle-sync-container) .art-setting-item-right,
+            .art-setting-item:has(.art-subtitle-size-container) .art-setting-item-right,
+            .art-setting-item.art-setting-slider-item .art-setting-item-right {
+                display: none !important;
+            }
+            .art-subtitle-size-container,
+            .art-subtitle-sync-container {
+                width: 100% !important;
+                box-sizing: border-box !important;
+                padding: 10px 14px 12px !important;
             }
             @media screen and (max-width: 640px) {
                 .art-settings {
@@ -1398,10 +1501,17 @@ function HlsPlayer({
                     font-size: 13px !important;
                     min-height: 36px !important;
                 }
+                .art-setting-item:has(.art-subtitle-sync-container),
+                .art-setting-item:has(.art-subtitle-size-container),
+                .art-setting-item.art-setting-slider-item {
+                    padding: 0 !important;
+                }
                 .art-subtitle-size-container,
                 .art-subtitle-sync-container {
-                    padding: 8px 12px !important;
-                    min-width: 150px !important;
+                    padding: 8px 12px 10px !important;
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    box-sizing: border-box !important;
                 }
             }
             /* Hide the default vertical volume panel completely */
@@ -2046,7 +2156,7 @@ function HlsPlayer({
                     {
                         html: `
                             <div class="art-subtitle-sync-container" 
-                                style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 190px; cursor: default;" 
+                                style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; width: 100%; box-sizing: border-box; cursor: default; border-bottom: 1px solid rgba(255, 255, 255, 0.08);" 
                                 onclick="event.stopPropagation();" 
                                 onmousedown="event.stopPropagation();"
                                 onmouseup="event.stopPropagation();"
@@ -2055,9 +2165,9 @@ function HlsPlayer({
                                 onpointerdown="event.stopPropagation();"
                                 onpointerup="event.stopPropagation();"
                             >
-                                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.9);">
                                     <span>Sync Offset</span>
-                                    <span class="art-subtitle-sync-lbl">${delayVal === 0 ? "0.0s" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`}</span>
+                                    <span class="art-subtitle-sync-lbl" style="font-family: monospace; font-size: 12px; color: hsl(var(--primary));">${delayVal === 0 ? "0.0s" : `${delayVal > 0 ? '+' : ''}${delayVal.toFixed(1)}s`}</span>
                                 </div>
                                 <input 
                                     type="range" 
@@ -2066,7 +2176,7 @@ function HlsPlayer({
                                     step="0.1" 
                                     value="${delayVal}" 
                                     class="art-subtitle-sync-slider-input" 
-                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${syncSliderBg}; cursor: pointer;"
+                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${syncSliderBg}; cursor: pointer; margin: 2px 0;"
                                     oninput="const val = parseFloat(this.value); const pct = Math.min(100, Math.max(0, ((val + 5) / 10) * 100)); this.style.background = 'linear-gradient(to right, hsl(var(--primary)) ' + pct + '%, rgba(255, 255, 255, 0.2) ' + pct + '%)'; this.parentNode.querySelector('.art-subtitle-sync-lbl').textContent = (val === 0 ? '0.0s' : (val > 0 ? '+' : '') + val.toFixed(1) + 's');"
                                     onchange="window.setArtSubtitleSync(parseFloat(this.value));"
                                     onclick="event.stopPropagation();"
@@ -2077,13 +2187,29 @@ function HlsPlayer({
                                     onpointerdown="event.stopPropagation();"
                                     onpointerup="event.stopPropagation();"
                                 />
-                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-top: -2px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, 0.45); line-height: 1;">
                                     <span>-5.0s</span>
                                     <span>0.0s</span>
                                     <span>+5.0s</span>
                                 </div>
                             </div>
                         `,
+                        onClick: () => {},
+                        mounted: ($item: HTMLElement) => {
+                            $item.classList.add("art-setting-slider-item");
+                            $item.style.height = "auto";
+                            $item.style.minHeight = "0";
+                            $item.style.padding = "0";
+                            $item.style.cursor = "default";
+                            const leftEl = $item.querySelector('.art-setting-item-left') as HTMLElement;
+                            if (leftEl) leftEl.style.width = '100%';
+                            const leftText = $item.querySelector('.art-setting-item-left-text') as HTMLElement;
+                            if (leftText) leftText.style.width = '100%';
+                            const leftIcon = $item.querySelector('.art-setting-item-left-icon') as HTMLElement;
+                            if (leftIcon) leftIcon.style.display = 'none';
+                            const rightEl = $item.querySelector('.art-setting-item-right') as HTMLElement;
+                            if (rightEl) rightEl.style.display = 'none';
+                        },
                     },
                     { html: "-1.0s", onClick: () => adjustDelay(-1.0) },
                     { html: "-0.5s", onClick: () => adjustDelay(-0.5) },
@@ -2110,7 +2236,7 @@ function HlsPlayer({
                     {
                         html: `
                             <div class="art-subtitle-size-container" 
-                                style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; min-width: 170px; cursor: default;" 
+                                style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; width: 100%; box-sizing: border-box; cursor: default; border-bottom: 1px solid rgba(255, 255, 255, 0.08);" 
                                 onclick="event.stopPropagation();" 
                                 onmousedown="event.stopPropagation();"
                                 onmouseup="event.stopPropagation();"
@@ -2119,9 +2245,9 @@ function HlsPlayer({
                                 onpointerdown="event.stopPropagation();"
                                 onpointerup="event.stopPropagation();"
                             >
-                                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.9);">
                                     <span>Scale</span>
-                                    <span class="art-subtitle-size-lbl">${Math.round(sizeVal * 100)}%</span>
+                                    <span class="art-subtitle-size-lbl" style="font-family: monospace; font-size: 12px; color: hsl(var(--primary));">${Math.round(sizeVal * 100)}%</span>
                                 </div>
                                 <input 
                                     type="range" 
@@ -2130,7 +2256,7 @@ function HlsPlayer({
                                     step="0.05" 
                                     value="${sizeVal}" 
                                     class="art-subtitle-size-slider-input" 
-                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${sliderBg}; cursor: pointer;"
+                                    style="width: 100%; height: 4px; border-radius: 2px; -webkit-appearance: none; outline: none; background: ${sliderBg}; cursor: pointer; margin: 2px 0;"
                                     oninput="const val = parseFloat(this.value); const pct = Math.min(100, Math.max(0, ((val - 0.5) / 2.0) * 100)); this.style.background = 'linear-gradient(to right, hsl(var(--primary)) ' + pct + '%, rgba(255, 255, 255, 0.2) ' + pct + '%)'; this.parentNode.querySelector('.art-subtitle-size-lbl').textContent = Math.round(val * 100) + '%'; window.updateArtSubtitleSizeDOM(val);"
                                     onchange="window.saveArtSubtitleSize(parseFloat(this.value));"
                                     onclick="event.stopPropagation();"
@@ -2141,8 +2267,29 @@ function HlsPlayer({
                                     onpointerdown="event.stopPropagation();"
                                     onpointerup="event.stopPropagation();"
                                 />
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, 0.45); line-height: 1;">
+                                    <span>50%</span>
+                                    <span>100%</span>
+                                    <span>250%</span>
+                                </div>
                             </div>
                         `,
+                        onClick: () => {},
+                        mounted: ($item: HTMLElement) => {
+                            $item.classList.add("art-setting-slider-item");
+                            $item.style.height = "auto";
+                            $item.style.minHeight = "0";
+                            $item.style.padding = "0";
+                            $item.style.cursor = "default";
+                            const leftEl = $item.querySelector('.art-setting-item-left') as HTMLElement;
+                            if (leftEl) leftEl.style.width = '100%';
+                            const leftText = $item.querySelector('.art-setting-item-left-text') as HTMLElement;
+                            if (leftText) leftText.style.width = '100%';
+                            const leftIcon = $item.querySelector('.art-setting-item-left-icon') as HTMLElement;
+                            if (leftIcon) leftIcon.style.display = 'none';
+                            const rightEl = $item.querySelector('.art-setting-item-right') as HTMLElement;
+                            if (rightEl) rightEl.style.display = 'none';
+                        },
                     },
                     { html: "75%", default: sizeVal === 0.75, onClick: () => updateSubConfig({ size: 0.75 }) },
                     { html: "100%", default: sizeVal === 1.0, onClick: () => updateSubConfig({ size: 1.0 }) },
