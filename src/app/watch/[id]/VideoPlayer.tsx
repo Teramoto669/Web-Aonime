@@ -440,6 +440,17 @@ function HlsPlayer({
             }
         };
 
+        // Skip button timer & interval state
+        let skipHideTimer: NodeJS.Timeout | null = null;
+        let lastSkipIntervalKey: string | null = null;
+
+        const clearSkipHideTimer = () => {
+            if (skipHideTimer) {
+                clearTimeout(skipHideTimer);
+                skipHideTimer = null;
+            }
+        };
+
         // Initialize Artplayer
         const art = new Artplayer({
             container: artRef.current,
@@ -785,10 +796,13 @@ function HlsPlayer({
 
                         $btn.addEventListener('click', (e) => {
                             e.stopPropagation();
+                            clearSkipHideTimer();
                             if (skipTargetTimeRef.current !== null) {
                                 const target = skipTargetTimeRef.current;
                                 art.seek = target;
                                 $btn.classList.remove("show");
+                                skipTargetTimeRef.current = null;
+                                lastSkipIntervalKey = null;
                                 if (nextEpisodeRef.current && autoPlayRef.current && (target >= (art.duration - 2) || target >= art.duration)) {
                                     try {
                                         art.template.$player?.classList.add("art-next-overlay-active");
@@ -848,6 +862,30 @@ function HlsPlayer({
             if (layer) layer.style.opacity = "0";
         }, 3000);
 
+        // Synchronize Skip Intro / Outro button with player controls and auto-hide
+        art.on("control", (state: boolean) => {
+            const skipButtonLayer = art.layers.skipButton;
+            if (!skipButtonLayer) return;
+            const $btn = skipButtonLayer.querySelector('.art-skip-btn') as HTMLElement;
+            if (!$btn) return;
+
+            if (state) {
+                // Controls became visible on mouse movement or activity
+                if (skipTargetTimeRef.current !== null) {
+                    clearSkipHideTimer();
+                    if (!$btn.classList.contains("show")) {
+                        $btn.classList.add("show");
+                    }
+                }
+            } else {
+                // Controls hidden after inactivity
+                clearSkipHideTimer();
+                if ($btn.classList.contains("show")) {
+                    $btn.classList.remove("show");
+                }
+            }
+        });
+
         // Timeupdate listener for Skip Intro / Outro button
         art.on("video:timeupdate", () => {
             const currentTime = art.currentTime;
@@ -860,6 +898,7 @@ function HlsPlayer({
             let showBtn = false;
             let btnText = "";
             let targetTime: number | null = null;
+            let currentIntervalKey: string | null = null;
 
             const currentSkipData = skipDataRef.current;
             if (currentSkipData) {
@@ -873,21 +912,41 @@ function HlsPlayer({
                     showBtn = true;
                     btnText = "Skip Intro";
                     targetTime = intro.end;
+                    currentIntervalKey = `intro_${intro.start}_${intro.end}`;
                 } else if (isValidOutro && currentTime >= outro.start && currentTime < outro.end) {
                     showBtn = true;
                     btnText = "Skip Outro";
                     targetTime = outro.end;
+                    currentIntervalKey = `outro_${outro.start}_${outro.end}`;
                 }
             }
 
-            if (showBtn && targetTime !== null) {
+            if (showBtn && targetTime !== null && currentIntervalKey !== null) {
                 skipTargetTimeRef.current = targetTime;
                 $btnText.textContent = btnText;
-                if (!$btn.classList.contains("show")) {
-                    $btn.classList.add("show");
+
+                // When newly entering this skip interval
+                if (lastSkipIntervalKey !== currentIntervalKey) {
+                    lastSkipIntervalKey = currentIntervalKey;
+                    clearSkipHideTimer();
+
+                    // Show the button initially
+                    if (!$btn.classList.contains("show")) {
+                        $btn.classList.add("show");
+                    }
+
+                    // If player controls are currently hidden, auto-hide the skip button after 3.5 seconds
+                    // If controls are visible, the 'control' listener handles hiding when controls fade out
+                    skipHideTimer = setTimeout(() => {
+                        if (!art.controls?.show) {
+                            $btn.classList.remove("show");
+                        }
+                    }, 3500);
                 }
             } else {
                 skipTargetTimeRef.current = null;
+                lastSkipIntervalKey = null;
+                clearSkipHideTimer();
                 if ($btn.classList.contains("show")) {
                     $btn.classList.remove("show");
                 }
@@ -1084,6 +1143,7 @@ function HlsPlayer({
 
         return () => {
             clearTimeout(timer);
+            clearSkipHideTimer();
             isDestroyedRef.current = true;
             if (playerDom) {
                 playerDom.removeEventListener('touchstart', onTouchStart);
