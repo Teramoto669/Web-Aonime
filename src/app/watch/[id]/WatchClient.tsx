@@ -202,11 +202,67 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     const [subServerIdx, setSubServerIdx] = useState(0);
     const [hsubServerIdx, setHsubServerIdx] = useState(0);
     const [dubServerIdx, setDubServerIdx] = useState(0);
-    const [activeCategory, setActiveCategory] = useState<"sub" | "dub" | "hsub">("sub");
+    const [preferredCategory, setPreferredCategory] = useState<"sub" | "dub" | "hsub">("sub");
+    const [preferredServerName, setPreferredServerName] = useState<string>("");
 
-    const handleSubChange = (idx: number) => { setSubServerIdx(idx); setActiveCategory("sub"); };
-    const handleHsubChange = (idx: number) => { setHsubServerIdx(idx); setActiveCategory("hsub"); };
-    const handleDubChange = (idx: number) => { setDubServerIdx(idx); setActiveCategory("dub"); };
+    // Load initial server preferences from localStorage
+    useEffect(() => {
+        try {
+            const savedCat = localStorage.getItem("preferred_server_category");
+            if (savedCat === "sub" || savedCat === "dub" || savedCat === "hsub") {
+                setPreferredCategory(savedCat);
+            }
+            const savedServer = localStorage.getItem("preferred_server_name");
+            if (savedServer) {
+                setPreferredServerName(savedServer);
+            }
+        } catch {}
+    }, []);
+
+    // Resolve active category based on user preference and stream availability
+    const activeCategory = useMemo<"sub" | "dub" | "hsub">(() => {
+        if (preferredCategory === "dub" && hasDub) return "dub";
+        if (preferredCategory === "hsub" && hasHsub) return "hsub";
+        if (preferredCategory === "sub" && subServers.length > 0) return "sub";
+        if (hasDub) return "dub";
+        if (hasHsub) return "hsub";
+        return "sub";
+    }, [preferredCategory, hasDub, hasHsub, subServers.length]);
+
+    const selectCategory = (category: "sub" | "dub" | "hsub") => {
+        setPreferredCategory(category);
+        try {
+            localStorage.setItem("preferred_server_category", category);
+        } catch {}
+    };
+
+    const handleSubChange = (idx: number) => {
+        setSubServerIdx(idx);
+        selectCategory("sub");
+        const server = subServers[idx];
+        if (server?.name) {
+            setPreferredServerName(server.name);
+            try { localStorage.setItem("preferred_server_name", server.name); } catch {}
+        }
+    };
+    const handleHsubChange = (idx: number) => {
+        setHsubServerIdx(idx);
+        selectCategory("hsub");
+        const server = hsubServers[idx];
+        if (server?.name) {
+            setPreferredServerName(server.name);
+            try { localStorage.setItem("preferred_server_name", server.name); } catch {}
+        }
+    };
+    const handleDubChange = (idx: number) => {
+        setDubServerIdx(idx);
+        selectCategory("dub");
+        const server = dubServers[idx];
+        if (server?.name) {
+            setPreferredServerName(server.name);
+            try { localStorage.setItem("preferred_server_name", server.name); } catch {}
+        }
+    };
 
     const getActiveServers = () => {
         if (activeCategory === "sub") return subServers;
@@ -221,10 +277,15 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     };
 
     useEffect(() => {
-        setSubServerIdx(0);
-        setHsubServerIdx(0);
-        setDubServerIdx(0);
-    }, [watchDataState]);
+        const findBestIdx = (list: Array<{ name?: string }>) => {
+            if (!preferredServerName) return 0;
+            const idx = list.findIndex(s => s.name?.toLowerCase() === preferredServerName.toLowerCase());
+            return idx !== -1 ? idx : 0;
+        };
+        setSubServerIdx(findBestIdx(subServers));
+        setHsubServerIdx(findBestIdx(hsubServers));
+        setDubServerIdx(findBestIdx(dubServers));
+    }, [watchDataState, preferredServerName]);
 
     const selectedServer = getActiveServers()[getActiveServerIdx()] ?? null;
     const currentSource = useMemo(() => {
@@ -237,6 +298,34 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         }
         return allSources[0] ?? null;
     }, [selectedServer, allSources, servers]);
+
+    const resolvedSkipData = useMemo(() => {
+        if (!currentSource) return undefined;
+        // 1. If this source itself has valid skip_data, use it directly
+        if (currentSource.skip_data && (currentSource.skip_data.intro || currentSource.skip_data.outro)) {
+            return currentSource.skip_data;
+        }
+
+        const currentType = getSourceType(currentSource);
+
+        // 2. Find another source of the exact SAME type that has skip_data
+        const sameTypeSourceWithSkip = allSources.find(s => {
+            if (getSourceType(s) !== currentType) return false;
+            const sd = s.skip_data;
+            return Boolean(sd && (sd.intro || sd.outro));
+        });
+
+        if (sameTypeSourceWithSkip?.skip_data) {
+            return sameTypeSourceWithSkip.skip_data;
+        }
+
+        // 3. Fallback to global watchDataState.skip_data ONLY if currentType is "sub"
+        if (currentType === "sub" && watchDataState.skip_data && (watchDataState.skip_data.intro || watchDataState.skip_data.outro)) {
+            return watchDataState.skip_data;
+        }
+
+        return undefined;
+    }, [currentSource, allSources, watchDataState.skip_data]);
 
     const { user } = useAuth();
     const lastSavedRef = useRef<string>("");
@@ -327,7 +416,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                     source={currentSource}
                                     tracks={currentSource.tracks || watchDataState.tracks || []}
                                     cfProxyUrl={cfProxyUrl}
-                                    skipData={currentSource?.skip_data ?? (watchDataState.sources?.some(s => s.skip_data) ? undefined : watchDataState.skip_data)}
+                                    skipData={resolvedSkipData}
                                     autoPlay={autoPlay}
                                     onAutoPlayChange={handleAutoPlayChange}
                                     prevEpisode={prevEpisodeInfo}
@@ -364,9 +453,9 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
                                 {(hasDub || hasHsub) && (
                                     <div className="flex rounded-md bg-muted p-1 select-none border">
-                                        <button type="button" onClick={() => setActiveCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
-                                        {hasHsub && <button type="button" onClick={() => setActiveCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
-                                        {hasDub && <button type="button" onClick={() => setActiveCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
+                                        <button type="button" onClick={() => selectCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
+                                        {hasHsub && <button type="button" onClick={() => selectCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
+                                        {hasDub && <button type="button" onClick={() => selectCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
                                     </div>
                                 )}
                                 {(getActiveServers().length > 0) && (

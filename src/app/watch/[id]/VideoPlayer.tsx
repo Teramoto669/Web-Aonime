@@ -161,7 +161,7 @@ export function VideoPlayer({
             <HlsPlayer
                 m3u8Url={playerUrl.m3u8}
                 tracks={tracks}
-                skipData={source.skip_data !== undefined ? source.skip_data : skipData}
+                skipData={(source.skip_data && (source.skip_data.intro || source.skip_data.outro)) ? source.skip_data : skipData}
                 cfProxyUrl={cfProxyUrl}
                 autoPlay={autoPlay}
                 onAutoPlayChange={onAutoPlayChange}
