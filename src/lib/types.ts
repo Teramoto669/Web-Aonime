@@ -147,23 +147,6 @@ export type Track = {
   proxyUrl?: string;
 };
 
-export type Source = {
-  server?: string;
-  type?: "sub" | "dub" | "hsub" | string;
-  url?: string;
-  m3u8?: string;
-  referer?: string;
-  proxyUrl?: string;
-  tracks?: Track[];
-};
-
-export type Server = {
-  id?: string;
-  name?: string;
-  type?: "sub" | "dub" | "hsub" | string;
-  svId?: string;
-};
-
 export type SkipInterval = {
   start: number;
   end: number;
@@ -172,6 +155,24 @@ export type SkipInterval = {
 export type SkipData = {
   intro?: SkipInterval;
   outro?: SkipInterval;
+};
+
+export type Source = {
+  server?: string;
+  type?: "sub" | "dub" | "hsub" | string;
+  url?: string;
+  m3u8?: string;
+  referer?: string;
+  proxyUrl?: string;
+  tracks?: Track[];
+  skip_data?: SkipData;
+};
+
+export type Server = {
+  id?: string;
+  name?: string;
+  type?: "sub" | "dub" | "hsub" | string;
+  svId?: string;
 };
 
 export type WatchData = {

@@ -161,7 +161,7 @@ export function VideoPlayer({
             <HlsPlayer
                 m3u8Url={playerUrl.m3u8}
                 tracks={tracks}
-                skipData={skipData}
+                skipData={skipData || source.skip_data}
                 cfProxyUrl={cfProxyUrl}
                 autoPlay={autoPlay}
                 onAutoPlayChange={onAutoPlayChange}
@@ -1198,6 +1198,16 @@ function HlsPlayer({
             console.error("Error switching video stream:", err);
         }
     }, [m3u8Url, artInstance]);
+
+    // Re-draw skip markers when skipData changes (e.g. switching between sub and dub servers)
+    useEffect(() => {
+        skipDataRef.current = skipData;
+        if (artInstance) {
+            try {
+                artInstance.emit('video:durationchange');
+            } catch (_) {}
+        }
+    }, [skipData, artInstance]);
 
     // Load/Save Subtitle Config
     useEffect(() => {
