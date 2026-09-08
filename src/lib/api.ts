@@ -297,11 +297,7 @@ export const getWatchData = async (slug: string, ep: string | number): Promise<W
           throw new Error(`API error from ${url}: ${json.message ?? 'Unknown error'}`);
         }
         if (json.data) {
-          const watchData = json.data as WatchData;
-          if (!watchData.skip_data && watchData.sources?.[0]?.skip_data) {
-            watchData.skip_data = watchData.sources[0].skip_data;
-          }
-          return watchData;
+          return json.data as WatchData;
         }
       }
     } catch (e) {
@@ -345,10 +341,6 @@ export const getWatchData = async (slug: string, ep: string | number): Promise<W
       }
       throw e;
     }
-  }
-
-  if (!result.skip_data && result.sources?.[0]?.skip_data) {
-    result.skip_data = result.sources[0].skip_data;
   }
 
   return result;

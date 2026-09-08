@@ -161,7 +161,7 @@ export function VideoPlayer({
             <HlsPlayer
                 m3u8Url={playerUrl.m3u8}
                 tracks={tracks}
-                skipData={skipData || source.skip_data}
+                skipData={source.skip_data !== undefined ? source.skip_data : skipData}
                 cfProxyUrl={cfProxyUrl}
                 autoPlay={autoPlay}
                 onAutoPlayChange={onAutoPlayChange}
@@ -957,11 +957,13 @@ function HlsPlayer({
         const drawSkipMarkers = () => {
             const duration = art.duration;
             const $progress = art.template.$progress;
-            const currentSkipData = skipDataRef.current;
-            if (!duration || !$progress || !currentSkipData) return;
+            if (!$progress) return;
 
-            // Remove existing skip markers
+            // Always remove existing skip markers first
             $progress.querySelectorAll('.art-skip-marker').forEach(el => el.remove());
+
+            const currentSkipData = skipDataRef.current;
+            if (!duration || !currentSkipData) return;
 
             // Find visual track container (parent of the played progress bar)
             const $playedBar = $progress.querySelector('.art-progress-played');
@@ -1204,6 +1206,15 @@ function HlsPlayer({
         skipDataRef.current = skipData;
         if (artInstance) {
             try {
+                // If skipData is empty/undefined, immediately hide button and clear target
+                if (!skipData) {
+                    const skipButtonLayer = artInstance.layers?.skipButton;
+                    if (skipButtonLayer) {
+                        const $btn = skipButtonLayer.querySelector('.art-skip-btn') as HTMLElement;
+                        if ($btn) $btn.classList.remove('show');
+                    }
+                    skipTargetTimeRef.current = null;
+                }
                 artInstance.emit('video:durationchange');
             } catch (_) {}
         }

@@ -327,7 +327,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                     source={currentSource}
                                     tracks={currentSource.tracks || watchDataState.tracks || []}
                                     cfProxyUrl={cfProxyUrl}
-                                    skipData={currentSource?.skip_data || watchDataState.skip_data}
+                                    skipData={currentSource?.skip_data ?? (watchDataState.sources?.some(s => s.skip_data) ? undefined : watchDataState.skip_data)}
                                     autoPlay={autoPlay}
                                     onAutoPlayChange={handleAutoPlayChange}
                                     prevEpisode={prevEpisodeInfo}
