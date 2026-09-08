@@ -162,17 +162,14 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     // Normalize type: treat 'hsub' as a distinct category
     const getSourceType = (source: Source): "sub" | "dub" | "hsub" => {
-        if (source.type === "dub") return "dub";
-        if (source.type === "hsub") return "hsub";
-        if (source.type === "sub") return "sub";
-        if (source.url) {
-            if (/\/dub(\/|$|\?)/i.test(source.url)) return "dub";
-            if (/\/hsub(\/|$|\?)/i.test(source.url)) return "hsub";
-            if (/\/sub(\/|$|\?)/i.test(source.url)) return "sub";
-        }
-        const matched = servers.find(s => s.name === source.server);
-        if (matched?.type === "dub") return "dub";
-        if (matched?.type === "hsub") return "hsub";
+        const rawType = (source.type || "").toLowerCase().trim();
+        if (rawType === "dub") return "dub";
+        if (rawType === "hsub") return "hsub";
+        if (rawType === "sub") return "sub";
+        const allUrls = [source.url, source.m3u8, source.proxyUrl].filter(Boolean).join(" ");
+        if (/\/dub(\/|$|\?)/i.test(allUrls) || /\bdub\b/i.test(allUrls)) return "dub";
+        if (/\/hsub(\/|$|\?)/i.test(allUrls) || /\bhsub\b/i.test(allUrls)) return "hsub";
+        if (/\/sub(\/|$|\?)/i.test(allUrls) || /\bsub\b/i.test(allUrls)) return "sub";
         return "sub";
     };
 
@@ -199,25 +196,65 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     const hasDub = dubServers.length > 0;
     const hasHsub = hsubServers.length > 0;
 
-    const [subServerIdx, setSubServerIdx] = useState(0);
-    const [hsubServerIdx, setHsubServerIdx] = useState(0);
-    const [dubServerIdx, setDubServerIdx] = useState(0);
-    const [preferredCategory, setPreferredCategory] = useState<"sub" | "dub" | "hsub">("sub");
-    const [preferredServerName, setPreferredServerName] = useState<string>("");
+    const [preferredCategory, setPreferredCategory] = useState<"sub" | "dub" | "hsub">(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const savedCat = localStorage.getItem("preferred_server_category");
+                if (savedCat === "sub" || savedCat === "dub" || savedCat === "hsub") {
+                    return savedCat;
+                }
+            } catch {}
+        }
+        return "sub";
+    });
 
-    // Load initial server preferences from localStorage
-    useEffect(() => {
-        try {
-            const savedCat = localStorage.getItem("preferred_server_category");
-            if (savedCat === "sub" || savedCat === "dub" || savedCat === "hsub") {
-                setPreferredCategory(savedCat);
-            }
-            const savedServer = localStorage.getItem("preferred_server_name");
-            if (savedServer) {
-                setPreferredServerName(savedServer);
-            }
-        } catch {}
-    }, []);
+    const [preferredServerName, setPreferredServerName] = useState<string>(() => {
+        if (typeof window !== "undefined") {
+            try {
+                return localStorage.getItem("preferred_server_name") || "";
+            } catch {}
+        }
+        return "";
+    });
+
+    const [subServerIdx, setSubServerIdx] = useState(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const pref = localStorage.getItem("preferred_server_name") || "";
+                if (pref) {
+                    const idx = subServers.findIndex(s => s.name?.toLowerCase() === pref.toLowerCase());
+                    if (idx !== -1) return idx;
+                }
+            } catch {}
+        }
+        return 0;
+    });
+
+    const [hsubServerIdx, setHsubServerIdx] = useState(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const pref = localStorage.getItem("preferred_server_name") || "";
+                if (pref) {
+                    const idx = hsubServers.findIndex(s => s.name?.toLowerCase() === pref.toLowerCase());
+                    if (idx !== -1) return idx;
+                }
+            } catch {}
+        }
+        return 0;
+    });
+
+    const [dubServerIdx, setDubServerIdx] = useState(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const pref = localStorage.getItem("preferred_server_name") || "";
+                if (pref) {
+                    const idx = dubServers.findIndex(s => s.name?.toLowerCase() === pref.toLowerCase());
+                    if (idx !== -1) return idx;
+                }
+            } catch {}
+        }
+        return 0;
+    });
 
     // Resolve active category based on user preference and stream availability
     const activeCategory = useMemo<"sub" | "dub" | "hsub">(() => {
@@ -234,6 +271,13 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         try {
             localStorage.setItem("preferred_server_category", category);
         } catch {}
+        const targetServers = category === "sub" ? subServers : category === "hsub" ? hsubServers : dubServers;
+        const targetIdx = category === "sub" ? subServerIdx : category === "hsub" ? hsubServerIdx : dubServerIdx;
+        const s = targetServers[targetIdx];
+        if (s?.name) {
+            setPreferredServerName(s.name);
+            try { localStorage.setItem("preferred_server_name", s.name); } catch {}
+        }
     };
 
     const handleSubChange = (idx: number) => {
@@ -289,15 +333,38 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
 
     const selectedServer = getActiveServers()[getActiveServerIdx()] ?? null;
     const currentSource = useMemo(() => {
+        const targetType = selectedServer?.type || activeCategory;
+        const candidateSources = allSources.filter(s => getSourceType(s) === targetType);
+
         if (selectedServer) {
-            const matched = allSources.find(s =>
-                s.server === selectedServer.name &&
-                (s.type === selectedServer.type || getSourceType(s) === selectedServer.type)
-            );
-            if (matched) return matched;
+            // 1. Exact match by server name
+            const exact = candidateSources.find(s => s.server === selectedServer.name);
+            if (exact) return exact;
+
+            // 2. Fuzzy normalized match (strip spaces, symbols, lowercase)
+            const norm = (str?: string) => (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const targetNorm = norm(selectedServer.name);
+            if (targetNorm) {
+                const fuzzy = candidateSources.find(s => norm(s.server) === targetNorm);
+                if (fuzzy) return fuzzy;
+
+                // 3. Substring match
+                const substr = candidateSources.find(s => {
+                    const sNorm = norm(s.server);
+                    return sNorm.includes(targetNorm) || targetNorm.includes(sNorm);
+                });
+                if (substr) return substr;
+            }
         }
+
+        // 4. Fallback to first source of the selected category so it NEVER reverts to sub
+        if (candidateSources.length > 0) {
+            return candidateSources[0];
+        }
+
+        // 5. Ultimate fallback only if no sources of that category exist
         return allSources[0] ?? null;
-    }, [selectedServer, allSources, servers]);
+    }, [selectedServer, activeCategory, allSources, servers]);
 
     const hasValidSkipData = (sd?: SkipData | null): boolean => {
         if (!sd) return false;

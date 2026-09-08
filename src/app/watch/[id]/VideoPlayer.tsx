@@ -384,68 +384,75 @@ function HlsPlayer({
     const skipDataRef = useRef(skipData);
     skipDataRef.current = skipData;
 
+    const playM3u8 = useCallback((video: HTMLVideoElement, url: string, art: any) => {
+        if (isDestroyedRef.current) return;
+        if (HLS.isSupported()) {
+            if (hlsRef.current) {
+                try {
+                    hlsRef.current.destroy();
+                } catch (e) {
+                    console.warn("HLS cleanup warning:", e);
+                }
+                hlsRef.current = null;
+            }
+            const hls = new HLS({
+                debug: false,
+                startLevel: -1,
+                maxBufferLength: 20,
+                maxMaxBufferLength: 40,
+                maxBufferSize: 30 * 1000 * 1000,
+                startFragPrefetch: false,
+                abrBandWidthFactor: 0.8,
+                abrBandWidthUpFactor: 0.6,
+                enableWorker: false,
+                stretchShortVideoTrack: true,
+                xhrSetup: (xhr) => {
+                    xhr.withCredentials = false;
+                },
+            });
+            hlsRef.current = hls;
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            art.hls = hls;
+
+            // Load saved preferred quality height
+            hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
+                const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
+                if (savedHeight > 0) {
+                    const matched = data.levels.findIndex(l => l.height === savedHeight);
+                    if (matched !== -1) {
+                        hls.currentLevel = matched;
+                    }
+                }
+            });
+
+            hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => {
+                if (data.level === -1) {
+                    localStorage.removeItem('preferred-quality-height');
+                } else {
+                    const height = hls.levels[data.level]?.height;
+                    if (height) {
+                        localStorage.setItem('preferred-quality-height', String(height));
+                    }
+                }
+            });
+
+            art.on("destroy", () => {
+                if (hlsRef.current === hls) {
+                    hls.destroy();
+                    hlsRef.current = null;
+                }
+            });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = url;
+        }
+    }, []);
+
     // Setup Artplayer
     useEffect(() => {
         isDestroyedRef.current = false;
         if (!artRef.current) return;
         artRef.current.innerHTML = "";
-
-        const playM3u8 = (video: HTMLVideoElement, url: string, art: any) => {
-            if (isDestroyedRef.current) return;
-            if (HLS.isSupported()) {
-                if (hlsRef.current) hlsRef.current.destroy();
-                const hls = new HLS({
-                    debug: false,
-                    startLevel: -1,
-                    maxBufferLength: 20,
-                    maxMaxBufferLength: 40,
-                    maxBufferSize: 30 * 1000 * 1000,
-                    startFragPrefetch: false,
-                    abrBandWidthFactor: 0.8,
-                    abrBandWidthUpFactor: 0.6,
-                    enableWorker: false,
-                    stretchShortVideoTrack: true,
-                    xhrSetup: (xhr) => {
-                        xhr.withCredentials = false;
-                    },
-                });
-                hlsRef.current = hls;
-                hls.loadSource(url);
-                hls.attachMedia(video);
-                art.hls = hls;
-
-                // Load saved preferred quality height
-                hls.on(HLS.Events.MANIFEST_PARSED, (_, data) => {
-                    const savedHeight = Number(localStorage.getItem("preferred-quality-height") ?? "-1");
-                    if (savedHeight > 0) {
-                        const matched = data.levels.findIndex(l => l.height === savedHeight);
-                        if (matched !== -1) {
-                            hls.currentLevel = matched;
-                        }
-                    }
-                });
-
-                hls.on(HLS.Events.LEVEL_SWITCHED, (_, data) => {
-                    if (data.level === -1) {
-                        localStorage.removeItem('preferred-quality-height');
-                    } else {
-                        const height = hls.levels[data.level]?.height;
-                        if (height) {
-                            localStorage.setItem('preferred-quality-height', String(height));
-                        }
-                    }
-                });
-
-                art.on("destroy", () => {
-                    if (hlsRef.current === hls) {
-                        hls.destroy();
-                        hlsRef.current = null;
-                    }
-                });
-            } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-                video.src = url;
-            }
-        };
 
         // Skip button timer & interval state
         let skipHideTimer: NodeJS.Timeout | null = null;
@@ -1182,31 +1189,47 @@ function HlsPlayer({
         };
     }, []);
 
-    const isFirstMountRef = useRef(true);
+    const lastLoadedUrlRef = useRef<string>(m3u8Url);
 
-    // Switch video stream dynamically when episode changes without unmounting Artplayer or closing Fullscreen
+    // Switch video stream dynamically when source/category/episode changes without unmounting Artplayer or closing Fullscreen
     useEffect(() => {
-        if (isFirstMountRef.current) {
-            isFirstMountRef.current = false;
-            return;
-        }
         if (!artInstance || isDestroyedRef.current) return;
+        if (!m3u8Url) return;
+        if (lastLoadedUrlRef.current === m3u8Url) return;
+
+        lastLoadedUrlRef.current = m3u8Url;
 
         try {
-            if (hlsRef.current && HLS.isSupported()) {
-                hlsRef.current.loadSource(m3u8Url);
-                hlsRef.current.startLoad();
+            const currentTime = artInstance.currentTime;
+            // switchUrl cleanly resets the player customType pipeline, attaches fresh HLS, keeping Fullscreen active
+            artInstance.switchUrl(m3u8Url).then(() => {
+                if (currentTime > 0) {
+                    artInstance.seek = currentTime;
+                }
+                artInstance.play().catch(() => {});
+            }).catch((err) => {
+                console.warn("artInstance.switchUrl fallback:", err);
+                if (hlsRef.current) {
+                    try { hlsRef.current.destroy(); } catch (_) {}
+                    hlsRef.current = null;
+                }
                 if (artInstance.video) {
+                    playM3u8(artInstance.video, m3u8Url, artInstance);
+                    if (currentTime > 0) {
+                        artInstance.seek = currentTime;
+                    }
                     artInstance.video.play().catch(() => {});
                 }
-            } else if (artInstance.video) {
-                artInstance.video.src = m3u8Url;
-                artInstance.video.play().catch(() => {});
-            }
+            });
         } catch (err) {
             console.error("Error switching video stream:", err);
         }
-    }, [m3u8Url, artInstance]);
+    }, [m3u8Url, artInstance, playM3u8]);
+
+    // Resync selected subtitle track whenever tracks change (e.g. switching between sub and dub, or next episode)
+    useEffect(() => {
+        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks));
+    }, [tracksKey]);
 
     // Re-draw skip markers when skipData changes (e.g. switching between sub and dub servers)
     useEffect(() => {
