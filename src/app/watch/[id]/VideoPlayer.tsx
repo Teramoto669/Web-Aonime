@@ -22,6 +22,8 @@ type VideoPlayerProps = {
     nextEpisode?: { number: string; url: string } | null;
     onNavigateNext?: () => void;
     episodeKey?: string;
+    category?: "sub" | "dub" | "hsub" | string;
+    serverName?: string;
 };
 
 // Custom Player Icons (Zenime Style)
@@ -109,6 +111,19 @@ const hasValidSkipData = (sd?: SkipData | null): boolean => {
     return isValidSegment(sd.intro) || isValidSegment(sd.outro);
 };
 
+function getSourceType(source?: Source): "sub" | "dub" | "hsub" {
+    if (!source) return "sub";
+    const rawType = (source.type || "").toLowerCase().trim();
+    if (rawType === "dub") return "dub";
+    if (rawType === "hsub") return "hsub";
+    if (rawType === "sub") return "sub";
+    const allUrls = [source.url, source.m3u8, source.proxyUrl].filter(Boolean).join(" ");
+    if (/\/dub(\/|$|\?)/i.test(allUrls) || /\bdub\b/i.test(allUrls)) return "dub";
+    if (/\/hsub(\/|$|\?)/i.test(allUrls) || /\bhsub\b/i.test(allUrls)) return "hsub";
+    if (/\/sub(\/|$|\?)/i.test(allUrls) || /\bsub\b/i.test(allUrls)) return "sub";
+    return "sub";
+}
+
 // Main export
 
 export function VideoPlayer({
@@ -123,10 +138,15 @@ export function VideoPlayer({
     nextEpisode,
     onNavigateNext,
     episodeKey,
+    category,
+    serverName,
 }: VideoPlayerProps) {
     const [playerUrl, setPlayerUrl] = useState<{ m3u8?: string; embed?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const resolvedCategory = category || getSourceType(source);
+    const resolvedServerName = serverName || source.server;
 
     useEffect(() => {
         const proxyBase = cfProxyUrl ? (cfProxyUrl.startsWith('http') ? cfProxyUrl : `https://${cfProxyUrl}`).replace(/\/$/, '') : '';
@@ -179,6 +199,8 @@ export function VideoPlayer({
                 nextEpisode={nextEpisode}
                 onNavigateNext={onNavigateNext}
                 episodeKey={episodeKey}
+                category={resolvedCategory}
+                serverName={resolvedServerName}
             />
         );
     }
@@ -260,20 +282,35 @@ function shiftWebVTT(vttText: string, delay: number): string {
 
 // Subtitle Language Preference Helper
 
-function getInitialSubtitleIndex(trackList: Track[]): number {
+function getInitialSubtitleIndex(
+    trackList: Track[],
+    category: string = "sub",
+    serverName?: string
+): number {
     if (!trackList || trackList.length === 0) return -1;
-    if (typeof window === "undefined") return 0;
+    const cat = (category || "sub").toLowerCase().trim();
+    const sName = serverName ? serverName.toLowerCase().trim() : "";
 
-    const savedLabel = localStorage.getItem("preferred-subtitle-label");
-    if (savedLabel === "OFF") return -1;
+    if (typeof window === "undefined") {
+        return cat === "dub" || cat === "hsub" ? -1 : 0;
+    }
 
-    if (savedLabel) {
+    // 1. Check server-specific preference first: e.g. "preferred-subtitle-label-dub-vidstream"
+    const serverSavedLabel = sName ? localStorage.getItem(`preferred-subtitle-label-${cat}-${sName}`) : null;
+    // 2. Check category-specific preference: e.g. "preferred-subtitle-label-dub" or "preferred-subtitle-label-sub"
+    const catSavedLabel = localStorage.getItem(`preferred-subtitle-label-${cat}`);
+
+    const savedLabel = serverSavedLabel !== null ? serverSavedLabel : catSavedLabel;
+
+    if (savedLabel !== null) {
+        if (savedLabel === "OFF") return -1;
+
         const savedLower = savedLabel.toLowerCase().trim();
-        // 1. Exact label match
+        // Exact label match
         const exactIdx = trackList.findIndex(t => t.label?.toLowerCase().trim() === savedLower);
         if (exactIdx !== -1) return exactIdx;
 
-        // 2. Fuzzy label or language match (e.g. "english", "eng", "en", "indonesia", "ind", "sub")
+        // Fuzzy label or kind match
         const fuzzyIdx = trackList.findIndex(t => {
             const label = (t.label || "").toLowerCase();
             const kind = (t.kind || "").toLowerCase();
@@ -281,6 +318,36 @@ function getInitialSubtitleIndex(trackList: Track[]): number {
         });
         if (fuzzyIdx !== -1) return fuzzyIdx;
     }
+
+    // If NO preference was saved yet for this category:
+    // For DUB & HSUB: Default to OFF (-1) because dub audio has English voices and hsub already has hard subs
+    if (cat === "dub" || cat === "hsub") {
+        return -1;
+    }
+
+    // For SUB: Check global fallback preference "preferred-subtitle-label" (legacy)
+    const globalSavedLabel = localStorage.getItem("preferred-subtitle-label");
+    if (globalSavedLabel === "OFF") return -1;
+
+    if (globalSavedLabel) {
+        const savedLower = globalSavedLabel.toLowerCase().trim();
+        const exactIdx = trackList.findIndex(t => t.label?.toLowerCase().trim() === savedLower);
+        if (exactIdx !== -1) return exactIdx;
+
+        const fuzzyIdx = trackList.findIndex(t => {
+            const label = (t.label || "").toLowerCase();
+            const kind = (t.kind || "").toLowerCase();
+            return label.includes(savedLower) || savedLower.includes(label) || kind.includes(savedLower);
+        });
+        if (fuzzyIdx !== -1) return fuzzyIdx;
+    }
+
+    // Default fallback for SUB: Prefer English track if available, else first track (0)
+    const englishIdx = trackList.findIndex(t => {
+        const label = (t.label || "").toLowerCase();
+        return label.includes("english") || label.includes("eng") || label === "en";
+    });
+    if (englishIdx !== -1) return englishIdx;
 
     return 0;
 }
@@ -299,6 +366,8 @@ function HlsPlayer({
     nextEpisode,
     onNavigateNext,
     episodeKey,
+    category = "sub",
+    serverName,
 }: {
     m3u8Url: string;
     tracks: Track[];
@@ -311,10 +380,16 @@ function HlsPlayer({
     nextEpisode?: { number: string; url: string } | null;
     onNavigateNext?: () => void;
     episodeKey?: string;
+    category?: string;
+    serverName?: string;
 }) {
     const artRef = useRef<HTMLDivElement>(null);
     const [artInstance, setArtInstance] = useState<Artplayer | null>(null);
     const lastLoadedEpisodeKeyRef = useRef<string | undefined>(episodeKey);
+    const categoryRef = useRef(category);
+    categoryRef.current = category;
+    const serverNameRef = useRef(serverName);
+    serverNameRef.current = serverName;
 
     const [showNextOverlay, setShowNextOverlay] = useState(false);
     const [countdown, setCountdown] = useState(5);
@@ -341,17 +416,31 @@ function HlsPlayer({
     const tracksKey = JSON.stringify(tracks || []);
 
     const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(() =>
-        getInitialSubtitleIndex(tracks)
+        getInitialSubtitleIndex(tracks, category, serverName)
     );
 
     const handleSelectSubtitle = (index: number) => {
         setSelectedSubtitleIndex(index);
         if (typeof window !== "undefined") {
+            const cat = (categoryRef.current || category || "sub").toLowerCase().trim();
+            const sName = (serverNameRef.current || serverName || "").toLowerCase().trim();
             if (index >= 0 && tracks[index]) {
                 const trackLabel = tracks[index].label || "";
-                localStorage.setItem("preferred-subtitle-label", trackLabel);
+                localStorage.setItem(`preferred-subtitle-label-${cat}`, trackLabel);
+                if (sName) {
+                    localStorage.setItem(`preferred-subtitle-label-${cat}-${sName}`, trackLabel);
+                }
+                if (cat === "sub") {
+                    localStorage.setItem("preferred-subtitle-label", trackLabel);
+                }
             } else if (index === -1) {
-                localStorage.setItem("preferred-subtitle-label", "OFF");
+                localStorage.setItem(`preferred-subtitle-label-${cat}`, "OFF");
+                if (sName) {
+                    localStorage.setItem(`preferred-subtitle-label-${cat}-${sName}`, "OFF");
+                }
+                if (cat === "sub") {
+                    localStorage.setItem("preferred-subtitle-label", "OFF");
+                }
             }
         }
     };
@@ -1251,6 +1340,12 @@ function HlsPlayer({
                     artInstance.seek = 0;
                 }
                 artInstance.play().catch(() => {});
+                if (selectedSubtitleIndexRef.current < 0 && artInstance.subtitle) {
+                    artInstance.subtitle.show = false;
+                    if (artInstance.template?.$subtitle) {
+                        artInstance.template.$subtitle.innerHTML = '';
+                    }
+                }
             }).catch((err) => {
                 console.warn("artInstance.switchUrl fallback:", err);
                 if (hlsRef.current) {
@@ -1272,10 +1367,10 @@ function HlsPlayer({
         }
     }, [m3u8Url, artInstance, playM3u8, episodeKey]);
 
-    // Resync selected subtitle track whenever tracks change (e.g. switching between sub and dub, or next episode)
+    // Resync selected subtitle track whenever tracks, category, or server change (e.g. switching between sub and dub, or server)
     useEffect(() => {
-        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks));
-    }, [tracksKey]);
+        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks, category, serverName));
+    }, [tracksKey, category, serverName]);
 
     // Re-draw skip markers when skipData changes (e.g. switching between sub and dub servers)
     useEffect(() => {
@@ -2391,6 +2486,9 @@ function HlsPlayer({
         if (selectedSubtitleIndex < 0 || !tracks || !tracks[selectedSubtitleIndex]) {
             if (artInstance) {
                 artInstance.subtitle.show = false;
+                if (artInstance.template?.$subtitle) {
+                    artInstance.template.$subtitle.innerHTML = '';
+                }
             }
             return;
         }
@@ -2421,6 +2519,9 @@ function HlsPlayer({
         if (selectedSubtitleIndex < 0 || !tracks || !tracks[selectedSubtitleIndex]) {
             if (artInstance) {
                 artInstance.subtitle.show = false;
+                if (artInstance.template?.$subtitle) {
+                    artInstance.template.$subtitle.innerHTML = '';
+                }
             }
             return;
         }
@@ -2519,9 +2620,9 @@ function HlsPlayer({
         }
     }, [showNextOverlay, isAutoNavigating, nextEpisode, artInstance]);
 
-    // Reset subtitle states & overlay when URL/episode changes
+    // Reset subtitle states & overlay when URL/episode/category/server changes
     useEffect(() => {
-        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks));
+        setSelectedSubtitleIndex(getInitialSubtitleIndex(tracks, category, serverName));
         setSubDelay(0);
         setOriginalSubContents({});
         skipTargetTimeRef.current = null;
@@ -2534,7 +2635,7 @@ function HlsPlayer({
             });
             return {};
         });
-    }, [m3u8Url, tracksKey]);
+    }, [m3u8Url, tracksKey, category, serverName]);
 
     return (
         <div className="w-full flex flex-col">

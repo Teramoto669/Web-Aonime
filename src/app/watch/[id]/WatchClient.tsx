@@ -488,6 +488,8 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                     key="aonime-player"
                                     episodeKey={`${slug}-ep-${currentEpNum}`}
                                     source={currentSource}
+                                    category={activeCategory}
+                                    serverName={selectedServer?.name}
                                     tracks={currentSource.tracks || watchDataState.tracks || []}
                                     cfProxyUrl={cfProxyUrl}
                                     skipData={resolvedSkipData}
