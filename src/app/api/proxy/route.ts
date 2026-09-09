@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
     forwarded['Range'] = rangeHeader;
   }
 
-  let CF_PROXY = process.env.CF_PROXY_URL ? process.env.CF_PROXY_URL.trim() : '';
+  let CF_PROXY = (process.env.CF_PROXY_URL || process.env.NEXT_PUBLIC_CF_PROXY_URL || '').trim();
   if (CF_PROXY) {
     CF_PROXY = (CF_PROXY.startsWith('http') ? CF_PROXY : `https://${CF_PROXY}`).replace(/\/$/, '');
   }
@@ -166,34 +166,13 @@ export async function GET(req: NextRequest) {
       if (refererParam) workerUrl += `&referer=${encodeURIComponent(refererParam)}`;
       if (customProxy)  workerUrl += `&proxy=${encodeURIComponent(customProxy)}`;
 
-      upstreamRes = await fetch(workerUrl, {
-        headers: forwarded,
-        cache: 'no-store',
-      });
-
-      if (!upstreamRes.ok) {
-        return NextResponse.json(
-          { error: `Upstream ${upstreamRes.status}` },
-          { status: upstreamRes.status },
-        );
-      }
-
-      // Return the Cloudflare Worker's response directly to the browser.
-      // The Cloudflare Worker has already performed all necessary manifest rewriting (pointing to the worker's URL)
-      // and has set all appropriate CORS and Range headers.
-      const responseHeaders = new Headers();
-      upstreamRes.headers.forEach((value, key) => {
-        responseHeaders.set(key, value);
-      });
-      responseHeaders.set('Access-Control-Allow-Origin', '*');
-      responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      responseHeaders.set('Access-Control-Allow-Headers', '*');
-      responseHeaders.set('X-Accel-Buffering', 'no');
-
-      return new Response(upstreamRes.body, {
-        status: upstreamRes.status,
-        headers: responseHeaders,
-      });
+      // ── Zero-Bandwidth Offloading to Cloudflare Worker ───────────────────────
+      // Instead of downloading and streaming heavy video chunks through Vercel's
+      // serverless functions (which rapidly consumes Vercel Fast Origin Transfer
+      // and Fast Data Transfer quota), redirect the client directly to the Worker.
+      const redirectRes = NextResponse.redirect(workerUrl, 307);
+      Object.entries(corsHeaders).forEach(([k, v]) => redirectRes.headers.set(k, v));
+      return redirectRes;
     } else {
       upstreamRes = await fetch(targetUrl, {
         headers: forwarded,
@@ -243,15 +222,6 @@ export async function GET(req: NextRequest) {
     if (isManifest) {
       let text = await upstreamRes.text();
 
-      // If a Cloudflare Worker was used, replace its URL with the local proxy path
-      if (CF_PROXY) {
-        try {
-          const workerOrigin = new URL(CF_PROXY).origin;
-          const escapedOrigin = workerOrigin.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          const regex = new RegExp(escapedOrigin + '/?', 'g');
-          text = text.replace(regex, '/api/proxy');
-        } catch (_) {}
-      }
 
       const rewritten = text.split('\n').map((line) => {
         // Rewrite codecs to prevent bufferAppendError with HE-AAC v2 in Chrome MSE

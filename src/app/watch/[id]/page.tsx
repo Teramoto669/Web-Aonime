@@ -80,7 +80,7 @@ export default async function WatchPage({
                         watchData={watchData || { sources: [] }}
                         relatedData={relatedData}
                         recommendationsData={recommendationsData}
-                        cfProxyUrl={process.env.CF_PROXY_URL}
+                        cfProxyUrl={process.env.CF_PROXY_URL || process.env.NEXT_PUBLIC_CF_PROXY_URL}
                     />
                 </Suspense>
             );
@@ -155,7 +155,7 @@ export default async function WatchPage({
                     watchData={watchData || { sources: [] }}
                     relatedData={relatedData}
                     recommendationsData={recommendationsData}
-                    cfProxyUrl={process.env.CF_PROXY_URL}
+                    cfProxyUrl={process.env.CF_PROXY_URL || process.env.NEXT_PUBLIC_CF_PROXY_URL}
                 />
             </Suspense>
         );
@@ -175,7 +175,7 @@ export default async function WatchPage({
                     watchData={{ sources: [], error: "Could not fetch episode data. The API might be down or the episode is not available." }}
                     relatedData={[]}
                     recommendationsData={[]}
-                    cfProxyUrl={process.env.CF_PROXY_URL}
+                    cfProxyUrl={process.env.CF_PROXY_URL || process.env.NEXT_PUBLIC_CF_PROXY_URL}
                 />
             </Suspense>
         );

@@ -81,7 +81,7 @@ const styleIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 
 const captionsListIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 10h2v2H7zm0 4h10v2H7zm4-4h6v2h-6z"/></svg>`;
 
-// Helper to rewrite any client-visible Cloudflare Worker proxy URLs to route through the local /api/proxy
+// Helper to resolve client streaming proxy URLs, preferring direct Cloudflare Worker to avoid Vercel bandwidth usage
 function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
     if (!url) return '';
     try {
@@ -96,6 +96,10 @@ function cleanProxyUrl(url: string | undefined, proxyBase?: string): string {
                 const refQs   = referer ? `&referer=${encodeURIComponent(referer)}` : '';
                 if (proxyBase) {
                     return `${proxyBase}/?url=${encodeURIComponent(targetUrl)}${refQs}${proxyQs}`;
+                }
+                // If url is already an absolute external worker/proxy URL, keep it direct
+                if (url.startsWith('http://') || url.startsWith('https://')) {
+                    return url;
                 }
                 return `/api/proxy?url=${encodeURIComponent(targetUrl)}${refQs}${proxyQs}`;
             }
@@ -149,7 +153,8 @@ export function VideoPlayer({
     const resolvedServerName = serverName || source.server;
 
     useEffect(() => {
-        const proxyBase = cfProxyUrl ? (cfProxyUrl.startsWith('http') ? cfProxyUrl : `https://${cfProxyUrl}`).replace(/\/$/, '') : '';
+        const resolvedProxy = (cfProxyUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_CF_PROXY_URL : '') || '').trim();
+        const proxyBase = resolvedProxy ? (resolvedProxy.startsWith('http') ? resolvedProxy : `https://${resolvedProxy}`).replace(/\/$/, '') : '';
         if (source.proxyUrl) {
             setPlayerUrl({ m3u8: cleanProxyUrl(source.proxyUrl, proxyBase) });
         } else if (source.m3u8) {
@@ -2495,7 +2500,8 @@ function HlsPlayer({
 
         const index = selectedSubtitleIndex;
         const track = tracks[index];
-        const proxyBase = cfProxyUrl ? (cfProxyUrl.startsWith('http') ? cfProxyUrl : `https://${cfProxyUrl}`).replace(/\/$/, '') : '';
+        const resolvedProxy = (cfProxyUrl || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_CF_PROXY_URL : '') || '').trim();
+        const proxyBase = resolvedProxy ? (resolvedProxy.startsWith('http') ? resolvedProxy : `https://${resolvedProxy}`).replace(/\/$/, '') : '';
         const url = cleanProxyUrl(track.proxyUrl || track.file, proxyBase);
         if (!url) return;
 
