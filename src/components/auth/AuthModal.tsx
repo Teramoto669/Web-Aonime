@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ReCaptcha, IS_RECAPTCHA_ENABLED } from "@/components/auth/ReCaptcha";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 // Form validation schemas
 const loginSchema = z.object({
@@ -30,16 +30,23 @@ const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: "Invalid email address" }),
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function AuthModal() {
-  const { isAuthModalOpen, authModalTab, closeAuthModal, openAuthModal, login, register, signInWithGoogle } = useAuth();
+  const { isAuthModalOpen, authModalTab, closeAuthModal, openAuthModal, login, register, signInWithGoogle, resetPassword } = useAuth();
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [sentResetEmail, setSentResetEmail] = useState("");
 
   // Login Form Hook
   const {
@@ -61,6 +68,17 @@ export default function AuthModal() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { email: "", password: "", confirmPassword: "" },
+  });
+
+  // Forgot Password Form Hook
+  const {
+    register: registerForgot,
+    handleSubmit: handleForgotSubmit,
+    formState: { errors: forgotErrors },
+    reset: resetForgotForm,
+  } = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
   });
 
   // Helper to verify reCAPTCHA token with backend API
@@ -217,13 +235,75 @@ export default function AuthModal() {
     }
   };
 
+  // Submit Forgot Password
+  const onForgotPassword = async (data: ForgotPasswordFormValues) => {
+    if (IS_RECAPTCHA_ENABLED) {
+      if (!recaptchaToken) {
+        toast({
+          variant: "destructive",
+          title: "CAPTCHA Verification Required",
+          description: "Please complete the reCAPTCHA verification.",
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+      const isVerified = await verifyRecaptchaToken(recaptchaToken, "forgot_password");
+      if (!isVerified) {
+        setRecaptchaToken(null);
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      setIsSubmitting(true);
+    }
+
+    try {
+      await resetPassword(data.email);
+      setSentResetEmail(data.email);
+      setResetEmailSent(true);
+      toast({
+        title: "Reset Link Sent",
+        description: `A password reset link has been sent to ${data.email}.`,
+      });
+      setRecaptchaToken(null);
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      let desc = "Failed to send password reset email. Please try again.";
+      if (error.code === "auth/user-not-found") {
+        desc = "No account found with this email address.";
+      } else if (error.code === "auth/invalid-email") {
+        desc = "Invalid email format.";
+      } else if (error.code === "auth/too-many-requests") {
+        desc = "Too many requests. Please wait a few minutes before trying again.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Reset Failed",
+        description: desc,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleTabChange = (val: string) => {
     setRecaptchaToken(null);
-    openAuthModal(val as 'login' | 'register');
+    setResetEmailSent(false);
+    openAuthModal(val as 'login' | 'register' | 'forgot-password');
   };
 
   return (
-    <Dialog open={isAuthModalOpen} onOpenChange={(open) => !open && closeAuthModal()}>
+    <Dialog
+      open={isAuthModalOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          setResetEmailSent(false);
+          resetForgotForm();
+          closeAuthModal();
+        }
+      }}
+    >
       <DialogContent
         className="sm:max-w-[420px] bg-background/95 border-border/80 backdrop-blur-md rounded-xl shadow-2xl p-6"
         onFocusOutside={(e) => {
@@ -243,79 +323,195 @@ export default function AuthModal() {
         }}
       >
         <DialogHeader className="space-y-1">
-          <DialogTitle className="text-2xl font-black tracking-tight text-center text-primary">
-            Aonime Account
-          </DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
-            Access your favorite anime library and sync your progress.
-          </DialogDescription>
+          {authModalTab === "forgot-password" ? (
+            <>
+              <div className="flex items-center justify-between w-full mb-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmailSent(false);
+                    openAuthModal("login");
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Sign In</span>
+                </button>
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-center text-primary">
+                Reset Password
+              </DialogTitle>
+              <DialogDescription className="text-center text-muted-foreground">
+                {resetEmailSent
+                  ? "We've sent a recovery link to your inbox."
+                  : "Enter your registered email and we'll send you a password reset link."}
+              </DialogDescription>
+            </>
+          ) : (
+            <>
+              <DialogTitle className="text-2xl font-black tracking-tight text-center text-primary">
+                Aonime Account
+              </DialogTitle>
+              <DialogDescription className="text-center text-muted-foreground">
+                Access your favorite anime library and sync your progress.
+              </DialogDescription>
+            </>
+          )}
         </DialogHeader>
 
-        <Tabs value={authModalTab} onValueChange={handleTabChange} className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-2 bg-muted/80 p-1 rounded-lg">
-            <TabsTrigger value="login" disabled={isSubmitting} className="rounded-md font-semibold text-sm">
-              Sign In
-            </TabsTrigger>
-            <TabsTrigger value="register" disabled={isSubmitting} className="rounded-md font-semibold text-sm">
-              Sign Up
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Login Content */}
-          <TabsContent value="login" className="mt-4 space-y-4">
-            <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
+        {authModalTab === "forgot-password" ? (
+          resetEmailSent ? (
+            <div className="space-y-4 py-4 text-center animate-in fade-in zoom-in-95 duration-200">
+              <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold text-foreground">
+                  Check Your Email
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  We sent a password reset link to{" "}
+                  <span className="font-semibold text-foreground">{sentResetEmail}</span>.
+                  Please check your inbox and spam folder.
+                </p>
+              </div>
+              <div className="pt-2 space-y-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setResetEmailSent(false);
+                    resetForgotForm();
+                    openAuthModal("login");
+                  }}
+                  className="w-full font-bold"
+                >
+                  Back to Sign In
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setResetEmailSent(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground font-semibold underline underline-offset-4 transition-colors"
+                >
+                  Didn't receive email? Try again
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotSubmit(onForgotPassword)} className="space-y-4 mt-4 animate-in fade-in duration-200">
               <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
+                <Label htmlFor="forgot-email">Account Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="login-email"
+                    id="forgot-email"
                     type="email"
                     placeholder="name@email.com"
                     className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
                     disabled={isSubmitting}
-                    {...registerLogin("email")}
+                    {...registerForgot("email")}
                   />
                 </div>
-                {loginErrors.email && (
-                  <p className="text-xs text-destructive font-medium mt-1">{loginErrors.email.message}</p>
+                {forgotErrors.email && (
+                  <p className="text-xs text-destructive font-medium mt-1">{forgotErrors.email.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
-                    disabled={isSubmitting}
-                    {...registerLogin("password")}
-                  />
-                </div>
-                {loginErrors.password && (
-                  <p className="text-xs text-destructive font-medium mt-1">{loginErrors.password.message}</p>
-                )}
-              </div>
+              {IS_RECAPTCHA_ENABLED && (
+                <ReCaptcha
+                  action="forgot_password"
+                  onVerify={(token) => setRecaptchaToken(token)}
+                  onExpire={() => setRecaptchaToken(null)}
+                />
+              )}
 
-              <div className="flex items-center justify-between py-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember-me"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(!!checked)}
-                    disabled={isSubmitting}
-                  />
-                  <Label
-                    htmlFor="remember-me"
-                    className="text-xs font-semibold cursor-pointer select-none text-muted-foreground hover:text-foreground"
+              <Button type="submit" disabled={isSubmitting} className="w-full font-bold">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending Reset Link...
+                  </>
+                ) : (
+                  "Send Password Reset Link"
+                )}
+              </Button>
+            </form>
+          )
+        ) : (
+          <Tabs value={authModalTab} onValueChange={handleTabChange} className="w-full mt-4">
+            <TabsList className="grid w-full grid-cols-2 bg-muted/80 p-1 rounded-lg">
+              <TabsTrigger value="login" disabled={isSubmitting} className="rounded-md font-semibold text-sm">
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger value="register" disabled={isSubmitting} className="rounded-md font-semibold text-sm">
+                Sign Up
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Login Content */}
+            <TabsContent value="login" className="mt-4 space-y-4">
+              <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="name@email.com"
+                      className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
+                      disabled={isSubmitting}
+                      {...registerLogin("email")}
+                    />
+                  </div>
+                  {loginErrors.email && (
+                    <p className="text-xs text-destructive font-medium mt-1">{loginErrors.email.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
+                      disabled={isSubmitting}
+                      {...registerLogin("password")}
+                    />
+                  </div>
+                  {loginErrors.password && (
+                    <p className="text-xs text-destructive font-medium mt-1">{loginErrors.password.message}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="remember-me"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(!!checked)}
+                      disabled={isSubmitting}
+                    />
+                    <Label
+                      htmlFor="remember-me"
+                      className="text-xs font-semibold cursor-pointer select-none text-muted-foreground hover:text-foreground"
+                    >
+                      Remember me
+                    </Label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmailSent(false);
+                      openAuthModal("forgot-password");
+                    }}
+                    className="text-xs font-semibold text-primary hover:underline hover:text-primary/80 transition-colors"
                   >
-                    Remember me
-                  </Label>
+                    Forgot password?
+                  </button>
                 </div>
-              </div>
 
               {IS_RECAPTCHA_ENABLED && (
                 <ReCaptcha
@@ -443,7 +639,8 @@ export default function AuthModal() {
             Sign In with Google
           </Button>
         </Tabs>
-      </DialogContent>
-    </Dialog>
-  );
+      )}
+    </DialogContent>
+  </Dialog>
+);
 }

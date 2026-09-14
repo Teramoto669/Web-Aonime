@@ -47,8 +47,22 @@ const TIMEZONES = [
   { value: "14", label: "GMT+14" },
 ];
 
+function getDetectedTimezone(): string {
+  if (typeof window !== "undefined") {
+    try {
+      const offsetHours = Math.round(new Date().getTimezoneOffset() / -60);
+      if (offsetHours >= -12 && offsetHours <= 14) {
+        return String(offsetHours);
+      }
+    } catch (e) {
+      console.error("Failed to detect timezone", e);
+    }
+  }
+  return "0";
+}
+
 export function FooterSchedule() {
-  const [tz, setTz] = useState<string>("0");
+  const [tz, setTz] = useState<string>(getDetectedTimezone);
   const [activeTab, setActiveTab] = useState<string>("");
   const [scheduleData, setScheduleData] = useState<ScheduleDay[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -72,18 +86,6 @@ export function FooterSchedule() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Auto-detect browser timezone offset on mount
-  useEffect(() => {
-    try {
-      const offsetHours = Math.round(new Date().getTimezoneOffset() / -60);
-      if (offsetHours >= -12 && offsetHours <= 14) {
-        setTz(String(offsetHours));
-      }
-    } catch (e) {
-      console.error("Failed to detect timezone", e);
-    }
   }, []);
 
   // Scroll active tab into view when it changes

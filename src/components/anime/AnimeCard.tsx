@@ -76,7 +76,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
 
   return (
     <AnimeTooltip id={anime.id} fallbackTitle={anime.title} fallbackTitleJp={anime.titleJp}>
-      <Link href={`/anime/${getAnimeSlug(anime)}`} className={`group block h-full ${className}`}>
+      <Link href={`/anime/${getAnimeSlug(anime)}`} prefetch={false} className={`group block h-full ${className}`}>
         <Card className="overflow-visible border-0 bg-transparent shadow-sm rounded-lg h-full flex flex-col">
           <div className="relative aspect-[2/3] w-full">
             {/* wrapper scales and has shadow so the shadow grows with the image */}

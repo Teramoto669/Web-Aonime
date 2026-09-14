@@ -869,6 +869,7 @@ function LibraryPageContent() {
                   {isOwnLibrary && item.lastEpisodeWatched && (
                     <Link
                       href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
+                      prefetch={false}
                       className="mt-2 flex items-center justify-center gap-1.5 w-full h-8 text-[11px] font-black uppercase tracking-wider bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary rounded-md transition-all duration-300 shadow-sm"
                     >
                       <Play className="h-3 w-3 fill-current" />
@@ -1128,6 +1129,7 @@ function LibraryPageContent() {
                         <div className="mt-3 pt-2.5 border-t border-border/30 flex items-center justify-between gap-1">
                           <Link
                             href={`/watch/${item.slug}?ep=${item.episodeNum}`}
+                            prefetch={false}
                             className="flex items-center justify-center gap-1 h-7 w-[72%] text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all uppercase tracking-wider text-center"
                           >
                             <Play className="h-2.5 w-2.5 fill-current" />

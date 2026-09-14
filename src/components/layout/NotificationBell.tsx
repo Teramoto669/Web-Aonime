@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "@/hooks/use-router";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
@@ -139,9 +139,16 @@ export function NotificationBell() {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  const notificationsRef = useRef<NotificationType[]>(notifications);
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
   // Periodic background check for new episodes of anime in user's watching library
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || loading) return;
+
+    let isSubscribed = true;
 
     const checkLibraryUpdates = async () => {
       try {
@@ -152,7 +159,7 @@ export function NotificationBell() {
           where("status", "==", "watching")
         );
         const libSnap = await getDocs(libQuery);
-        if (libSnap.empty) return;
+        if (libSnap.empty || !isSubscribed) return;
 
         const watchingAnimes = libSnap.docs.map((d) => d.data());
 
@@ -176,7 +183,7 @@ export function NotificationBell() {
           }
         } catch (_) {}
 
-        if (latestEpisodes.length === 0) return;
+        if (latestEpisodes.length === 0 || !isSubscribed) return;
 
         // Deduplicate cards by slug/id + episode number
         const uniqueCards = new Map<string, AnimeListItem>();
@@ -189,8 +196,11 @@ export function NotificationBell() {
           }
         }
 
+        const currentNotifs = notificationsRef.current;
+
         // 3. Match against watching items and create notifications
         for (const apiAnime of Array.from(uniqueCards.values())) {
+          if (!isSubscribed) break;
           const apiSlug = getAnimeSlug(apiAnime).toLowerCase().trim();
           const apiId = (apiAnime.id || "").toLowerCase().trim();
           const apiTitle = (apiAnime.title || "").toLowerCase().trim();
@@ -218,12 +228,24 @@ export function NotificationBell() {
             const notifId = `lib_update_${user.uid}_${safeSlug}_${latestEpNum}`;
             const altId = `lib_update_${user.uid}_${String(matchedLib.animeId || "").replace(/\//g, "_")}_${latestEpNum}`;
 
+            // Fast in-memory check: skip if this notification already exists in user's loaded notifications
+            const alreadyExists = currentNotifs.some((n) => {
+              if (n.id === notifId || n.id === altId) return true;
+              const nSlug = (n.animeId || "").toLowerCase().trim();
+              if ((nSlug === safeSlug || nSlug === matchedLib.slug || nSlug === matchedLib.animeId) && n.episodeNum === latestEpNum) {
+                return true;
+              }
+              return false;
+            });
+
+            if (alreadyExists) continue;
+
             const notifRef = doc(db, "notifications", notifId);
             const altRef = doc(db, "notifications", altId);
 
             const [notifSnap, altSnap] = await Promise.all([getDoc(notifRef), getDoc(altRef)]);
 
-            if (!notifSnap.exists() && !altSnap.exists()) {
+            if (!notifSnap.exists() && !altSnap.exists() && isSubscribed) {
               await setDoc(notifRef, {
                 userId: user.uid,
                 type: "library_update",
@@ -245,9 +267,12 @@ export function NotificationBell() {
     };
 
     checkLibraryUpdates();
-    const interval = setInterval(checkLibraryUpdates, 3 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.uid]);
+    const interval = setInterval(checkLibraryUpdates, 5 * 60 * 1000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [user?.uid, loading]);
 
   // Mark a single notification as read and route safely
   const handleNotificationClick = async (notif: NotificationType) => {

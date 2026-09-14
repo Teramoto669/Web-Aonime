@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendEmailVerification,
+  sendPasswordResetEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
@@ -48,11 +49,12 @@ interface AuthContextType {
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deleteUserAccount: (currentPassword?: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (profile: { displayName?: string | null; photoURL?: string | null; themeColor?: string }) => Promise<void>;
   updateLastCommentedAt: (date: Date | null) => void;
   isAuthModalOpen: boolean;
-  authModalTab: 'login' | 'register';
-  openAuthModal: (tab?: 'login' | 'register') => void;
+  authModalTab: 'login' | 'register' | 'forgot-password';
+  openAuthModal: (tab?: 'login' | 'register' | 'forgot-password') => void;
   closeAuthModal: () => void;
 }
 
@@ -184,13 +186,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password'>('login');
 
-  const openAuthModal = (tab: 'login' | 'register' = 'login') => {
+  const openAuthModal = (tab: 'login' | 'register' | 'forgot-password' = 'login') => {
     setAuthModalTab(tab);
     setIsAuthModalOpen(true);
   };
   const closeAuthModal = () => setIsAuthModalOpen(false);
+
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
 
   useEffect(() => {
     // Hydrate cached user profile on client mount to ensure instant account info resolution
@@ -490,6 +496,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         changeUserPassword,
         deleteUserAccount,
         logout,
+        resetPassword,
         updateUserProfile,
         updateLastCommentedAt,
         isAuthModalOpen,
