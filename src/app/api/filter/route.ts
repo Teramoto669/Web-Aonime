@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const keyword = searchParams.get('keyword') || undefined;
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
     const sort = searchParams.get('sort') || 'default';
-    const refresh = searchParams.get('refresh') !== '0';
+    const refresh = searchParams.get('refresh') === '1';
 
     const getArrayParam = (paramName: string) => {
       const arr = searchParams.getAll(`${paramName}[]`);

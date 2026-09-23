@@ -15,11 +15,11 @@ export async function GET(req: NextRequest) {
   backendUrl.searchParams.set('keyword', keyword);
   backendUrl.searchParams.set('page', page);
   backendUrl.searchParams.set('sort', sort);
-  if (refresh !== '0') backendUrl.searchParams.set('refresh', '1');
+  if (refresh === '1') backendUrl.searchParams.set('refresh', '1');
 
   try {
     const res = await fetch(backendUrl.toString(), {
-      ...(refresh !== '0' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
+      ...(refresh === '1' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
     });
     
     if (!res.ok) {

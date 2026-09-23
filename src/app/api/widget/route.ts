@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
     const upstreamParams = new URLSearchParams();
     upstreamParams.set('name', name);
     upstreamParams.set('page', page);
-    if (refresh !== '0') upstreamParams.set('refresh', '1');
+    if (refresh === '1') upstreamParams.set('refresh', '1');
 
     const res = await fetch(`${baseUrl}/widget?${upstreamParams.toString()}`, {
-      cache: 'no-store',
+      ...(refresh === '1' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
     });
 
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);

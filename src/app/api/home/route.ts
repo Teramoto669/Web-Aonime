@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const refresh = searchParams.get('refresh') !== '0';
+    const refresh = searchParams.get('refresh') === '1';
     const data = await getHomeData(refresh);
     return NextResponse.json({ ok: true, data });
   } catch (err: any) {

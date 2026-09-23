@@ -166,7 +166,7 @@ export function NotificationBell() {
         // 2. Fetch latest updated episodes from /api/updated and /api/home
         let latestEpisodes: AnimeListItem[] = [];
         try {
-          const resUpdated = await fetch("/api/updated?refresh=1", { cache: "no-store" });
+          const resUpdated = await fetch("/api/updated");
           if (resUpdated.ok) {
             const data = await resUpdated.json();
             const list = Array.isArray(data.data) ? data.data : data.data?.results || [];
@@ -175,7 +175,7 @@ export function NotificationBell() {
         } catch (_) {}
 
         try {
-          const resHome = await fetch("/api/home?refresh=1", { cache: "no-store" });
+          const resHome = await fetch("/api/home");
           if (resHome.ok) {
             const data = await resHome.json();
             const list = Array.isArray(data.data?.latestEpisodes) ? data.data.latestEpisodes : [];

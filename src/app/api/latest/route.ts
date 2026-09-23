@@ -22,10 +22,10 @@ export async function GET(req: NextRequest) {
     upstreamParams.set('type', type);
     upstreamParams.set('sort', sort);
     if (page) upstreamParams.set('page', page);
-    if (refresh !== '0') upstreamParams.set('refresh', '1');
+    if (refresh === '1') upstreamParams.set('refresh', '1');
 
     const res = await fetch(`${baseUrl}/updated?${upstreamParams.toString()}`, {
-      ...(refresh !== '0' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
+      ...(refresh === '1' ? { cache: 'no-store' } : { next: { revalidate: 60 } }),
     });
 
     if (!res.ok) throw new Error(`Upstream error: ${res.status}`);

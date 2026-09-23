@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { adminDb, FieldValue } from '@/lib/firebase-admin';
 import { getAnimeSlug, type AnimeListItem } from '@/lib/types';
 
@@ -42,8 +42,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const res = await fetch(`${baseUrl}/updated?refresh=1`, {
-      cache: 'no-store',
+    const res = await fetch(`${baseUrl}/updated`, {
+      next: { revalidate: 60 },
     });
 
     if (!res.ok) {
