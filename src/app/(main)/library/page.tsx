@@ -870,9 +870,9 @@ function LibraryPageContent() {
                     <Link
                       href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
                       prefetch={false}
-                      className="mt-2 flex items-center justify-center gap-1.5 w-full h-8 text-[11px] font-black uppercase tracking-wider bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary rounded-md transition-all duration-300 shadow-sm"
+                      className="mt-2 flex items-center justify-center gap-1 w-full h-7 text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 text-center shadow-sm"
                     >
-                      <Play className="h-3 w-3 fill-current" />
+                      <Play className="h-2.5 w-2.5 fill-current" />
                       <span>Resume Ep {item.lastEpisodeWatched}</span>
                     </Link>
                   )}

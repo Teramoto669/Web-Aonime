@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
       parsedTarget.host = 'cdn.imgnex.top';
       targetUrl = parsedTarget.toString();
     }
-    if (parsedTarget.hostname === 'ncdn.imgnex.top' && !parsedTarget.pathname.endsWith('master.m3u8')) {
+    if (parsedTarget.hostname === 'ncdn.imgnex.top') {
       parsedTarget.host = 'cdn.imgnex.top';
       targetUrl = parsedTarget.toString();
     }
