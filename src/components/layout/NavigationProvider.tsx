@@ -166,7 +166,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       {/* Premium Top Progress Bar */}
       {progress > 0 && (
         <div
-          className="fixed top-0 left-0 h-[3px] bg-primary z-[99999] transition-all duration-300 ease-out"
+          className="fixed top-0 left-0 h-[3px] bg-primary z-99999 transition-all duration-300 ease-out"
           style={{
             width: `${progress}%`,
             boxShadow: "0 0 10px hsl(var(--primary)), 0 0 5px hsl(var(--primary))",
@@ -177,7 +177,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       {/* Invisible blocker overlay to prevent clicks/interactions during transition */}
       {isNavigating && (
         <div
-          className="fixed inset-0 z-[99998] cursor-wait bg-black/5 pointer-events-auto select-none"
+          className="fixed inset-0 z-99998 cursor-wait bg-black/5 pointer-events-auto select-none"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();

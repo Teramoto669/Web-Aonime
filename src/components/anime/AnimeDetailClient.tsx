@@ -63,7 +63,7 @@ export function AnimeDetailClient({
       {isBlocked && !revealed && (
         <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-destructive/20 rounded-lg text-destructive flex-shrink-0">
+            <div className="p-2 bg-destructive/20 rounded-lg text-destructive shrink-0">
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
@@ -96,9 +96,9 @@ export function AnimeDetailClient({
       )}
 
       {/* Main Details Section */}
-      <div className={`flex flex-col md:flex-row gap-8 ${isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none transition-all duration-300 transform-gpu [will-change:filter]" : ""}`}>
-        <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] flex-shrink-0">
-          <div className="relative aspect-[2/3] w-full">
+      <div className={`flex flex-col md:flex-row gap-8 ${isBlocked && !revealed ? "blur-md opacity-40 select-none pointer-events-none transition-all duration-300 transform-gpu will-change-[filter]" : ""}`}>
+        <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] shrink-0">
+          <div className="relative aspect-2/3 w-full">
             <Image
               src={detailsData.image || "/placeholder.jpg"}
               alt={detailsData.title ?? slug}

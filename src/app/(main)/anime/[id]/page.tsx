@@ -42,8 +42,8 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-12">
         <div className="flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] flex-shrink-0">
-                <Skeleton className="w-full aspect-[2/3] rounded-lg" />
+            <div className="w-full md:w-[240px] lg:w-[280px] xl:w-[320px] shrink-0">
+                <Skeleton className="w-full aspect-2/3 rounded-lg" />
             </div>
             <div className="flex-1 space-y-4">
                 <Skeleton className="h-12 w-3/4" />

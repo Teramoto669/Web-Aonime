@@ -214,7 +214,7 @@ export function FooterSchedule() {
       {loading && scheduleData.length === 0 ? (
         <div className="flex items-center justify-between gap-4 border-b border-border/20 pb-4 mb-4 select-none">
           <div className="h-10 w-10 rounded bg-muted/20 animate-pulse" />
-          <div className="flex justify-center gap-6 overflow-x-auto scrollbar-hide py-1 flex-grow">
+          <div className="flex justify-center gap-6 overflow-x-auto scrollbar-hide py-1 grow">
             {[...Array(7)].map((_, i) => (
               <div key={i} className="h-10 w-16 bg-muted/20 animate-pulse rounded" />
             ))}
@@ -231,7 +231,7 @@ export function FooterSchedule() {
             <ChevronLeft className="h-6 w-6" />
           </button>
 
-          <div className="flex justify-start md:justify-center items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide flex-grow px-2">
+          <div className="flex justify-start md:justify-center items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide grow px-2">
             {scheduleData.map((day) => {
               const isActive = day.day === activeTab;
               const [dayOfWeek, month, dateStr] = day.day.split(" ");
@@ -277,7 +277,7 @@ export function FooterSchedule() {
       {/* Error state */}
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive my-4">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <AlertCircle className="h-5 w-5 shrink-0" />
           <div className="text-sm font-medium">{error}</div>
         </div>
       )}
@@ -289,7 +289,7 @@ export function FooterSchedule() {
           <div className="divide-y divide-border/10">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="py-3.5 px-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-grow">
+                <div className="flex items-center gap-4 grow">
                   <Skeleton className="h-5 w-12 rounded" />
                   <Skeleton className="h-5 w-1/2 rounded" />
                 </div>
@@ -307,9 +307,9 @@ export function FooterSchedule() {
                   key={anime.id}
                   className="group py-3 px-4 flex items-center justify-between gap-4 hover:bg-secondary/20 transition-all duration-300"
                 >
-                  <div className="flex items-center gap-4 min-w-0 flex-grow">
+                  <div className="flex items-center gap-4 min-w-0 grow">
                     {/* Time */}
-                    <span className="text-sm sm:text-base font-semibold text-muted-foreground/80 w-12 flex-shrink-0">
+                    <span className="text-sm sm:text-base font-semibold text-muted-foreground/80 w-12 shrink-0">
                       {anime.date}
                     </span>
                     {/* Title */}
@@ -322,7 +322,7 @@ export function FooterSchedule() {
                   </div>
 
                   {/* Episode pill button on right */}
-                  <Link href={`/anime/${animeSlug}`} className="flex-shrink-0">
+                  <Link href={`/anime/${animeSlug}`} className="shrink-0">
                     <button className="flex items-center gap-1 bg-secondary/30 hover:bg-primary border border-border/40 hover:border-transparent text-[11px] sm:text-xs py-1 px-3 sm:py-1.5 sm:px-4 rounded-full text-foreground group-hover:text-white transition-all duration-300">
                       <Play className="h-3 w-3 fill-current" />
                       <span>{anime.type}</span>

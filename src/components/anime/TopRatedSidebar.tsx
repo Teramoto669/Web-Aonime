@@ -79,17 +79,17 @@ function TopRatedItem({ anime, rank }: { anime: AnimeListItem; rank: number }) {
   return (
     <AnimeTooltip id={animeId} fallbackTitle={anime.title} fallbackTitleJp={anime.titleJp}>
       <div onClick={handleCardClick} className="group block cursor-pointer">
-        <Card className="relative overflow-hidden p-2 bg-card/60 hover:bg-accent/40 border-border/40 hover:border-primary/40 transition-all duration-200 shadow-xs hover:shadow-md flex items-center gap-3 rounded-xl">
+        <Card className="relative overflow-hidden p-2 bg-card/60 hover:bg-accent/40 border-border/40 hover:border-primary/40 transition-all duration-200 shadow-2xs hover:shadow-md flex items-center gap-3 rounded-xl">
           {/* Rank Badge */}
           <div
             className={cn(
-              "flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center font-extrabold text-xs shadow-xs z-10",
+              "shrink-0 w-6 h-6 rounded-md flex items-center justify-center font-extrabold text-xs shadow-2xs z-10",
               rank === 1
-                ? "bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 shadow-amber-500/20"
+                ? "bg-linear-to-br from-amber-300 to-amber-500 text-amber-950 shadow-amber-500/20"
                 : rank === 2
-                ? "bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900 shadow-slate-400/20"
+                ? "bg-linear-to-br from-slate-200 to-slate-400 text-slate-900 shadow-slate-400/20"
                 : rank === 3
-                ? "bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 shadow-amber-700/20"
+                ? "bg-linear-to-br from-amber-600 to-amber-800 text-amber-100 shadow-amber-700/20"
                 : "bg-muted/80 text-muted-foreground"
             )}
           >
@@ -97,7 +97,7 @@ function TopRatedItem({ anime, rank }: { anime: AnimeListItem; rank: number }) {
           </div>
 
           {/* Thumbnail Image */}
-          <div className="relative w-11 h-16 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+          <div className="relative w-11 h-16 rounded-md overflow-hidden shrink-0 bg-muted">
             <Image
               src={anime.image || "/placeholder.jpg"}
               alt={anime.title}
@@ -134,7 +134,7 @@ function TopRatedItem({ anime, rank }: { anime: AnimeListItem; rank: number }) {
                     e.nativeEvent.stopImmediatePropagation();
                     setUnblur(true);
                   }}
-                  className="text-[9px] px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold flex items-center flex-shrink-0 transition-colors uppercase z-20"
+                  className="text-[9px] px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold flex items-center shrink-0 transition-colors uppercase z-20"
                 >
                   <Eye className="w-2.5 h-2.5 mr-0.5" /> Reveal
                 </button>

@@ -80,7 +80,7 @@ function LoadingSkeleton() {
             <div className="flex space-x-4">
               {[...Array(6)].map((_, j) => (
                 <div key={j} className="w-1/6">
-                  <Skeleton className="aspect-[2/3] w-full mb-2" />
+                  <Skeleton className="aspect-2/3 w-full mb-2" />
                   <Skeleton className="h-4 w-3/4" />
                 </div>
               ))}

@@ -62,8 +62,8 @@ const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAni
     }
 
     const content = (
-        <div className="group flex-shrink-0 w-[130px] sm:w-[150px] select-none">
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md shadow-md transition-transform duration-300 group-hover:scale-105">
+        <div className="group shrink-0 w-[130px] sm:w-[150px] select-none">
+            <div className="relative aspect-2/3 w-full overflow-hidden rounded-md shadow-md transition-transform duration-300 group-hover:scale-105">
                 <Image
                     src={item.image || '/placeholder.jpg'}
                     alt={item.title}
@@ -73,7 +73,7 @@ const RelatedCard = React.memo(function RelatedCard({ item }: { item: RelatedAni
                     draggable={false}
                     loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/30 pointer-events-none">
                     <PlayIcon className="h-10 w-10 text-white drop-shadow-lg" />
                 </div>
@@ -166,8 +166,8 @@ export function RelatedSection({ related }: RelatedSectionProps) {
                         </CarouselItem>
                     ))}
                 </CarouselContent>
-                <CarouselPrevious className="-left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
-                <CarouselNext className="-right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
+                <CarouselPrevious className="-left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-xs hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
+                <CarouselNext className="-right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-xs hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-md" />
             </Carousel>
         </section>
     );

@@ -353,7 +353,7 @@ export default function BlockedFiltersModal() {
                         size="sm"
                         onClick={() => handleToggleGenre(genre)}
                         className={`h-8 rounded-full px-3 text-xs transition-all ${isBlocked
-                            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm"
+                            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xs"
                             : "hover:border-destructive hover:text-destructive"
                           }`}
                       >

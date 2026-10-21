@@ -181,7 +181,7 @@ export function AnimeTooltip({ id, fallbackTitle, fallbackTitleJp, children }: A
           alignOffset={50}
           onPointerEnter={() => { isHoveredRef.current = true; }}
           onPointerLeave={handlePointerLeave}
-          className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-[100]"
+          className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-100"
         >
           <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} fallbackTitleJp={fallbackTitleJp} />
         </TooltipContent>

@@ -4,7 +4,7 @@ import React from "react";
 
 export function InitialAppLoader() {
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background text-foreground">
+    <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-background text-foreground">
       <div className="flex flex-col items-center space-y-5 text-center px-4">
         {/* Loading Indicator */}
         <div className="w-48 h-1 bg-muted rounded-full overflow-hidden relative">

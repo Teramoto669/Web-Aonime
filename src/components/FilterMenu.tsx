@@ -150,7 +150,7 @@ export function FilterMenu({ filtersData }: FilterMenuProps) {
           <SheetTitle>Filter Anime</SheetTitle>
         </SheetHeader>
 
-        <ScrollArea className="flex-grow p-6 pt-0">
+        <ScrollArea className="grow p-6 pt-0">
           <Accordion type="multiple" className="w-full">
             {renderCategory("Type", "term_type", filtersData.types)}
             {renderGenres()}

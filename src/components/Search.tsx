@@ -163,7 +163,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
             value={query}
             onChange={handleInputChange}
             placeholder={getPlaceholder()}
-            className="flex h-9 w-full rounded-md bg-transparent py-2 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="flex h-9 w-full rounded-md bg-transparent py-2 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             onFocus={() => {
               setIsSearchExpanded(true);
               if (query.trim().length > 0) setShowResults(true);
@@ -181,7 +181,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
 
       {/* Real-time search dropdown */}
       {showResults && query.trim().length > 0 && (
-        <div className="absolute top-full right-0 md:left-0 md:right-0 mt-2 w-[calc(100vw-2rem)] md:w-full max-w-[360px] md:max-w-none bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-full right-0 md:left-0 md:right-0 mt-2 w-[calc(100vw-2rem)] md:w-full max-w-[360px] md:max-w-none bg-background/95 backdrop-blur-xs border rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
           {isSearching && results.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -199,7 +199,7 @@ export function Search({ isSearchExpanded, setIsSearchExpanded }: { isSearchExpa
                   }}
                   className="flex gap-3 p-3 hover:bg-muted/50 transition-colors border-b last:border-0"
                 >
-                  <div className="relative h-16 w-12 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                  <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
                     <Image
                       src={anime.image || "/placeholder.jpg"}
                       alt={anime.title}

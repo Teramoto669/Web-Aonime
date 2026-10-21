@@ -77,8 +77,8 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
   return (
     <AnimeTooltip id={anime.id} fallbackTitle={anime.title} fallbackTitleJp={anime.titleJp}>
       <Link href={`/anime/${getAnimeSlug(anime)}`} prefetch={false} className={`group block h-full ${className}`}>
-        <Card className="overflow-visible border-0 bg-transparent shadow-sm rounded-lg h-full flex flex-col">
-          <div className="relative aspect-[2/3] w-full">
+        <Card className="overflow-visible border-0 bg-transparent shadow-xs rounded-lg h-full flex flex-col">
+          <div className="relative aspect-2/3 w-full">
             {/* wrapper scales and has shadow so the shadow grows with the image */}
             <div className="relative overflow-hidden rounded-md transition-transform duration-300 group-hover:scale-105 shadow-lg w-full h-full">
               <Image
@@ -87,7 +87,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                 fill
                 sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
                 className={`object-cover transition-all duration-300 ${
-                  shouldBlur ? 'blur-md scale-105 opacity-30 transform-gpu [will-change:filter]' : ''
+                  shouldBlur ? 'blur-md scale-105 opacity-30 transform-gpu will-change-[filter]' : ''
                 }`}
               />
               {shouldBlur ? (
@@ -115,7 +115,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                   </button>
                 </div>
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <PlayIcon className="h-12 w-12 text-white" />
                   </div>
@@ -138,7 +138,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                     statusBadgeStyles[libraryStatus]
                   )}
                 >
-                  <BookmarkCheck className="w-3 h-3 flex-shrink-0" />
+                  <BookmarkCheck className="w-3 h-3 shrink-0" />
                   <span>{statusLabels[libraryStatus]}</span>
                 </Badge>
               )}
@@ -150,7 +150,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
               </Badge>
             )}
           </div>
-          <CardContent className="p-0 pt-3 flex-grow flex flex-col">
+          <CardContent className="p-0 pt-3 grow flex flex-col">
             <h3 className="font-semibold text-base leading-snug line-clamp-2 text-foreground group-hover:text-primary transition-colors">
               {anime.title}
             </h3>

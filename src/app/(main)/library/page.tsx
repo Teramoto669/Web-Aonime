@@ -849,7 +849,7 @@ function LibraryPageContent() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-14 gap-6">
             {paginatedLibraryItems.map((item) => {
               const mockListItem: AnimeListItem = {
                 id: item.animeId,
@@ -870,7 +870,7 @@ function LibraryPageContent() {
                     <Link
                       href={`/watch/${item.slug}?ep=${item.lastEpisodeWatched}`}
                       prefetch={false}
-                      className="mt-2 flex items-center justify-center gap-1 w-full h-7 text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 text-center shadow-sm"
+                      className="mt-2 flex items-center justify-center gap-1 w-full h-7 text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all duration-200 text-center shadow-xs"
                     >
                       <Play className="h-2.5 w-2.5 fill-current" />
                       <span>Resume Ep {item.lastEpisodeWatched}</span>
@@ -886,7 +886,7 @@ function LibraryPageContent() {
                         <SelectTrigger className="h-7 w-[72%] text-[11px] font-bold bg-muted/60 border-border/40 hover:border-border/80 focus:ring-0 focus:ring-offset-0 px-2 py-1 gap-1 text-foreground transition-all duration-200">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-background/95 border-border/60 backdrop-blur-md z-[60] shadow-xl">
+                        <SelectContent className="bg-background/95 border-border/60 backdrop-blur-md z-60 shadow-xl">
                           {Object.entries(statusLabels).map(([k, lbl]) => (
                             <SelectItem key={k} value={k} className="text-xs font-semibold cursor-pointer">
                               {lbl}
@@ -949,7 +949,7 @@ function LibraryPageContent() {
       {/* Profile Header Banner */}
       <div className={cn(
         "relative rounded-2xl p-6 md:p-8 overflow-hidden border border-border/40 shadow-xl flex flex-col md:flex-row items-center gap-6",
-        "bg-gradient-to-r from-background via-card/30 to-background"
+        "bg-linear-to-r from-background via-card/30 to-background"
       )}>
         {/* Visual glassmorphic decor */}
         <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
@@ -1067,12 +1067,12 @@ function LibraryPageContent() {
           </TabsList>
 
           {/* --- LIBRARY TAB --- */}
-          <TabsContent value="library" className="space-y-6 focus-visible:outline-none">
+          <TabsContent value="library" className="space-y-6 focus-visible:outline-hidden">
             {libraryListContent}
           </TabsContent>
 
           {/* --- WATCH HISTORY TAB --- */}
-          <TabsContent value="history" id="history-content-top" className="space-y-6 focus-visible:outline-none">
+          <TabsContent value="history" id="history-content-top" className="space-y-6 focus-visible:outline-hidden">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/25 p-4 rounded-xl border border-border/30">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-primary" />
@@ -1104,7 +1104,7 @@ function LibraryPageContent() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 4xl:grid-cols-10 5xl:grid-cols-14 gap-6">
                   {paginatedHistoryItems.map((item) => {
                     const mockListItem: AnimeListItem = {
                       id: item.animeId,
@@ -1166,7 +1166,7 @@ function LibraryPageContent() {
           </TabsContent>
 
         {/* --- PROFILE TAB --- */}
-        <TabsContent value="profile" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-none space-y-8 animate-in fade-in duration-300">
+        <TabsContent value="profile" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-hidden space-y-8 animate-in fade-in duration-300">
           
           {/* Form 1: General Info */}
           <form onSubmit={handleSaveProfile} className="space-y-6">
@@ -1289,7 +1289,7 @@ function LibraryPageContent() {
                         style={isCustom ? { backgroundColor: currentCustomColor, color: "#ffffff" } : {}}
                       >
                         <span
-                          className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-sm flex-shrink-0"
+                          className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs shrink-0"
                           style={{ backgroundColor: currentCustomColor }}
                         />
                         <span>Custom</span>
@@ -1321,7 +1321,7 @@ function LibraryPageContent() {
                                 applyThemeColor(val);
                               }
                             }}
-                            className="w-16 bg-transparent text-xs font-mono font-bold text-foreground focus:outline-none uppercase"
+                            className="w-16 bg-transparent text-xs font-mono font-bold text-foreground focus:outline-hidden uppercase"
                             placeholder="#HEX"
                             maxLength={7}
                           />
@@ -1505,7 +1505,7 @@ function LibraryPageContent() {
         </TabsContent>
 
         {/* --- ADMIN SETTINGS TAB --- */}
-        <TabsContent value="admin" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-none space-y-8 animate-in fade-in duration-300">
+        <TabsContent value="admin" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-hidden space-y-8 animate-in fade-in duration-300">
           {!isAdmin ? (
             <div className="text-center py-16 bg-card/10 border border-dashed border-destructive/40 rounded-2xl p-8 space-y-4">
               <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-destructive">
@@ -1549,7 +1549,7 @@ function LibraryPageContent() {
                     variant={adminCooldownEnabled ? "default" : "outline"}
                     onClick={() => setAdminCooldownEnabled(!adminCooldownEnabled)}
                     className={cn(
-                      "h-8 px-3 text-xs font-bold transition-all shadow-sm",
+                      "h-8 px-3 text-xs font-bold transition-all shadow-xs",
                       adminCooldownEnabled
                         ? "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
                         : "border-border/60 text-muted-foreground hover:bg-muted"
@@ -1583,7 +1583,7 @@ function LibraryPageContent() {
                           className={cn(
                             "flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all",
                             isSelected
-                              ? "bg-primary/15 text-primary border-primary/50 shadow-sm"
+                              ? "bg-primary/15 text-primary border-primary/50 shadow-xs"
                               : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
                           )}
                         >
@@ -1678,7 +1678,7 @@ function LibraryPageContent() {
                 <Button
                   type="submit"
                   disabled={savingAdminSettings || loadingCommentSettings}
-                  className="font-bold h-11 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
+                  className="font-bold h-11 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-all"
                 >
                   {savingAdminSettings ? (
                     <>

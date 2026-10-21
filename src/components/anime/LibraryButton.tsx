@@ -269,7 +269,7 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
       variant="outline"
       onClick={handleAdd}
       disabled={actionLoading}
-      className={cn("gap-2 font-semibold border-primary/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-sm", className)}
+      className={cn("gap-2 font-semibold border-primary/50 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all shadow-xs", className)}
     >
       {actionLoading ? (
         <Loader2 className="h-4 w-4 animate-spin" />

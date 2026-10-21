@@ -162,7 +162,7 @@ function LoadingSkeleton() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-6">
           {[...Array(18)].map((_, i) => (
             <div key={i}>
-              <Skeleton className="aspect-[2/3] w-full mb-2 rounded-md" />
+              <Skeleton className="aspect-2/3 w-full mb-2 rounded-md" />
               <Skeleton className="h-4 w-3/4 rounded-md" />
             </div>
           ))}
@@ -172,7 +172,7 @@ function LoadingSkeleton() {
         <Skeleton className="h-6 w-1/2 rounded-md mb-4" />
         {[...Array(6)].map((_, i) => (
           <div key={i} className="flex gap-3 items-center">
-            <Skeleton className="w-11 h-16 rounded-md flex-shrink-0" />
+            <Skeleton className="w-11 h-16 rounded-md shrink-0" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-5/6 rounded-md" />
               <Skeleton className="h-3 w-1/2 rounded-md" />

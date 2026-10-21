@@ -69,7 +69,7 @@ const SpotlightSlide = React.memo(function SpotlightSlide({
           />
           {/* Dark overlay — replaces expensive CSS blur */}
           <div className="absolute inset-0 bg-black/55 pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-t from-background via-background/60 to-transparent pointer-events-none" />
         </div>
         <div className="relative z-10 container mx-auto px-4 py-12 md:py-16 lg:py-20 flex items-center justify-between gap-8 min-h-[440px] md:min-h-[520px] lg:min-h-[580px]">
           {shouldBlur ? (
@@ -196,7 +196,7 @@ const SpotlightSlide = React.memo(function SpotlightSlide({
                   </Button>
                 </div>
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
               )}
             </div>
           </div>

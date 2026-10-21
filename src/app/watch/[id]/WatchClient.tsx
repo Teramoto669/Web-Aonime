@@ -458,11 +458,11 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
     }, [user?.uid, detailsData.id, animeId, currentEpNum, detailsData.title, detailsData.image, detailsData.slug]);
 
     return (
-        <div className="container mx-auto max-w-screen-5xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        <div className="container mx-auto max-w-(--breakpoint-5xl) px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
             {isBlocked && !revealed && (
                 <div className="p-4 rounded-xl bg-destructive/15 border border-destructive/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
                     <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-destructive/20 rounded-lg text-destructive flex-shrink-0">
+                        <div className="p-2 bg-destructive/20 rounded-lg text-destructive shrink-0">
                             <ShieldAlert className="w-6 h-6" />
                         </div>
                         <div>
@@ -514,7 +514,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                             <div className="min-w-0 flex-1 space-y-2">
                                 <div>
-                                    <h1 className="text-2xl md:text-3xl font-bold break-words">{title}</h1>
+                                    <h1 className="text-2xl md:text-3xl font-bold wrap-break-word">{title}</h1>
                                     {detailsData.titleJp && detailsData.titleJp.trim() !== title.trim() && (
                                         <p className="text-sm md:text-base text-muted-foreground font-medium mt-0.5">{detailsData.titleJp}</p>
                                     )}
@@ -526,12 +526,12 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 flex-shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
+                            <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap sm:self-start">
                                 {(hasDub || hasHsub) && (
                                     <div className="flex rounded-md bg-muted p-1 select-none border">
-                                        <button type="button" onClick={() => selectCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
-                                        {hasHsub && <button type="button" onClick={() => selectCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
-                                        {hasDub && <button type="button" onClick={() => selectCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
+                                        <button type="button" onClick={() => selectCategory("sub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "sub" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Sub</button>
+                                        {hasHsub && <button type="button" onClick={() => selectCategory("hsub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "hsub" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>HSub</button>}
+                                        {hasDub && <button type="button" onClick={() => selectCategory("dub")} className={`px-3 py-1 text-xs font-bold rounded-sm transition-all uppercase ${activeCategory === "dub" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Dub</button>}
                                     </div>
                                 )}
                                 {(getActiveServers().length > 0) && (
@@ -582,7 +582,7 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
                             <div className="flex flex-col gap-3">
                                 <Link href={`/anime/${slug}`} className="flex items-start gap-3 group">
                                     {detailsData.image && (
-                                        <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity shadow-md">
+                                        <div className="relative w-16 h-24 rounded-lg overflow-hidden shrink-0 border border-border/40 group-hover:opacity-90 transition-opacity shadow-md">
                                             <Image src={detailsData.image} alt={title} fill className="object-cover" sizes="80px" />
                                         </div>
                                     )}

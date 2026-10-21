@@ -145,7 +145,7 @@ function CommentContentRenderer({ content }: { content: string }) {
   const segments = content.split(spoilerRegex);
 
   return (
-    <div className="space-y-1 text-sm text-foreground/90 leading-relaxed break-words whitespace-pre-wrap">
+    <div className="space-y-1 text-sm text-foreground/90 leading-relaxed wrap-break-word whitespace-pre-wrap">
       {segments.map((segment, idx) => {
         if (!segment) return null;
 
@@ -178,7 +178,7 @@ function CommentContentRenderer({ content }: { content: string }) {
                 <img
                   src={gifUrl}
                   alt="GIF"
-                  className="w-auto h-auto max-w-full sm:max-w-[420px] max-h-[260px] sm:max-h-[300px] rounded-lg object-cover border border-border/40 shadow-sm"
+                  className="w-auto h-auto max-w-full sm:max-w-[420px] max-h-[260px] sm:max-h-[300px] rounded-lg object-cover border border-border/40 shadow-xs"
                   loading="lazy"
                 />
               </div>
@@ -501,7 +501,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
             placeholder="Search GIFs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 px-3 py-1 text-xs bg-background border border-border/60 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full h-8 px-3 py-1 text-xs bg-background border border-border/60 rounded-md focus:outline-hidden focus:ring-1 focus:ring-primary"
           />
           {isLoading && (
             <Loader2 className="w-3.5 h-3.5 animate-spin absolute right-2.5 top-2 text-muted-foreground" />
@@ -518,7 +518,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
                   setSearchQuery(suggestion);
                   setSuggestions([]);
                 }}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 hover:bg-primary/20 hover:text-primary border border-border/40 transition-colors text-muted-foreground font-medium flex-shrink-0 cursor-pointer"
+                className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 hover:bg-primary/20 hover:text-primary border border-border/40 transition-colors text-muted-foreground font-medium shrink-0 cursor-pointer"
               >
                 {suggestion}
               </button>
@@ -532,7 +532,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
           <button
             type="button"
             onClick={() => scrollCategories("left")}
-            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors flex-shrink-0 border border-border/40 cursor-pointer"
+            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0 border border-border/40 cursor-pointer"
             title="Previous Categories"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -548,7 +548,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
                 type="button"
                 onClick={() => setActiveCategory(category)}
                 className={cn(
-                  "px-2.5 py-0.5 text-[10px] font-semibold rounded-full border transition-all flex-shrink-0 cursor-pointer",
+                  "px-2.5 py-0.5 text-[10px] font-semibold rounded-full border transition-all shrink-0 cursor-pointer",
                   activeCategory === category
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted/40 text-muted-foreground hover:bg-muted border-border/40"
@@ -562,7 +562,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
           <button
             type="button"
             onClick={() => scrollCategories("right")}
-            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors flex-shrink-0 border border-border/40 cursor-pointer"
+            className="h-6 w-6 rounded-md bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0 border border-border/40 cursor-pointer"
             title="Next Categories"
           >
             <ChevronRight className="w-3.5 h-3.5" />
@@ -582,7 +582,7 @@ function KlipyGifPicker({ onSelectGif }: { onSelectGif: (url: string) => void })
               key={`${url}-${i}`}
               type="button"
               onClick={() => onSelectGif(url)}
-              className="group relative aspect-video rounded-lg overflow-hidden border border-border/40 hover:border-primary transition-all focus:outline-none cursor-pointer"
+              className="group relative aspect-video rounded-lg overflow-hidden border border-border/40 hover:border-primary transition-all focus:outline-hidden cursor-pointer"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -698,13 +698,13 @@ function FormattingToolbar({
                 <span>GIF</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-[min(calc(100vw-32px),360px)] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-[100]">
+            <PopoverContent side="top" align="start" className="w-[min(calc(100vw-32px),360px)] sm:w-[400px] p-3.5 bg-card border-border shadow-2xl z-100">
               <KlipyGifPicker onSelectGif={onInsertGif} />
             </PopoverContent>
           </Popover>
         )}
 
-        <div className="h-3.5 w-[1px] bg-border/60 mx-0.5 sm:mx-1" />
+        <div className="h-3.5 w-px bg-border/60 mx-0.5 sm:mx-1" />
 
         <Button
           type="button"
@@ -1339,7 +1339,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
             {/* Countdown / Cooldown Warning */}
             {remainingMs > 0 && (
               <div className="flex items-center gap-3 p-3 text-xs bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg animate-pulse">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 <span className="font-medium">
                   You can post another comment in <strong className="font-bold underline">{formatCooldown(remainingMs)}</strong>.
                 </span>
@@ -1349,7 +1349,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Link href={`/library?user=${user.uid}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                  <Link href={`/library?user=${user.uid}`} className="hover:opacity-85 transition-opacity shrink-0">
                     <Avatar className="h-7 w-7 sm:h-9 sm:w-9 border border-border ring-2 ring-primary/20">
                       <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
                       <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs sm:text-sm">
@@ -1361,7 +1361,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                     Posting as <Link href={`/library?user=${user.uid}`} className={`font-bold hover:underline ${getThemeTextClass(user.themeColor)}`}>{user.displayName}</Link>
                   </span>
                 </div>
-                <span className="text-[10px] sm:text-xs text-muted-foreground font-mono flex-shrink-0">
+                <span className="text-[10px] sm:text-xs text-muted-foreground font-mono shrink-0">
                   {commentText.length}/500
                 </span>
               </div>
@@ -1463,8 +1463,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               return (
                 <div key={comment.id} className="space-y-4">
                   {/* Parent Comment */}
-                  <div className="group flex gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border/50 bg-card/10 hover:bg-card/20 transition-all duration-300 shadow-sm">
-                    <Link href={`/library?user=${comment.userId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                  <div className="group flex gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border/50 bg-card/10 hover:bg-card/20 transition-all duration-300 shadow-xs">
+                    <Link href={`/library?user=${comment.userId}`} className="hover:opacity-85 transition-opacity shrink-0">
                       <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border border-border/80">
                         <AvatarImage src={comment.userPhoto || undefined} alt={comment.userName} />
                         <AvatarFallback className="bg-primary/5 text-primary font-semibold text-xs">
@@ -1739,7 +1739,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                             key={reply.id} 
                             className="group/reply flex gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-border/30 bg-card/5 hover:bg-card/10 transition-all duration-200"
                           >
-                            <Link href={`/library?user=${reply.userId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                            <Link href={`/library?user=${reply.userId}`} className="hover:opacity-85 transition-opacity shrink-0">
                               <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/80">
                                 <AvatarImage src={reply.userPhoto || undefined} alt={reply.userName} />
                                 <AvatarFallback className="bg-primary/5 text-primary font-semibold text-[10px]">

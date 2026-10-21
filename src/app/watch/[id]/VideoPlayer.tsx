@@ -1831,14 +1831,14 @@ function HlsPlayer({
             .art-video-player .art-controls .art-controls-left {
                 display: flex !important;
                 align-items: center !important;
-                flex-shrink: 1 !important;
+                shrink: 1 !important;
                 min-width: 0 !important;
                 gap: 2px !important;
             }
             .art-video-player .art-controls .art-controls-right {
                 display: flex !important;
                 align-items: center !important;
-                flex-shrink: 0 !important;
+                shrink: 0 !important;
                 gap: 2px !important;
                 margin-left: auto !important;
             }
@@ -1846,7 +1846,7 @@ function HlsPlayer({
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                flex-shrink: 0 !important;
+                shrink: 0 !important;
             }
 
             @media screen and (max-width: 768px) {
@@ -1896,7 +1896,7 @@ function HlsPlayer({
                     height: 10px !important;
                     max-width: 10px !important;
                     max-height: 10px !important;
-                    flex-shrink: 0 !important;
+                    shrink: 0 !important;
                 }
                 .art-volume-custom {
                     padding-inline: 2px !important;
@@ -1963,7 +1963,7 @@ function HlsPlayer({
                     height: 9px !important;
                     max-width: 9px !important;
                     max-height: 9px !important;
-                    flex-shrink: 0 !important;
+                    shrink: 0 !important;
                 }
                 .art-volume-custom-icon {
                     width: 20px !important;
@@ -2001,7 +2001,7 @@ function HlsPlayer({
                     height: 8px !important;
                     max-width: 8px !important;
                     max-height: 8px !important;
-                    flex-shrink: 0 !important;
+                    shrink: 0 !important;
                 }
             }
 
@@ -2649,7 +2649,7 @@ function HlsPlayer({
                 <div ref={artRef} className="w-full h-full" />
                 {showNextOverlay && nextEpisode && isAutoNavigating && countdown >= 0 && artInstance?.template?.$player && createPortal(
                     <div 
-                        className="art-next-overlay absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300 pointer-events-auto select-none"
+                        className="art-next-overlay absolute inset-0 z-110 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300 pointer-events-auto select-none"
                         onClick={(e) => e.stopPropagation()}
                         onDoubleClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}

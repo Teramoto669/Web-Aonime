@@ -336,7 +336,7 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5 text-foreground/80" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-sm ring-2 ring-background z-10 pointer-events-none animate-in zoom-in-50 duration-200">
+            <span className="absolute -top-1 -right-1 flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-xs ring-2 ring-background z-10 pointer-events-none animate-in zoom-in-50 duration-200">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -344,7 +344,7 @@ export function NotificationBell() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        className="w-[320px] bg-background/95 border-border/85 backdrop-blur-md z-[60] shadow-xl p-0 overflow-hidden"
+        className="w-[320px] bg-background/95 border-border/85 backdrop-blur-md z-60 shadow-xl p-0 overflow-hidden"
         align="end"
         forceMount
       >
@@ -407,7 +407,7 @@ export function NotificationBell() {
                     !notif.isRead && "bg-primary/5 hover:bg-primary/10"
                   )}
                 >
-                  <div className="mt-0.5 flex-shrink-0">
+                  <div className="mt-0.5 shrink-0">
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center border",
@@ -433,7 +433,7 @@ export function NotificationBell() {
                         {formattedTime}
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground/90 font-medium leading-relaxed line-clamp-2 break-words">
+                    <p className="text-[11px] text-muted-foreground/90 font-medium leading-relaxed line-clamp-2 wrap-break-word">
                       {notif.message}
                     </p>
                   </div>
