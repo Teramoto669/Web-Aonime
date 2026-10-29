@@ -76,7 +76,7 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
 
   return (
     <AnimeTooltip id={anime.id} fallbackTitle={anime.title} fallbackTitleJp={anime.titleJp}>
-      <Link href={`/anime/${getAnimeSlug(anime)}`} prefetch={false} className={`group block h-full ${className}`}>
+      <Link href={`/anime/${getAnimeSlug(anime)}`} prefetch={false} draggable={false} className={`group block h-full select-none ${className}`}>
         <Card className="overflow-visible border-0 bg-transparent shadow-xs rounded-lg h-full flex flex-col">
           <div className="relative aspect-2/3 w-full">
             {/* wrapper scales and has shadow so the shadow grows with the image */}
@@ -85,8 +85,9 @@ export function AnimeCard({ anime, className }: AnimeCardProps) {
                 src={anime.image || '/placeholder.jpg'}
                 alt={anime.title}
                 fill
+                draggable={false}
                 sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 15vw"
-                className={`object-cover transition-all duration-300 ${
+                className={`object-cover pointer-events-none transition-all duration-300 ${
                   shouldBlur ? 'blur-md scale-105 opacity-30 transform-gpu will-change-[filter]' : ''
                 }`}
               />

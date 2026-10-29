@@ -29,6 +29,7 @@ export function AnimeCarousel({ title, animes }: AnimeCarouselProps) {
         opts={{
           align: "start",
           dragFree: true,
+          containScroll: "trimSnaps",
         }}
         className="w-full"
       >

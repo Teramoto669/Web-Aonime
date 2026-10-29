@@ -113,12 +113,20 @@ const Carousel = React.forwardRef<
         return
       }
 
+      const rootNode = api.rootNode()
+      if (rootNode) {
+        ;(rootNode as any).__emblaApi = api
+      }
+
       onSelect(api)
       api.on("reInit", onSelect)
       api.on("select", onSelect)
+      api.on("settle", onSelect)
 
       return () => {
-        api?.off("select", onSelect)
+        api.off("reInit", onSelect)
+        api.off("select", onSelect)
+        api.off("settle", onSelect)
       }
     }, [api, onSelect])
 
@@ -171,30 +179,61 @@ const Carousel = React.forwardRef<
       if (!element || !api) return
 
       const handleWheel = (event: WheelEvent) => {
-        if (event.shiftKey) {
+        const isHorizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        if (!event.shiftKey && !isHorizontal) return
+
+        const rawDelta = isHorizontal ? event.deltaX : event.deltaY || event.deltaX
+        if (rawDelta === 0) return
+
+        const multiplier =
+          event.deltaMode === 1 ? 32 : event.deltaMode === 2 ? 300 : 1
+        const delta = rawDelta * multiplier
+
+        const engine = api.internalEngine()
+        if (engine.options.dragFree && !engine.options.loop) {
+          const currentTarget = engine.target.get()
+          const canGoNext = currentTarget > engine.limit.min + 0.5
+          const canGoPrev = currentTarget < engine.limit.max - 0.5
+          if ((delta > 0 && !canGoNext) || (delta < 0 && !canGoPrev)) {
+            return
+          }
+
           event.preventDefault()
 
-          if (wheelTimeoutRef.current) {
-            clearTimeout(wheelTimeoutRef.current)
+          const nextTarget = engine.limit.constrain(currentTarget - delta * 1.5)
+          const distance = nextTarget - currentTarget
+          if (distance !== 0) {
+            engine.scrollBody.useDuration(15).useBaseFriction()
+            engine.scrollTo.distance(distance, false)
           }
-          wheelTimeoutRef.current = setTimeout(() => {
-            wheelAccumulatorRef.current = 0
-          }, 200)
+          return
+        }
 
-          const delta =
-            Math.abs(event.deltaY) > Math.abs(event.deltaX)
-              ? event.deltaY
-              : event.deltaX
-          wheelAccumulatorRef.current += delta
+        if (
+          (delta > 0 && !api.canScrollNext()) ||
+          (delta < 0 && !api.canScrollPrev())
+        ) {
+          return
+        }
 
-          const threshold = 40
-          if (wheelAccumulatorRef.current >= threshold) {
-            api.scrollNext()
-            wheelAccumulatorRef.current = 0
-          } else if (wheelAccumulatorRef.current <= -threshold) {
-            api.scrollPrev()
-            wheelAccumulatorRef.current = 0
-          }
+        event.preventDefault()
+
+        if (wheelTimeoutRef.current) {
+          clearTimeout(wheelTimeoutRef.current)
+        }
+        wheelTimeoutRef.current = setTimeout(() => {
+          wheelAccumulatorRef.current = 0
+        }, 200)
+
+        wheelAccumulatorRef.current += delta
+
+        const threshold = 40
+        if (wheelAccumulatorRef.current >= threshold) {
+          api.scrollNext()
+          wheelAccumulatorRef.current = 0
+        } else if (wheelAccumulatorRef.current <= -threshold) {
+          api.scrollPrev()
+          wheelAccumulatorRef.current = 0
         }
       }
 
@@ -242,18 +281,14 @@ const CarouselContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
-  const { carouselRef, api, orientation } = useCarousel()
+  const { carouselRef, orientation } = useCarousel()
 
   return (
     <div
-      ref={(node) => {
-        carouselRef(node)
-        if (node && api) {
-          ;(node as any).__emblaApi = api
-        }
-      }}
+      ref={carouselRef}
       data-carousel-viewport="true"
-      className="overflow-hidden"
+      onDragStart={(e) => e.preventDefault()}
+      className="overflow-hidden select-none cursor-grab active:cursor-grabbing touch-pan-y"
     >
       <div
         ref={ref}

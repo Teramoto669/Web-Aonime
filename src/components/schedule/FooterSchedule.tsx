@@ -300,11 +300,11 @@ export function FooterSchedule() {
         ) : activeDayData && activeDayData.animes.length > 0 ? (
           // Airing rows
           <div className="divide-y divide-border/10">
-            {activeDayData.animes.map((anime: ScheduleAnimeItem) => {
+            {activeDayData.animes.map((anime: ScheduleAnimeItem, index: number) => {
               const animeSlug = getAnimeSlug(anime);
               return (
                 <div
-                  key={anime.id}
+                  key={`${anime.id || animeSlug || 'anime'}-${index}`}
                   className="group py-3 px-4 flex items-center justify-between gap-4 hover:bg-secondary/20 transition-all duration-300"
                 >
                   <div className="flex items-center gap-4 min-w-0 grow">

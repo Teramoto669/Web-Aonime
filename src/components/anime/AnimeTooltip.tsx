@@ -74,9 +74,9 @@ export function AnimeTooltip({ id, fallbackTitle, fallbackTitleJp, children }: A
     };
   }, []);
 
-  const handlePointerEnter = () => {
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") return;
     isHoveredRef.current = true;
-    if (!hasHovered) setHasHovered(true);
 
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
     if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current);
@@ -90,15 +90,17 @@ export function AnimeTooltip({ id, fallbackTitle, fallbackTitleJp, children }: A
       }, 100);
     }
 
-    // Schedule tooltip opening with 100ms debounce
+    // Schedule tooltip mounting & opening with 100ms debounce so active drag/touch gestures are never interrupted
     openTimeoutRef.current = setTimeout(() => {
       if (isHoveredRef.current && !isGlobalScrolling) {
+        if (!hasHovered) setHasHovered(true);
         setOpen(true);
       }
     }, 100);
   };
 
-  const handlePointerLeave = () => {
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") return;
     isHoveredRef.current = false;
     if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current);
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
