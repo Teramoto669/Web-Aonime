@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useCommentSettings, formatCooldown } from "@/lib/system-settings";
+import { useCommentSettings, formatCooldown, formatDurationLabel } from "@/lib/system-settings";
 import {
   Popover,
   PopoverContent,
@@ -917,9 +917,11 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     setMounted(true);
   }, []);
 
+  const isVerifiedUser = Boolean(user?.emailVerified || user?.isGoogleUser);
+  const activeCooldownSeconds = isVerifiedUser ? commentSettings.cooldownSeconds : (commentSettings.unverifiedCooldownSeconds ?? commentSettings.cooldownSeconds);
   // Cooldown calculation helper
   const getRemainingCooldown = (lastComment: Date | string | number | any) => {
-    if (!lastComment || !commentSettings.enabled || commentSettings.cooldownSeconds <= 0) return 0;
+    if (!lastComment || !commentSettings.enabled || activeCooldownSeconds <= 0) return 0;
     const now = new Date();
     const dateObj = typeof lastComment?.toDate === "function" 
       ? lastComment.toDate() 
@@ -927,13 +929,13 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     const lastTime = dateObj instanceof Date && !isNaN(dateObj.getTime()) ? dateObj.getTime() : 0;
     if (!lastTime) return 0;
     const diffMs = now.getTime() - lastTime;
-    const cooldownMs = commentSettings.cooldownSeconds * 1000;
+    const cooldownMs = activeCooldownSeconds * 1000;
     return Math.max(0, cooldownMs - diffMs);
   };
 
   // Cooldown countdown timer
   useEffect(() => {
-    if (!user?.lastCommentedAt || !commentSettings.enabled || commentSettings.cooldownSeconds <= 0) {
+    if (!user?.lastCommentedAt || !commentSettings.enabled || activeCooldownSeconds <= 0) {
       setRemainingMs(0);
       return;
     }
@@ -958,11 +960,11 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [user?.lastCommentedAt, commentSettings.enabled, commentSettings.cooldownSeconds]);
+  }, [user?.lastCommentedAt, commentSettings.enabled, activeCooldownSeconds]);
 
   // Listen to user's comment reactions
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || user.isLocal) {
       setReactions({});
       return;
     }
@@ -1026,7 +1028,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || user.isLocal) return;
 
     const trimmedText = commentText.trim();
     if (!trimmedText) return;
@@ -1091,7 +1093,7 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   };
 
   const handleReplySubmit = async (parentId: string, parentUserName: string, parentUserId?: string) => {
-    if (!user) return;
+    if (!user || user.isLocal) return;
 
     const trimmedText = replyText.trim();
     if (!trimmedText) return;
@@ -1178,8 +1180,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
   };
 
   const handleReaction = async (commentId: string, reactionType: "like" | "dislike") => {
-    if (!user) {
-      openAuthModal("login");
+    if (!user || user.isLocal) {
+      openAuthModal(user?.isLocal ? "register" : "login");
       return;
     }
 
@@ -1334,8 +1336,43 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
               Log In to Comment
             </Button>
           </div>
+        ) : user.isLocal ? (
+          <div className="p-6 text-center space-y-4 rounded-lg bg-card/40">
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold text-lg">Local Account Cannot Comment</p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Local accounts can only access Library and Watch History. Create an account to join the discussion — your local Library &amp; Watch History will transfer automatically!
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                onClick={() => openAuthModal("register")}
+                variant="default"
+                className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_12px_rgba(139,92,246,0.3)] transition-all duration-300"
+              >
+                Create Account &amp; Transfer Data
+              </Button>
+              <Button
+                onClick={() => openAuthModal("login")}
+                variant="outline"
+                className="font-bold border-border/80"
+              >
+                Sign In
+              </Button>
+            </div>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            {!isVerifiedUser && commentSettings.enabled && activeCooldownSeconds > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 text-[11px] bg-muted/40 border border-border/50 text-muted-foreground rounded-lg">
+                <span>
+                  Unverified account comment cooldown: <strong className="text-foreground">{formatDurationLabel(activeCooldownSeconds)}</strong> (Verified: <strong className="text-emerald-400">{formatDurationLabel(commentSettings.cooldownSeconds)}</strong>)
+                </span>
+              </div>
+            )}
             {/* Countdown / Cooldown Warning */}
             {remainingMs > 0 && (
               <div className="flex items-center gap-3 p-3 text-xs bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg animate-pulse">
@@ -1590,8 +1627,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                       <div className="flex items-center gap-4 pt-1.5 border-t border-border/10">
                         <button
                           onClick={() => {
-                            if (!user) {
-                              openAuthModal("login");
+                            if (!user || user.isLocal) {
+                              openAuthModal(user?.isLocal ? "register" : "login");
                               return;
                             }
                             setReplyToId(replyToId === comment.id ? null : comment.id);
@@ -1869,8 +1906,8 @@ export function CommentSection({ animeId, episodeNum, animeTitle }: CommentSecti
                               <div className="flex items-center gap-4 pt-1.5 mt-1 border-t border-border/5">
                                 <button
                                   onClick={() => {
-                                    if (!user) {
-                                      openAuthModal("login");
+                                    if (!user || user.isLocal) {
+                                      openAuthModal(user?.isLocal ? "register" : "login");
                                       return;
                                     }
                                     setReplyToId(replyToId === reply.id ? null : reply.id);

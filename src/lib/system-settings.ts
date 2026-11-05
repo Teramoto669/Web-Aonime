@@ -7,6 +7,9 @@ import type { UserProfile } from "@/lib/auth-context";
 
 export interface CommentSettings {
   cooldownSeconds: number;
+  unverifiedCooldownSeconds: number;
+  registerRateLimitMax: number;
+  registerRateLimitWindowMinutes: number;
   enabled: boolean;
   updatedAt?: any;
   updatedBy?: string | null;
@@ -14,7 +17,10 @@ export interface CommentSettings {
 }
 
 export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
-  cooldownSeconds: 300, // 5 minutes
+  cooldownSeconds: 300, // 5 minutes (Verified)
+  unverifiedCooldownSeconds: 900, // 15 minutes (Unverified)
+  registerRateLimitMax: 2, // Max 2 accounts per window per IP/device
+  registerRateLimitWindowMinutes: 60, // 60 minutes window
   enabled: true,
 };
 
@@ -89,6 +95,9 @@ export function useCommentSettings() {
           const data = docSnap.data();
           setSettings({
             cooldownSeconds: typeof data.cooldownSeconds === "number" ? data.cooldownSeconds : DEFAULT_COMMENT_SETTINGS.cooldownSeconds,
+            unverifiedCooldownSeconds: typeof data.unverifiedCooldownSeconds === "number" ? data.unverifiedCooldownSeconds : DEFAULT_COMMENT_SETTINGS.unverifiedCooldownSeconds,
+            registerRateLimitMax: typeof data.registerRateLimitMax === "number" ? data.registerRateLimitMax : DEFAULT_COMMENT_SETTINGS.registerRateLimitMax,
+            registerRateLimitWindowMinutes: typeof data.registerRateLimitWindowMinutes === "number" ? data.registerRateLimitWindowMinutes : DEFAULT_COMMENT_SETTINGS.registerRateLimitWindowMinutes,
             enabled: data.enabled !== undefined ? Boolean(data.enabled) : DEFAULT_COMMENT_SETTINGS.enabled,
             updatedAt: data.updatedAt || null,
             updatedBy: data.updatedBy || null,

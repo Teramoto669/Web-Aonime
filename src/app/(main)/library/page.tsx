@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, Suspense } from "react";
 import { useAuth, PRESET_AVATARS, PRESET_THEMES, applyThemeColor } from "@/lib/auth-context";
-import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { EmailAuthProvider, reauthenticateWithCredential, updateEmail, verifyBeforeUpdateEmail, sendEmailVerification, sendPasswordResetEmail, updatePassword } from "firebase/auth";
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { compressImage } from "@/lib/image-utils";
 import { AnimeCard } from "@/components/anime/AnimeCard";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,9 @@ import {
   RotateCcw,
   Info,
   Palette,
+  HardDrive,
+  UserPlus,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -65,6 +69,16 @@ import {
   formatDurationLabel,
   DEFAULT_COMMENT_SETTINGS,
 } from "@/lib/system-settings";
+import {
+  getLocalLibraryItems,
+  getLocalHistoryItems,
+  upsertLocalLibraryItem,
+  removeLocalLibraryItem,
+  removeLocalHistoryItem,
+  clearLocalHistory,
+  LOCAL_DATA_EVENT,
+  type LibraryStatus,
+} from "@/lib/library-context";
 
 const ITEMS_PER_PAGE = 24;
 
@@ -133,8 +147,11 @@ function LibraryPageContent() {
     isAdmin,
     loading: authLoading,
     openAuthModal,
+    loginAsLocal,
     updateUserProfile,
+    addEmailToAccount,
     changeUserPassword,
+    resetPassword,
     deleteUserAccount
   } = useAuth();
   const { isAnimeBlocked, blockedFilters } = useBlockedFilters();
@@ -144,7 +161,14 @@ function LibraryPageContent() {
   const targetUserId = searchParams.get("user");
   const isOwnLibrary = !targetUserId || (user && targetUserId === user.uid);
   const tabParam = searchParams.get("tab");
-  const defaultTab = tabParam === "profile" ? "profile" : tabParam === "admin" ? "admin" : "library";
+  const defaultTab =
+    tabParam === "history"
+      ? "history"
+      : tabParam === "profile" && !user?.isLocal
+      ? "profile"
+      : tabParam === "admin" && !user?.isLocal
+      ? "admin"
+      : "library";
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
@@ -177,21 +201,37 @@ function LibraryPageContent() {
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
+  // Add Email state (for users who signed up without email)
+  const [newAccountEmail, setNewAccountEmail] = useState("");
+  const [addEmailPassword, setAddEmailPassword] = useState("");
+  const [addingEmail, setAddingEmail] = useState(false);
+
   // Admin settings state
   const { settings: currentCommentSettings, loading: loadingCommentSettings } = useCommentSettings();
   const [adminCooldownSeconds, setAdminCooldownSeconds] = useState<number>(300);
+  const [adminUnverifiedCooldownSeconds, setAdminUnverifiedCooldownSeconds] = useState<number>(900);
+  const [adminRegisterMax, setAdminRegisterMax] = useState<number>(2);
+  const [adminRegisterWindowMinutes, setAdminRegisterWindowMinutes] = useState<number>(60);
   const [adminCooldownEnabled, setAdminCooldownEnabled] = useState<boolean>(true);
   const [customMinutes, setCustomMinutes] = useState<string>("5");
   const [customSeconds, setCustomSeconds] = useState<string>("0");
+  const [customUnverifiedMinutes, setCustomUnverifiedMinutes] = useState<string>("15");
+  const [customUnverifiedSeconds, setCustomUnverifiedSeconds] = useState<string>("0");
   const [savingAdminSettings, setSavingAdminSettings] = useState(false);
 
   // Sync comment settings when loaded
   useEffect(() => {
     if (currentCommentSettings) {
       setAdminCooldownSeconds(currentCommentSettings.cooldownSeconds);
+      const unv = currentCommentSettings.unverifiedCooldownSeconds ?? 900;
+      setAdminUnverifiedCooldownSeconds(unv);
+      setAdminRegisterMax(currentCommentSettings.registerRateLimitMax ?? 2);
+      setAdminRegisterWindowMinutes(currentCommentSettings.registerRateLimitWindowMinutes ?? 60);
       setAdminCooldownEnabled(currentCommentSettings.enabled);
       setCustomMinutes(Math.floor(currentCommentSettings.cooldownSeconds / 60).toString());
       setCustomSeconds((currentCommentSettings.cooldownSeconds % 60).toString());
+      setCustomUnverifiedMinutes(Math.floor(unv / 60).toString());
+      setCustomUnverifiedSeconds((unv % 60).toString());
     }
   }, [currentCommentSettings]);
 
@@ -207,6 +247,20 @@ function LibraryPageContent() {
     setAdminCooldownSeconds(seconds);
     setCustomMinutes(Math.floor(seconds / 60).toString());
     setCustomSeconds((seconds % 60).toString());
+  };
+
+  const handleCustomUnverifiedDurationChange = (minutesStr: string, secondsStr: string) => {
+    setCustomUnverifiedMinutes(minutesStr);
+    setCustomUnverifiedSeconds(secondsStr);
+    const mins = Math.max(0, parseInt(minutesStr) || 0);
+    const secs = Math.max(0, parseInt(secondsStr) || 0);
+    setAdminUnverifiedCooldownSeconds(mins * 60 + secs);
+  };
+
+  const handleSelectUnverifiedPreset = (seconds: number) => {
+    setAdminUnverifiedCooldownSeconds(seconds);
+    setCustomUnverifiedMinutes(Math.floor(seconds / 60).toString());
+    setCustomUnverifiedSeconds((seconds % 60).toString());
   };
 
   const handleSaveAdminCommentSettings = async (e?: React.FormEvent) => {
@@ -225,13 +279,16 @@ function LibraryPageContent() {
       await saveCommentSettings(
         {
           cooldownSeconds: Math.max(0, adminCooldownSeconds),
+          unverifiedCooldownSeconds: Math.max(0, adminUnverifiedCooldownSeconds),
+          registerRateLimitMax: Math.max(1, adminRegisterMax),
+          registerRateLimitWindowMinutes: Math.max(1, adminRegisterWindowMinutes),
           enabled: adminCooldownEnabled,
         },
         user
       );
       toast({
         title: "Settings Saved Successfully!",
-        description: `Comment cooldown is now set to ${formatDurationLabel(adminCooldownSeconds)} (${adminCooldownEnabled ? "Enabled" : "Disabled"}).`,
+        description: `Verified: ${formatDurationLabel(adminCooldownSeconds)}, Unverified: ${formatDurationLabel(adminUnverifiedCooldownSeconds)} (${adminCooldownEnabled ? "Enabled" : "Disabled"}).`,
       });
     } catch (err: any) {
       console.error("Error saving comment settings:", err);
@@ -247,9 +304,14 @@ function LibraryPageContent() {
 
   const handleResetCommentSettings = () => {
     setAdminCooldownSeconds(DEFAULT_COMMENT_SETTINGS.cooldownSeconds);
+    setAdminUnverifiedCooldownSeconds(DEFAULT_COMMENT_SETTINGS.unverifiedCooldownSeconds);
+    setAdminRegisterMax(DEFAULT_COMMENT_SETTINGS.registerRateLimitMax);
+    setAdminRegisterWindowMinutes(DEFAULT_COMMENT_SETTINGS.registerRateLimitWindowMinutes);
     setAdminCooldownEnabled(DEFAULT_COMMENT_SETTINGS.enabled);
     setCustomMinutes(Math.floor(DEFAULT_COMMENT_SETTINGS.cooldownSeconds / 60).toString());
     setCustomSeconds((DEFAULT_COMMENT_SETTINGS.cooldownSeconds % 60).toString());
+    setCustomUnverifiedMinutes(Math.floor(DEFAULT_COMMENT_SETTINGS.unverifiedCooldownSeconds / 60).toString());
+    setCustomUnverifiedSeconds((DEFAULT_COMMENT_SETTINGS.unverifiedCooldownSeconds % 60).toString());
   };
 
   // Password update state
@@ -257,6 +319,7 @@ function LibraryPageContent() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [sendingResetEmail, setSendingResetEmail] = useState(false);
 
   // Delete account state
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
@@ -279,7 +342,14 @@ function LibraryPageContent() {
   // Load viewed user details
   useEffect(() => {
     if (isOwnLibrary) {
-      setViewedUser(user);
+      let linked: string | null = null;
+      try {
+        if (user?.uid) linked = localStorage.getItem(`aonime_linked_email_${user.uid}`);
+      } catch {}
+      const cleanEmail =
+        linked ||
+        (user?.email && !user.email.endsWith("@noemail.aonime.local") ? user.email : null);
+      setViewedUser(user ? { ...user, email: cleanEmail } : null);
       setLoadingViewedUser(false);
       return;
     }
@@ -315,13 +385,33 @@ function LibraryPageContent() {
       });
   }, [user?.uid, user?.displayName, user?.photoURL, user?.themeColor, targetUserId, isOwnLibrary]);
 
-  // Real-time Firestore sync
+  // Real-time Firestore or Local sync
   useEffect(() => {
     const fetchId = isOwnLibrary ? user?.uid : targetUserId;
     if (!fetchId) {
       setLibraryItems([]);
       setLoadingItems(false);
       return;
+    }
+
+    if (isOwnLibrary && user?.isLocal) {
+      const syncLocalLib = () => {
+        const local = getLocalLibraryItems().map((item) => ({
+          ...item,
+          addedAt: { seconds: Math.floor((item.addedAt || Date.now()) / 1000) },
+          updatedAt: { seconds: Math.floor((item.updatedAt || Date.now()) / 1000) },
+        })) as LibraryItem[];
+        local.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+        setLibraryItems(local);
+        setLoadingItems(false);
+      };
+      syncLocalLib();
+      window.addEventListener(LOCAL_DATA_EVENT, syncLocalLib);
+      window.addEventListener("storage", syncLocalLib);
+      return () => {
+        window.removeEventListener(LOCAL_DATA_EVENT, syncLocalLib);
+        window.removeEventListener("storage", syncLocalLib);
+      };
     }
 
     setLoadingItems(true);
@@ -355,7 +445,7 @@ function LibraryPageContent() {
     );
 
     return () => unsubscribe();
-  }, [user?.uid, targetUserId, isOwnLibrary]);
+  }, [user?.uid, user?.isLocal, targetUserId, isOwnLibrary]);
 
   // Watch History states
   const [historyItems, setHistoryItems] = useState<WatchHistoryItem[]>([]);
@@ -367,6 +457,25 @@ function LibraryPageContent() {
       setHistoryItems([]);
       setLoadingHistory(false);
       return;
+    }
+
+    if (user.isLocal) {
+      const syncLocalHist = () => {
+        const local = getLocalHistoryItems().map((item) => ({
+          ...item,
+          watchedAt: new Date(item.watchedAt || Date.now()),
+        })) as WatchHistoryItem[];
+        local.sort((a, b) => new Date(b.watchedAt).getTime() - new Date(a.watchedAt).getTime());
+        setHistoryItems(local);
+        setLoadingHistory(false);
+      };
+      syncLocalHist();
+      window.addEventListener(LOCAL_DATA_EVENT, syncLocalHist);
+      window.addEventListener("storage", syncLocalHist);
+      return () => {
+        window.removeEventListener(LOCAL_DATA_EVENT, syncLocalHist);
+        window.removeEventListener("storage", syncLocalHist);
+      };
     }
 
     setLoadingHistory(true);
@@ -399,9 +508,17 @@ function LibraryPageContent() {
     );
 
     return () => unsubscribe();
-  }, [user?.uid, isOwnLibrary]);
+  }, [user?.uid, user?.isLocal, isOwnLibrary]);
 
   const handleRemoveHistoryItem = async (itemId: string, animeTitle: string) => {
+    if (user?.isLocal) {
+      removeLocalHistoryItem(itemId);
+      toast({
+        title: "Removed from History",
+        description: `"${animeTitle}" has been removed from your local watch history.`,
+      });
+      return;
+    }
     try {
       const docRef = doc(db, "watch_history", itemId);
       await deleteDoc(docRef);
@@ -421,6 +538,14 @@ function LibraryPageContent() {
 
   const handleClearHistory = async () => {
     if (historyItems.length === 0) return;
+    if (user?.isLocal) {
+      clearLocalHistory();
+      toast({
+        title: "History Cleared",
+        description: "Your local watch history has been cleared.",
+      });
+      return;
+    }
     try {
       const deletePromises = historyItems.map((item) =>
         deleteDoc(doc(db, "watch_history", item.id))
@@ -441,11 +566,22 @@ function LibraryPageContent() {
   };
 
   const handleUpdateStatus = async (itemId: string, newStatus: string, animeTitle: string) => {
-    if (user && !user.emailVerified) {
+    if (user?.isLocal) {
+      const existing = libraryItems.find((i) => i.id === itemId);
+      if (existing) {
+        upsertLocalLibraryItem({
+          id: existing.id,
+          animeId: existing.animeId,
+          title: existing.title,
+          image: existing.image,
+          type: existing.type,
+          slug: existing.slug,
+          status: newStatus as LibraryStatus,
+        });
+      }
       toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to modify library items.",
+        title: "Status Updated",
+        description: `"${animeTitle}" changed to ${statusLabels[newStatus]}.`,
       });
       return;
     }
@@ -470,11 +606,11 @@ function LibraryPageContent() {
   };
 
   const handleRemoveItem = async (itemId: string, animeTitle: string) => {
-    if (user && !user.emailVerified) {
+    if (user?.isLocal) {
+      removeLocalLibraryItem(itemId);
       toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to modify library items.",
+        title: "Removed from Library",
+        description: `"${animeTitle}" has been removed.`,
       });
       return;
     }
@@ -498,16 +634,7 @@ function LibraryPageContent() {
   // Avatar Upload via Base64 Data URI (No third-party cloud storage required)
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    if (!user.emailVerified) {
-      toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email to upload custom avatars.",
-      });
-      return;
-    }
+    if (!file || !user || user.isLocal) return;
 
     setUploadingFile(true);
     try {
@@ -534,16 +661,7 @@ function LibraryPageContent() {
   // Profile Save
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
-    if (user && !user.emailVerified) {
-      toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to update your profile.",
-      });
-      return;
-    }
+    if (!user || user.isLocal) return;
 
     if (!displayName.trim()) {
       toast({
@@ -578,19 +696,106 @@ function LibraryPageContent() {
     }
   };
 
-  // Password Update
-  const handleUpdatePassword = async (e: React.FormEvent) => {
+  // Add Email to No-Email Account
+  const handleAddEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || user.isLocal) return;
 
-    if (!user.emailVerified) {
+    const trimmedEmail = newAccountEmail.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       toast({
         variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to update your password.",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
       });
       return;
     }
+    if (!addEmailPassword) {
+      toast({
+        variant: "destructive",
+        title: "Password Required",
+        description: "Please enter your current password to confirm adding an email.",
+      });
+      return;
+    }
+
+    setAddingEmail(true);
+    try {
+      let res: { mode: "updated" | "verify_before_update" };
+      if (typeof addEmailToAccount === "function") {
+        res = await addEmailToAccount(trimmedEmail, addEmailPassword);
+      } else {
+        const currentUser = auth.currentUser;
+        if (!currentUser || !currentUser.email) throw new Error("No active authenticated user session.");
+        const oldAuthEmail = currentUser.email;
+        const credential = EmailAuthProvider.credential(oldAuthEmail, addEmailPassword);
+        await reauthenticateWithCredential(currentUser, credential);
+        let mode: "updated" | "verify_before_update" = "updated";
+        try {
+          await updateEmail(currentUser, trimmedEmail);
+          await currentUser.getIdToken(true).catch(() => {});
+          sendEmailVerification(currentUser).catch(() => {});
+        } catch (e: any) {
+          if (e?.code === "auth/operation-not-allowed") {
+            await verifyBeforeUpdateEmail(currentUser, trimmedEmail);
+            mode = "verify_before_update";
+          } else {
+            throw e;
+          }
+        }
+        try {
+          localStorage.setItem(`aonime_linked_email_${currentUser.uid}`, trimmedEmail);
+          localStorage.setItem(`aonime_email_to_user_${trimmedEmail.toLowerCase()}`, oldAuthEmail);
+          const rawCache = localStorage.getItem("aonime_user_cache");
+          if (rawCache) {
+            const parsed = JSON.parse(rawCache);
+            parsed.email = trimmedEmail;
+            parsed.isNoEmailAccount = false;
+            localStorage.setItem("aonime_user_cache", JSON.stringify(parsed));
+          }
+        } catch {}
+        try {
+          await setDoc(doc(db, "users", currentUser.uid), { email: trimmedEmail }, { merge: true });
+        } catch {}
+        res = { mode };
+      }
+      setViewedUser((prev) => (prev ? { ...prev, email: trimmedEmail } : prev));
+      setNewAccountEmail("");
+      setAddEmailPassword("");
+      if (res.mode === "verify_before_update") {
+        toast({
+          title: "Verification Link Sent",
+          description: `We sent a verification link to ${trimmedEmail}. Click the link in your inbox to activate your email.`,
+        });
+      } else {
+        toast({
+          title: "Email Added Successfully",
+          description: `Your email (${trimmedEmail}) has been linked! Check your inbox to verify it for faster comment cooldowns.`,
+        });
+      }
+    } catch (error: any) {
+      let desc = "Failed to add email. Please try again.";
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        desc = "Incorrect current password.";
+      } else if (error.code === "auth/email-already-in-use") {
+        desc = "This email address is already linked to another account.";
+      } else if (error.code === "auth/invalid-email") {
+        desc = "Invalid email address format.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Failed to Add Email",
+        description: desc,
+      });
+    } finally {
+      setAddingEmail(false);
+    }
+  };
+
+  // Password Update
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || user.isLocal) return;
 
     if (!currentPassword) {
       toast({
@@ -621,7 +826,15 @@ function LibraryPageContent() {
 
     setUpdatingPassword(true);
     try {
-      await changeUserPassword(currentPassword, newPassword);
+      if (typeof changeUserPassword === "function") {
+        await changeUserPassword(currentPassword, newPassword);
+      } else {
+        const currentUser = auth.currentUser;
+        if (!currentUser || !currentUser.email) throw new Error("No active authenticated user session.");
+        const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+        await reauthenticateWithCredential(currentUser, credential);
+        await updatePassword(currentUser, newPassword);
+      }
       toast({
         title: "Password Updated",
         description: "Your password has been changed successfully.",
@@ -630,9 +843,8 @@ function LibraryPageContent() {
       setNewPassword("");
       setConfirmNewPassword("");
     } catch (error: any) {
-      console.error(error);
       let desc = "Failed to update password. Please check your credentials.";
-      if (error.code === "auth/wrong-password") {
+      if (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
         desc = "Incorrect current password.";
       } else if (error.code === "auth/weak-password") {
         desc = "New password is too weak.";
@@ -644,6 +856,49 @@ function LibraryPageContent() {
       });
     } finally {
       setUpdatingPassword(false);
+    }
+  };
+
+  // Forgot / Reset Password from Edit Profile
+  const handleResetPasswordFromProfile = async () => {
+    if (!user || user.isLocal) return;
+    const rawEmail = viewedUser?.email || (user.email && !user.email.endsWith("@noemail.aonime.local") ? user.email : null);
+    if (!rawEmail) {
+      toast({
+        variant: "destructive",
+        title: "Email Required for Password Reset",
+        description: "Your account does not have an email address linked yet. Please add an email address first to use password reset.",
+      });
+      const emailInput = document.getElementById("add-account-email");
+      if (emailInput) emailInput.focus();
+      return;
+    }
+
+    setSendingResetEmail(true);
+    try {
+      if (typeof resetPassword === "function") {
+        await resetPassword(rawEmail);
+      } else {
+        await sendPasswordResetEmail(auth, rawEmail);
+      }
+      toast({
+        title: "Password Reset Email Sent",
+        description: `We have sent a password reset link to ${rawEmail}. Check your inbox and spam folder.`,
+      });
+    } catch (error: any) {
+      let desc = "Failed to send password reset email. Please try again.";
+      if (error.code === "auth/too-many-requests") {
+        desc = "Too many requests. Please wait a few minutes before trying again.";
+      } else if (error.code === "auth/user-not-found") {
+        desc = "Please verify the newly added email address in your inbox first before requesting a password reset.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Reset Failed",
+        description: desc,
+      });
+    } finally {
+      setSendingResetEmail(false);
     }
   };
 
@@ -765,7 +1020,7 @@ function LibraryPageContent() {
         <FolderHeart className="h-16 w-16 mx-auto text-muted-foreground/60 mb-6" />
         <h1 className="text-3xl font-black mb-3">My Library</h1>
         <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
-          Sign in to your Aonime account to save, track episode progress, and organize your favorite anime.
+          Sign in to your Aonime account or use a Local Account to save, track episode progress, and organize your favorite anime.
         </p>
         <div className="space-y-3">
           <Button onClick={() => openAuthModal("login")} className="w-full font-bold h-11">
@@ -773,6 +1028,9 @@ function LibraryPageContent() {
           </Button>
           <Button onClick={() => openAuthModal("register")} variant="outline" className="w-full font-bold h-11 border-border/80">
             Create New Account
+          </Button>
+          <Button onClick={() => loginAsLocal()} variant="secondary" className="w-full font-bold h-11">
+            Use Local Account (Library & History Only)
           </Button>
         </div>
       </div>
@@ -971,18 +1229,42 @@ function LibraryPageContent() {
 
         </div>
 
-        <div className="text-center md:text-left space-y-1">
+        <div className="text-center md:text-left space-y-1 flex-1">
           <h1 className="text-3xl font-black tracking-tight">{viewedUser?.displayName}</h1>
-          {isOwnLibrary && <p className="text-muted-foreground text-sm font-medium">{viewedUser?.email}</p>}
+          {isOwnLibrary && (user?.isLocal || viewedUser?.email) && (
+            <p className="text-muted-foreground text-sm font-medium">
+              {user?.isLocal ? "Local Account (Stored on this device only)" : viewedUser?.email}
+            </p>
+          )}
           <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
             <span className="text-xs font-semibold px-2.5 py-1 bg-primary/15 text-primary rounded-full border border-primary/20">
               {libraryItems.length} Anime {isOwnLibrary ? "saved" : "tracked"}
             </span>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-muted/60 text-muted-foreground rounded-full border border-border/40 capitalize">
-              Theme {viewedUser?.themeColor}
-            </span>
+            {(!user?.isLocal || !isOwnLibrary) && (
+              <span className="text-xs font-semibold px-2.5 py-1 bg-muted/60 text-muted-foreground rounded-full border border-border/40 capitalize">
+                Theme {viewedUser?.themeColor}
+              </span>
+            )}
           </div>
         </div>
+
+        {isOwnLibrary && user?.isLocal && (
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 bg-primary/10 border border-primary/25 rounded-xl p-3.5 max-w-sm">
+            <div className="text-xs text-muted-foreground text-center sm:text-left">
+              <p className="font-bold text-foreground mb-0.5">Sync & Unlock Comments</p>
+              <p className="text-[11px] leading-relaxed">
+                Create an account to transfer your {libraryItems.length} library items & {historyItems.length} watch history entries to the cloud.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => openAuthModal("register")}
+              className="font-bold text-xs shrink-0 whitespace-nowrap"
+            >
+              Create Account
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Tabs / Content */}
@@ -1026,13 +1308,15 @@ function LibraryPageContent() {
                     <span>Watch History</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="profile" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />
-                    <span>Edit Profile</span>
-                  </div>
-                </SelectItem>
-                {isAdmin && (
+                {!user?.isLocal && (
+                  <SelectItem value="profile" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      <span>Edit Profile</span>
+                    </div>
+                  </SelectItem>
+                )}
+                {isAdmin && !user?.isLocal && (
                   <SelectItem value="admin" className="font-bold text-sm py-3 px-4 cursor-pointer pl-4 [&>span.absolute]:hidden data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary focus:bg-primary/10 focus:text-primary">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-primary" />
@@ -1054,11 +1338,13 @@ function LibraryPageContent() {
               <History className="h-4 w-4" />
               Watch History
             </TabsTrigger>
-            <TabsTrigger value="profile" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Edit Profile
-            </TabsTrigger>
-            {isAdmin && (
+            {!user?.isLocal && (
+              <TabsTrigger value="profile" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Edit Profile
+              </TabsTrigger>
+            )}
+            {isAdmin && !user?.isLocal && (
               <TabsTrigger value="admin" className="rounded-lg font-bold text-sm px-6 py-2.5 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4" />
                 Admin Settings
@@ -1363,45 +1649,39 @@ function LibraryPageContent() {
             </div>
           </form>
 
-          {/* Form 2: Password Modification (Only visible if registered via email/password) */}
-          {!user?.isGoogleUser && (
-            <form onSubmit={handleUpdatePassword} className="space-y-6 pt-6 border-t border-border/30">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-bold tracking-tight">Change Password</h2>
+          {/* Form 1.5: Add Email to Account (Only visible if user signed up without email) */}
+          {(!viewedUser?.email && (user?.isNoEmailAccount || (!user?.email && !user?.isLocal && !user?.isGoogleUser) || user?.email?.endsWith("@noemail.aonime.local"))) && (
+            <form onSubmit={handleAddEmail} className="space-y-6 pt-6 border-t border-border/30">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-bold tracking-tight">Add Email Address</h2>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Link an email address to your account to enable password recovery and unlock faster verified comment cooldowns.
+                </p>
               </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
+                  <Label htmlFor="add-account-email">Email Address</Label>
                   <Input
-                    id="current-password"
+                    id="add-account-email"
+                    type="email"
+                    value={newAccountEmail}
+                    onChange={(e) => setNewAccountEmail(e.target.value)}
+                    placeholder="name@email.com"
+                    className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-email-password">Current Password</Label>
+                  <Input
+                    id="add-email-password"
                     type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    value={addEmailPassword}
+                    onChange={(e) => setAddEmailPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 6 characters"
-                    className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-new-password">Confirm Password</Label>
-                  <Input
-                    id="confirm-new-password"
-                    type="password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    placeholder="Retype password"
                     className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
                   />
                 </div>
@@ -1410,21 +1690,122 @@ function LibraryPageContent() {
               <div className="flex justify-end">
                 <Button
                   type="submit"
-                  disabled={updatingPassword}
+                  disabled={addingEmail}
                   className="font-bold h-11 px-8 border border-border/60 hover:bg-muted bg-transparent text-foreground"
                 >
-                  {updatingPassword ? (
+                  {addingEmail ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating...
+                      Adding Email...
                     </>
                   ) : (
-                    "Update Password"
+                    "Add Email"
                   )}
                 </Button>
               </div>
             </form>
           )}
+
+          {/* Form 2: Password Modification & Reset Password */}
+          <div className="space-y-6 pt-6 border-t border-border/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-bold tracking-tight">Change &amp; Reset Password</h2>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={sendingResetEmail}
+                onClick={handleResetPasswordFromProfile}
+                className="h-9 text-xs font-bold border-border/60 hover:bg-muted"
+              >
+                {sendingResetEmail ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Sending Reset Link...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                    Send Reset Link
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {!user?.isGoogleUser ? (
+              <form onSubmit={handleUpdatePassword} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <button
+                        type="button"
+                        onClick={handleResetPasswordFromProfile}
+                        disabled={sendingResetEmail}
+                        className="text-[11px] font-semibold text-primary hover:underline"
+                      >
+                        Forgot?
+                      </button>
+                    </div>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-new-password">Confirm Password</Label>
+                    <Input
+                      id="confirm-new-password"
+                      type="password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Retype password"
+                      className="bg-muted/20 border-border/60 focus-visible:ring-primary h-11"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    disabled={updatingPassword}
+                    className="font-bold h-11 px-8 border border-border/60 hover:bg-muted bg-transparent text-foreground"
+                  >
+                    {updatingPassword ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Password"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                You are signed in with Google ({user.email}). If you want to set or reset a direct password for your account, click <strong>Send Reset Link</strong> above.
+              </p>
+            )}
+          </div>
 
           {/* Form 3: Danger Zone - Account Deletion */}
           <div className="space-y-6 pt-6 border-t border-border/30">
@@ -1533,13 +1914,13 @@ function LibraryPageContent() {
                 </div>
               </div>
 
-              {/* Comment Cooldown Section */}
+              {/* Comment Cooldown Section (Verified Accounts) */}
               <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer</h3>
+                    <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer (Verified Accounts)</h3>
                     <p className="text-xs text-muted-foreground">
-                      Sets the mandatory waiting period between consecutive comments or replies posted by users.
+                      Sets the waiting period between consecutive comments or replies for email-verified and Google users.
                     </p>
                   </div>
 
@@ -1629,7 +2010,7 @@ function LibraryPageContent() {
                 {/* Live Preview Box */}
                 <div className="p-3 bg-card/40 border border-border/40 rounded-lg flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Effective Wait Time:</span>
+                    <span className="text-muted-foreground">Verified Account Wait Time:</span>
                     <strong className="text-foreground font-mono font-bold">
                       {adminCooldownEnabled && adminCooldownSeconds > 0
                         ? formatDurationLabel(adminCooldownSeconds)
@@ -1640,16 +2021,160 @@ function LibraryPageContent() {
                     {adminCooldownSeconds}s total
                   </span>
                 </div>
+              </div>
+
+              {/* Unverified / No-Email Account Comment Cooldown Section */}
+              <div className="space-y-5 p-5 rounded-xl bg-amber-500/5 border border-amber-500/25">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer (No-Email / Unverified Accounts)</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Sets a separate (usually longer) waiting period between comments for accounts created without an email or without email verification.
+                  </p>
+                </div>
+
+                {/* Preset Quick Buttons */}
+                <div className="space-y-2 pt-2 border-t border-border/30">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Sliders className="h-3.5 w-3.5 text-amber-400" />
+                    Quick Preset Durations (Unverified):
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {[
+                      { label: "5 Min", seconds: 300, description: "Same" },
+                      { label: "10 Min", seconds: 600, description: "Moderate" },
+                      { label: "15 Min", seconds: 900, description: "Default" },
+                      { label: "30 Min", seconds: 1800, description: "Strict" },
+                      { label: "60 Min", seconds: 3600, description: "Max Anti-Spam" },
+                    ].map((preset) => {
+                      const isSelected = adminUnverifiedCooldownSeconds === preset.seconds;
+                      return (
+                        <button
+                          key={preset.seconds}
+                          type="button"
+                          onClick={() => handleSelectUnverifiedPreset(preset.seconds)}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all",
+                            isSelected
+                              ? "bg-amber-500/15 text-amber-400 border-amber-500/50 shadow-xs"
+                              : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
+                          )}
+                        >
+                          <span className="font-extrabold text-sm">{preset.label}</span>
+                          <span className="text-[10px] opacity-75 font-normal">{preset.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Duration Input */}
+                <div className="space-y-2 pt-2 border-t border-border/30">
+                  <Label className="text-xs text-muted-foreground">Or Set Custom Unverified Cooldown:</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Minutes</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1440"
+                        value={customUnverifiedMinutes}
+                        onChange={(e) => handleCustomUnverifiedDurationChange(e.target.value, customUnverifiedSeconds)}
+                        placeholder="15"
+                        className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Seconds</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={customUnverifiedSeconds}
+                        onChange={(e) => handleCustomUnverifiedDurationChange(customUnverifiedMinutes, e.target.value)}
+                        placeholder="0"
+                        className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-card/40 border border-border/40 rounded-lg flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Unverified Account Wait Time:</span>
+                    <strong className="text-amber-400 font-mono font-bold">
+                      {adminCooldownEnabled && adminUnverifiedCooldownSeconds > 0
+                        ? formatDurationLabel(adminUnverifiedCooldownSeconds)
+                        : "Disabled (0s delay)"}
+                    </strong>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-muted/60 rounded border border-border/40 text-muted-foreground">
+                    {adminUnverifiedCooldownSeconds}s total
+                  </span>
+                </div>
+              </div>
+
+              {/* Account Creation Anti-Spam Rate Limit Section */}
+              <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-foreground">Account Registration Anti-Spam Rate Limit</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Prevents automated account spam by limiting how many accounts can be created per IP address & device within a rolling time window.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/30">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Max New Accounts Allowed
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={adminRegisterMax}
+                      onChange={(e) => setAdminRegisterMax(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      placeholder="2"
+                      className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Maximum accounts per IP/device per window (Default: 2).
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Cooldown Window (Minutes)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10080"
+                      value={adminRegisterWindowMinutes}
+                      onChange={(e) => setAdminRegisterWindowMinutes(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      placeholder="60"
+                      className="bg-background/60 border-border/60 h-10 text-sm font-semibold"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Time window in minutes before new registrations are allowed again (Default: 60 min).
+                    </p>
+                  </div>
+                </div>
 
                 {/* Real-time Status Card */}
                 {currentCommentSettings && (
                   <div className="p-3 bg-muted/10 border border-border/30 rounded-lg space-y-1 text-[11px] text-muted-foreground">
                     <div className="flex items-center justify-between">
-                      <span>Currently active on server:</span>
+                      <span>Verified / Unverified Cooldown:</span>
                       <strong className="text-foreground font-mono">
-                        {currentCommentSettings.enabled && currentCommentSettings.cooldownSeconds > 0
-                          ? formatDurationLabel(currentCommentSettings.cooldownSeconds)
+                        {currentCommentSettings.enabled
+                          ? `${formatDurationLabel(currentCommentSettings.cooldownSeconds)} / ${formatDurationLabel(currentCommentSettings.unverifiedCooldownSeconds)}`
                           : "Disabled"}
+                      </strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Registration Rate Limit:</span>
+                      <strong className="text-foreground font-mono">
+                        Max {currentCommentSettings.registerRateLimitMax} accounts per {currentCommentSettings.registerRateLimitWindowMinutes}m
                       </strong>
                     </div>
                     {currentCommentSettings.updatedBy && (
@@ -1672,7 +2197,7 @@ function LibraryPageContent() {
                   className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 h-10"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  Reset to Default (5m)
+                  Reset All to Defaults
                 </Button>
 
                 <Button

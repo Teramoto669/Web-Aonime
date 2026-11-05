@@ -89,7 +89,7 @@ const SORT_OPTIONS = [
 
 async function SearchResults({ query, page, sort, filters }: { query: string; page: number; sort: string; filters: Record<string, string[]> }) {
 	try {
-		const data = await browseAnime({ keyword: query, page, limit: 24, sort: sort || 'default', refresh: true, ...filters });
+		const data = await browseAnime({ keyword: query, page, limit: 24, sort: sort || 'default', refresh: false, ...filters });
 
 		if (!data.results || data.results.length === 0) {
 			return (

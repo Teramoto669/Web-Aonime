@@ -13,16 +13,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ReCaptcha, IS_RECAPTCHA_ENABLED } from "@/components/auth/ReCaptcha";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle2, HardDrive, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Form validation schemas
 const loginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().min(3, { message: "Please enter your username or email" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 const registerSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().min(3, { message: "Must be at least 3 characters" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -39,10 +40,12 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function AuthModal() {
-  const { isAuthModalOpen, authModalTab, closeAuthModal, openAuthModal, login, register, signInWithGoogle, resetPassword } = useAuth();
+  const { user, isAuthModalOpen, authModalTab, closeAuthModal, openAuthModal, login, register, signInWithGoogle, loginAsLocal, resetPassword } = useAuth();
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
+  const [registerWithoutEmail, setRegisterWithoutEmail] = useState(true);
   const [rememberMe, setRememberMe] = useState(true);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [resetEmailSent, setResetEmailSent] = useState(false);
@@ -144,9 +147,9 @@ export default function AuthModal() {
       setRecaptchaToken(null);
     } catch (error: any) {
       console.error(error);
-      let desc = "Please check your email and password.";
+      let desc = "Please check your username/email and password.";
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        desc = "Incorrect email or password.";
+        desc = "Incorrect username/email or password.";
       } else if (error.code === "auth/firebase-app-check-token-is-invalid" || error?.message?.includes("app-check")) {
         desc = "Firebase App Check verification failed. Please check your App Check and reCAPTCHA settings in Firebase Console.";
       }
@@ -162,6 +165,30 @@ export default function AuthModal() {
 
   // Submit Register
   const onRegister = async (data: RegisterFormValues) => {
+    if (honeypot) {
+      toast({
+        variant: "destructive",
+        title: "Registration Blocked",
+        description: "Automated spam submission detected.",
+      });
+      return;
+    }
+    if (!registerWithoutEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Email",
+        description: "Please enter a valid email address, or switch to 'Without Email'.",
+      });
+      return;
+    }
+    if (registerWithoutEmail && data.email.trim().replace(/[^a-zA-Z0-9_.-]/g, "").length < 3) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Username",
+        description: "Username must contain at least 3 valid characters (letters, numbers, _, ., -).",
+      });
+      return;
+    }
     if (IS_RECAPTCHA_ENABLED) {
       if (!recaptchaToken) {
         toast({
@@ -184,10 +211,14 @@ export default function AuthModal() {
     }
 
     try {
-      await register(data.email, data.password);
+      await register(data.email, data.password, { withoutEmail: registerWithoutEmail });
       toast({
         title: "Registration Successful",
-        description: "Your account has been created successfully!",
+        description: user?.isLocal
+          ? "Account created! Your local Library & Watch History have been transferred."
+          : registerWithoutEmail
+            ? "Account created without email! You can now use all features."
+            : "Account created! Check your inbox to verify your email for faster comment cooldowns.",
       });
       closeAuthModal();
       resetRegisterForm();
@@ -195,10 +226,18 @@ export default function AuthModal() {
     } catch (error: any) {
       console.error(error);
       let desc = "Failed to create account. Please try again.";
-      if (error.code === "auth/email-already-in-use") {
-        desc = "Email is already in use. Please use another email.";
+      if (error.code === "auth/signup-rate-limited") {
+        desc = error.message || "Too many accounts created recently. Please wait before trying again.";
+      } else if (error.code === "auth/username-already-in-use") {
+        desc = "Username is already taken. Please choose another username.";
+      } else if (error.code === "auth/invalid-username") {
+        desc = error.message || "Invalid username.";
+      } else if (error.code === "auth/email-already-in-use") {
+        desc = registerWithoutEmail
+          ? "Username is already taken. Please choose another username."
+          : "Email is already in use. Please use another email.";
       } else if (error.code === "auth/invalid-email") {
-        desc = "Invalid email format.";
+        desc = "Invalid format.";
       } else if (error.code === "auth/weak-password") {
         desc = "Password is too weak.";
       }
@@ -438,6 +477,14 @@ export default function AuthModal() {
           )
         ) : (
           <Tabs value={authModalTab} onValueChange={handleTabChange} className="w-full mt-4">
+            {user?.isLocal && (
+              <div className="mb-3 p-2.5 rounded-lg bg-primary/10 border border-primary/25 text-xs text-foreground flex items-center gap-2">
+                <HardDrive className="h-4 w-4 text-primary shrink-0" />
+                <span>
+                  Your <strong>Local Library &amp; Watch History</strong> will automatically transfer when you create an account or sign in.
+                </span>
+              </div>
+            )}
             <TabsList className="grid w-full grid-cols-2 bg-muted/80 p-1 rounded-lg">
               <TabsTrigger value="login" disabled={isSubmitting} className="rounded-md font-semibold text-sm">
                 Sign In
@@ -451,13 +498,13 @@ export default function AuthModal() {
             <TabsContent value="login" className="mt-4 space-y-4">
               <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="login-email">Username or Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="login-email"
-                      type="email"
-                      placeholder="name@email.com"
+                      type="text"
+                      placeholder="username or name@email.com"
                       className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
                       disabled={isSubmitting}
                       {...registerLogin("email")}
@@ -537,14 +584,58 @@ export default function AuthModal() {
           {/* Register Content */}
           <TabsContent value="register" className="mt-4 space-y-4">
             <form onSubmit={handleRegisterSubmit(onRegister)} className="space-y-4">
+              {/* Honeypot anti-bot field */}
+              <input
+                type="text"
+                name="website_url"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                className="hidden"
+                aria-hidden="true"
+              />
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/50 border border-border/50 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setRegisterWithoutEmail(true)}
+                  className={cn(
+                    "py-1.5 px-2 rounded-md text-xs font-bold transition-all",
+                    registerWithoutEmail
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Without Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegisterWithoutEmail(false)}
+                  className={cn(
+                    "py-1.5 px-2 rounded-md text-xs font-bold transition-all",
+                    !registerWithoutEmail
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  With Email
+                </button>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
+                <Label htmlFor="register-email">
+                  {registerWithoutEmail ? "Username" : "Email"}
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  {registerWithoutEmail ? (
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  )}
                   <Input
                     id="register-email"
-                    type="email"
-                    placeholder="name@email.com"
+                    type={registerWithoutEmail ? "text" : "email"}
+                    placeholder={registerWithoutEmail ? "your_username" : "name@email.com"}
                     className="pl-9 bg-muted/20 border-border/80 focus-visible:ring-primary"
                     disabled={isSubmitting}
                     {...registerRegister("email")}
@@ -638,6 +729,26 @@ export default function AuthModal() {
             )}
             Sign In with Google
           </Button>
+
+          {!user?.isLocal && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isSubmitting}
+              className="w-full mt-2 font-bold flex items-center justify-center gap-2 text-xs h-9 bg-muted/60 hover:bg-muted border border-border/60"
+              onClick={() => {
+                loginAsLocal();
+                toast({
+                  title: "Local Account Active",
+                  description: "You can now use Library & Watch History on this device. Create an account anytime to transfer your data!",
+                });
+                closeAuthModal();
+              }}
+            >
+              <HardDrive className="h-3.5 w-3.5 text-primary" />
+              Use Local Account (Library &amp; History Only)
+            </Button>
+          )}
         </Tabs>
       )}
     </DialogContent>

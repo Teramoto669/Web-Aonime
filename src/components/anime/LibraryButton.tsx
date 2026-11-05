@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BookmarkCheck, Plus, Trash, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUserLibrary, type LibraryStatus, statusLabels, normalizeLibraryKey } from "@/lib/library-context";
+import {
+  useUserLibrary,
+  type LibraryStatus,
+  statusLabels,
+  normalizeLibraryKey,
+  upsertLocalLibraryItem,
+  removeLocalLibraryItem,
+} from "@/lib/library-context";
 
 interface LibraryButtonProps {
   animeId: string;
@@ -61,11 +68,18 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
       return;
     }
 
-    if (!user.emailVerified) {
+    if (user.isLocal) {
+      upsertLocalLibraryItem({
+        animeId: cleanAnimeId || cleanSlug,
+        title: String(title || slug).trim(),
+        image: typeof image === "string" ? image.trim() : "",
+        type: String(type || "TV").trim(),
+        slug: cleanSlug || cleanAnimeId,
+        status: "watching",
+      });
       toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to add anime to your library.",
+        title: "Added to Local Library",
+        description: `"${title}" has been added to your local library.`,
       });
       return;
     }
@@ -127,11 +141,19 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
   const handleUpdateStatus = async (newStatus: LibraryStatus) => {
     if (!user) return;
 
-    if (!user.emailVerified) {
+    if (user.isLocal) {
+      upsertLocalLibraryItem({
+        id: targetDocId,
+        animeId: cleanAnimeId || cleanSlug,
+        title: String(title || slug).trim(),
+        image: typeof image === "string" ? image.trim() : "",
+        type: String(type || "TV").trim(),
+        slug: cleanSlug || cleanAnimeId,
+        status: newStatus,
+      });
       toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to update your library.",
+        title: "Status Updated",
+        description: `"${title}" status updated to ${statusLabels[newStatus]}.`,
       });
       return;
     }
@@ -169,11 +191,11 @@ export default function LibraryButton({ animeId, title, image, type, slug, class
   const handleRemove = async () => {
     if (!user) return;
 
-    if (!user.emailVerified) {
+    if (user.isLocal) {
+      removeLocalLibraryItem(targetDocId || cleanSlug || cleanAnimeId);
       toast({
-        variant: "destructive",
-        title: "Email Verification Required",
-        description: "Please verify your email address to modify your library.",
+        title: "Removed from Library",
+        description: `"${title}" has been removed from your local library.`,
       });
       return;
     }

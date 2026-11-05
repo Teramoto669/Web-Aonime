@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "@/hooks/use-router";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { normalizeLibraryKey } from "@/lib/library-context";
+import { normalizeLibraryKey, upsertLocalHistoryItem } from "@/lib/library-context";
 
 interface WatchClientProps {
     animeId: string;
@@ -416,6 +416,17 @@ export function WatchClient({ animeId, episodeNum, episodeRange, detailsData, ep
         if (lastSavedRef.current === saveKey) return;
         lastSavedRef.current = saveKey;
 
+        if (user.isLocal) {
+            upsertLocalHistoryItem({
+                animeId: cleanTargetId,
+                title: String(detailsData.title || animeId || cleanTargetId).trim(),
+                image: typeof detailsData.image === "string" ? detailsData.image.trim() : "",
+                slug: cleanTargetId,
+                episodeNum: epNumStr,
+                type: detailsData.type || "TV",
+            });
+            return;
+        }
         const saveWatchHistory = async () => {
             try {
                 // 1. Save/update watch history entry (safe fields, no undefined values)

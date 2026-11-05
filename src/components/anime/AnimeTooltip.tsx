@@ -126,69 +126,52 @@ export function AnimeTooltip({ id, fallbackTitle, fallbackTitleJp, children }: A
     }
   };
 
-  // If user hasn't hovered over this card yet, render lightweight wrapper without full Radix Tooltip tree
-  if (!hasHovered) {
-    return (
-      <div onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave} className="inline-block w-full">
-        {children}
-      </div>
-    );
-  }
-
-  // If there's no ID, we fall back to a simple, title-only tooltip
-  if (!id) {
-    return (
-      <Tooltip open={open} onOpenChange={handleOpenChange}>
-        <TooltipTrigger
-          asChild
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-        >
-          {children}
-        </TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="start"
-          sideOffset={10}
-          alignOffset={50}
-          onPointerEnter={() => { isHoveredRef.current = true; }}
-          onPointerLeave={handlePointerLeave}
-          className="bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
-        >
-          <p className="font-semibold">{fallbackTitle}</p>
-          {fallbackTitleJp && fallbackTitleJp.trim() !== fallbackTitle.trim() && (
-            <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={fallbackTitleJp}>
-              {fallbackTitleJp}
-            </p>
-          )}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
   return (
-    <Tooltip open={open} onOpenChange={handleOpenChange}>
-      <TooltipTrigger
-        asChild
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-      >
-        {children}
-      </TooltipTrigger>
-      {open && (
-        <TooltipContent
-          side="right"
-          align="start"
-          sideOffset={10}
-          alignOffset={50}
-          onPointerEnter={() => { isHoveredRef.current = true; }}
-          onPointerLeave={handlePointerLeave}
-          className="w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-100"
-        >
-          <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} fallbackTitleJp={fallbackTitleJp} />
-        </TooltipContent>
+    <div
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      className="relative inline-block w-full"
+    >
+      {children}
+      {hasHovered && (
+        <Tooltip open={open} onOpenChange={handleOpenChange}>
+          <TooltipTrigger asChild>
+            <span className="pointer-events-none absolute inset-0" aria-hidden="true" />
+          </TooltipTrigger>
+          {open && (
+            <TooltipContent
+              side="right"
+              align="start"
+              sideOffset={10}
+              alignOffset={50}
+              onPointerEnter={() => {
+                isHoveredRef.current = true;
+                if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+              }}
+              onPointerLeave={handlePointerLeave}
+              className={
+                !id
+                  ? "bg-card text-foreground border-border px-3 py-1.5 text-xs shadow-md rounded"
+                  : "w-80 p-4 border-border bg-card/95 backdrop-blur-md text-foreground shadow-2xl rounded-lg animate-in fade-in-50 duration-200 z-100"
+              }
+            >
+              {!id ? (
+                <>
+                  <p className="font-semibold">{fallbackTitle}</p>
+                  {fallbackTitleJp && fallbackTitleJp.trim() !== fallbackTitle.trim() && (
+                    <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5" title={fallbackTitleJp}>
+                      {fallbackTitleJp}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <AnimeTooltipDetail id={id} fallbackTitle={fallbackTitle} fallbackTitleJp={fallbackTitleJp} />
+              )}
+            </TooltipContent>
+          )}
+        </Tooltip>
       )}
-    </Tooltip>
+    </div>
   );
 }
 

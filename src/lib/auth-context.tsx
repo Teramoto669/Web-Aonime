@@ -14,6 +14,8 @@ import {
   reauthenticateWithCredential,
   reauthenticateWithPopup,
   updatePassword,
+  updateEmail,
+  verifyBeforeUpdateEmail,
   deleteUser,
   setPersistence,
   browserLocalPersistence,
@@ -23,6 +25,18 @@ import {
 import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { InitialAppLoader } from "@/components/layout/InitialAppLoader";
+import {
+  getLocalLibraryItems,
+  getLocalHistoryItems,
+  normalizeLibraryKey,
+  LOCAL_LIBRARY_KEY,
+  LOCAL_HISTORY_KEY,
+  LOCAL_DATA_EVENT,
+} from "./library-context";
+
+export const LOCAL_ACCOUNT_KEY = "aonime_local_account";
+export const NO_EMAIL_DOMAIN = "@noemail.aonime.local";
+const SIGNUP_TIMESTAMPS_KEY = "aonime_signup_timestamps";
 
 export interface UserProfile {
   uid: string;
@@ -32,6 +46,8 @@ export interface UserProfile {
   themeColor: string;
   emailVerified: boolean;
   isGoogleUser: boolean;
+  isLocal?: boolean;
+  isNoEmailAccount?: boolean;
   lastCommentedAt?: Date | null;
   role?: "admin" | "user";
   isAdmin?: boolean;
@@ -41,11 +57,13 @@ interface AuthContextType {
   user: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string, rememberMe?: boolean) => Promise<void>;
+  register: (identifier: string, password: string, options?: { withoutEmail?: boolean }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  loginAsLocal: () => void;
   resendVerificationEmail: () => Promise<void>;
   checkEmailVerificationStatus: () => Promise<boolean>;
+  addEmailToAccount: (newEmail: string, currentPassword: string) => Promise<{ mode: "updated" | "verify_before_update" }>;
   changeUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deleteUserAccount: (currentPassword?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -198,6 +216,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
+  const buildLocalUserProfile = (): UserProfile => ({
+    uid: "local_user",
+    email: null,
+    displayName: "Local Account",
+    photoURL: PRESET_AVATARS[0].url,
+    themeColor: "violet",
+    emailVerified: false,
+    isGoogleUser: false,
+    isLocal: true,
+    role: "user",
+    isAdmin: false,
+  });
+
+  const transferLocalDataToFirestore = async (uid: string) => {
+    if (typeof window === "undefined" || !uid || uid === "local_user") return;
+    const localLib = getLocalLibraryItems();
+    const localHist = getLocalHistoryItems();
+    if (localLib.length === 0 && localHist.length === 0) {
+      try {
+        localStorage.removeItem(LOCAL_ACCOUNT_KEY);
+      } catch {}
+      return;
+    }
+
+    // Clear local storage immediately to prevent duplicate transfers
+    try {
+      localStorage.removeItem(LOCAL_LIBRARY_KEY);
+      localStorage.removeItem(LOCAL_HISTORY_KEY);
+      localStorage.removeItem(LOCAL_ACCOUNT_KEY);
+      window.dispatchEvent(new Event(LOCAL_DATA_EVENT));
+    } catch {}
+
+    try {
+      const batch = writeBatch(db);
+      for (const item of localLib) {
+        const cleanSlug = normalizeLibraryKey(item.slug || item.animeId);
+        if (!cleanSlug) continue;
+        const docRef = doc(db, "libraries", `${uid}_${cleanSlug}`);
+        batch.set(
+          docRef,
+          {
+            userId: uid,
+            animeId: normalizeLibraryKey(item.animeId) || cleanSlug,
+            title: item.title || cleanSlug,
+            image: item.image || "",
+            type: item.type || "TV",
+            slug: cleanSlug,
+            status: item.status || "watching",
+            addedAt: item.addedAt ? new Date(item.addedAt) : new Date(),
+            updatedAt: item.updatedAt ? new Date(item.updatedAt) : new Date(),
+            ...(item.lastEpisodeWatched ? { lastEpisodeWatched: String(item.lastEpisodeWatched) } : {}),
+            ...(item.lastEpisodeWatchedAt ? { lastEpisodeWatchedAt: new Date(item.lastEpisodeWatchedAt) } : {}),
+          },
+          { merge: true }
+        );
+      }
+
+      for (const h of localHist) {
+        const cleanSlug = normalizeLibraryKey(h.slug || h.animeId);
+        if (!cleanSlug) continue;
+        const docRef = doc(db, "watch_history", `${uid}_${cleanSlug}`);
+        batch.set(
+          docRef,
+          {
+            userId: uid,
+            animeId: cleanSlug,
+            title: h.title || cleanSlug,
+            image: h.image || "",
+            type: h.type || "TV",
+            slug: cleanSlug,
+            episodeNum: String(h.episodeNum || "1"),
+            watchedAt: h.watchedAt ? new Date(h.watchedAt) : new Date(),
+          },
+          { merge: true }
+        );
+      }
+
+      await batch.commit();
+    } catch (e) {
+      console.error("Failed to transfer local data to Firestore:", e);
+    }
+  };
+
   useEffect(() => {
     // Hydrate cached user profile on client mount to ensure instant account info resolution
     try {
@@ -212,6 +313,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           applyThemeColor(parsed.themeColor);
         }
         setLoading(false);
+      } else if (localStorage.getItem(LOCAL_ACCOUNT_KEY) === "true") {
+        const localProf = buildLocalUserProfile();
+        setUser(localProf);
+        localStorage.setItem("aonime_user_cache", JSON.stringify(localProf));
+        setLoading(false);
       }
     } catch (e) {
       console.error("Failed to parse cached user profile:", e);
@@ -219,6 +325,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        await transferLocalDataToFirestore(firebaseUser.uid);
+
         // Fetch or create user details in Firestore
         const userDocRef = doc(db, "users", firebaseUser.uid);
         let userData: any = {};
@@ -244,15 +352,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const isUserAdmin = userData.role === "admin" || userData.isAdmin === true;
+        const hasSyntheticAuthEmail = Boolean(firebaseUser.email?.endsWith(NO_EMAIL_DOMAIN));
+        let localLinkedEmail: string | null = null;
+        try {
+          localLinkedEmail = localStorage.getItem(`aonime_linked_email_${firebaseUser.uid}`);
+        } catch {}
+        const storedDocEmail =
+          typeof userData.email === "string" && !userData.email.endsWith(NO_EMAIL_DOMAIN)
+            ? userData.email
+            : null;
+        const visibleEmail = (!hasSyntheticAuthEmail ? firebaseUser.email : null) || localLinkedEmail || storedDocEmail || null;
+        const isNoEmail = !visibleEmail;
 
         const profile: UserProfile = {
           uid: firebaseUser.uid,
-          email: firebaseUser.email,
+          email: visibleEmail,
           displayName: userData.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
           photoURL: userData.photoURL || firebaseUser.photoURL || PRESET_AVATARS[0].url,
           themeColor: userData.themeColor || "violet",
-          emailVerified: firebaseUser.emailVerified,
+          emailVerified: isNoEmail ? false : firebaseUser.emailVerified,
           isGoogleUser: firebaseUser.providerData.some((p) => p.providerId === "google.com"),
+          isLocal: false,
+          isNoEmailAccount: isNoEmail,
           lastCommentedAt: userData.lastCommentedAt
             ? (typeof userData.lastCommentedAt.toDate === "function"
               ? userData.lastCommentedAt.toDate()
@@ -267,6 +388,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem("aonime_user_cache", JSON.stringify(profile));
         } catch (e) {}
       } else {
+        try {
+          if (localStorage.getItem(LOCAL_ACCOUNT_KEY) === "true") {
+            const localProf = buildLocalUserProfile();
+            setUser(localProf);
+            localStorage.setItem("aonime_user_cache", JSON.stringify(localProf));
+            setLoading(false);
+            return;
+          }
+        } catch {}
         setUser(null);
         try {
           localStorage.removeItem("aonime_user_cache");
@@ -285,22 +415,152 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.themeColor]);
 
-  const login = async (email: string, password: string, rememberMe: boolean = true) => {
+  const loginAsLocal = () => {
+    const localProf = buildLocalUserProfile();
+    try {
+      localStorage.setItem(LOCAL_ACCOUNT_KEY, "true");
+      localStorage.setItem("aonime_user_cache", JSON.stringify(localProf));
+    } catch {}
+    setUser(localProf);
+  };
+
+  const login = async (identifier: string, password: string, rememberMe: boolean = true) => {
     try {
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
       await setPersistence(auth, persistence);
     } catch (e) {
       console.warn("Failed to set persistence:", e);
     }
-    await signInWithEmailAndPassword(auth, email, password);
+    const trimmed = identifier.trim();
+    if (!trimmed.includes("@")) {
+      const cleanUsername = trimmed.toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+      const syntheticEmail = `${cleanUsername}${NO_EMAIL_DOMAIN}`;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, syntheticEmail, password);
+        await transferLocalDataToFirestore(cred.user.uid);
+        return;
+      } catch (firstErr) {
+        try {
+          const mappedEmail = localStorage.getItem(`aonime_user_to_email_${cleanUsername}`);
+          if (mappedEmail) {
+            const cred = await signInWithEmailAndPassword(auth, mappedEmail, password);
+            await transferLocalDataToFirestore(cred.user.uid);
+            return;
+          }
+        } catch {}
+        throw firstErr;
+      }
+    } else {
+      try {
+        const cred = await signInWithEmailAndPassword(auth, trimmed, password);
+        await transferLocalDataToFirestore(cred.user.uid);
+        return;
+      } catch (firstErr) {
+        try {
+          const mappedSynthetic = localStorage.getItem(`aonime_email_to_user_${trimmed.toLowerCase()}`);
+          if (mappedSynthetic) {
+            const cred = await signInWithEmailAndPassword(auth, mappedSynthetic, password);
+            await transferLocalDataToFirestore(cred.user.uid);
+            return;
+          }
+        } catch {}
+        throw firstErr;
+      }
+    }
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (identifier: string, password: string, options?: { withoutEmail?: boolean }) => {
+    const isWithoutEmail = Boolean(options?.withoutEmail || !identifier.includes("@"));
+    const trimmed = identifier.trim();
+    const cleanUsername = trimmed.toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+
+    if (isWithoutEmail && cleanUsername.length < 3) {
+      const err: any = new Error("Username must contain at least 3 valid characters (letters, numbers, _, ., -).");
+      err.code = "auth/invalid-username";
+      throw err;
+    }
+
+    // 1. Fetch active rate limit config from Firestore system_settings/comments (with fallback defaults)
+    let maxAccounts = 2;
+    let windowMinutes = 60;
+    try {
+      const settingsSnap = await getDoc(doc(db, "system_settings", "comments"));
+      if (settingsSnap.exists()) {
+        const d = settingsSnap.data();
+        if (typeof d.registerRateLimitMax === "number") maxAccounts = Math.max(1, d.registerRateLimitMax);
+        if (typeof d.registerRateLimitWindowMinutes === "number") windowMinutes = Math.max(1, d.registerRateLimitWindowMinutes);
+      }
+    } catch {}
+
+    const windowMs = windowMinutes * 60 * 1000;
+    const now = Date.now();
+
+    // 2. Client-side device rate-limit check
+    if (typeof window !== "undefined") {
+      try {
+        const rawTs = localStorage.getItem(SIGNUP_TIMESTAMPS_KEY);
+        const tsList: number[] = rawTs ? JSON.parse(rawTs) : [];
+        const recent = tsList.filter((t) => now - t < windowMs);
+        localStorage.setItem(SIGNUP_TIMESTAMPS_KEY, JSON.stringify(recent));
+        if (recent.length >= maxAccounts) {
+          const waitMins = Math.max(1, Math.ceil((recent[0] + windowMs - now) / 60000));
+          const err: any = new Error(`Too many accounts created on this device. Please wait ${waitMins} minute(s).`);
+          err.code = "auth/signup-rate-limited";
+          throw err;
+        }
+      } catch (e: any) {
+        if (e?.code === "auth/signup-rate-limited") throw e;
+      }
+    }
+
+    // 3. Server-side IP rate-limit check
+    try {
+      const rlRes = await fetch("/api/auth/register-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check", maxAccounts, windowMinutes }),
+      });
+      if (rlRes.status === 429) {
+        const rlData = await rlRes.json().catch(() => ({}));
+        const err: any = new Error(rlData.error || "Too many account registrations. Please wait before trying again.");
+        err.code = "auth/signup-rate-limited";
+        throw err;
+      }
+    } catch (e: any) {
+      if (e?.code === "auth/signup-rate-limited") throw e;
+    }
+
     try {
       await setPersistence(auth, browserLocalPersistence);
     } catch (e) {}
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    const defaultName = email.split("@")[0];
+
+    const authEmail = isWithoutEmail ? `${cleanUsername}${NO_EMAIL_DOMAIN}` : trimmed;
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, authEmail, password);
+    } catch (e: any) {
+      if (isWithoutEmail && e?.code === "auth/email-already-in-use") {
+        const uErr: any = new Error("Username is already taken. Please choose another username.");
+        uErr.code = "auth/username-already-in-use";
+        throw uErr;
+      }
+      throw e;
+    }
+
+    // Record successful registration on client & server
+    try {
+      const rawTs = localStorage.getItem(SIGNUP_TIMESTAMPS_KEY);
+      const tsList: number[] = rawTs ? JSON.parse(rawTs) : [];
+      tsList.push(Date.now());
+      localStorage.setItem(SIGNUP_TIMESTAMPS_KEY, JSON.stringify(tsList));
+    } catch {}
+    fetch("/api/auth/register-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "record", maxAccounts, windowMinutes }),
+    }).catch(() => {});
+
+    const defaultName = isWithoutEmail ? trimmed : trimmed.split("@")[0];
     const defaultAvatar = PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)].url;
 
     // Set Auth Profile
@@ -311,17 +571,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set Firestore Document
     const userDocRef = doc(db, "users", cred.user.uid);
-    await setDoc(userDocRef, {
-      uid: cred.user.uid,
-      email,
-      displayName: defaultName,
-      photoURL: defaultAvatar,
-      themeColor: "violet",
-      createdAt: new Date(),
-    });
+    try {
+      await setDoc(userDocRef, {
+        uid: cred.user.uid,
+        email: authEmail,
+        displayName: defaultName,
+        photoURL: defaultAvatar,
+        themeColor: "violet",
+        createdAt: new Date(),
+      });
+    } catch (e) {
+      console.warn("Could not initialize Firestore user doc:", e);
+    }
 
-    // Send verification email
-    await sendEmailVerification(cred.user);
+    // Transfer any local library & watch history to the newly created account
+    await transferLocalDataToFirestore(cred.user.uid);
+
+    // Send verification email only if the user registered with a real email
+    if (!isWithoutEmail) {
+      sendEmailVerification(cred.user).catch(() => {});
+    }
   };
 
   const signInWithGoogle = async () => {
@@ -346,6 +615,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date(),
       });
     }
+
+    await transferLocalDataToFirestore(cred.user.uid);
   };
 
   const resendVerificationEmail = async () => {
@@ -371,6 +642,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return verified;
     }
     return false;
+  };
+
+  const addEmailToAccount = async (newEmail: string, currentPassword: string): Promise<{ mode: "updated" | "verify_before_update" }> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) throw new Error("No active authenticated user session.");
+    const trimmedEmail = newEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      const err: any = new Error("Please enter a valid email address.");
+      err.code = "auth/invalid-email";
+      throw err;
+    }
+
+    const oldAuthEmail = currentUser.email;
+    // Re-authenticate with current password
+    const credential = EmailAuthProvider.credential(oldAuthEmail, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+
+    let mode: "updated" | "verify_before_update" = "updated";
+    try {
+      await updateEmail(currentUser, trimmedEmail);
+      await currentUser.getIdToken(true).catch(() => {});
+      sendEmailVerification(currentUser).catch(() => {});
+    } catch (e: any) {
+      if (e?.code === "auth/operation-not-allowed") {
+        // Fallback when Firebase Email Enumeration Protection requires verification before updating email
+        await verifyBeforeUpdateEmail(currentUser, trimmedEmail);
+        mode = "verify_before_update";
+      } else {
+        throw e;
+      }
+    }
+
+    try {
+      localStorage.setItem(`aonime_linked_email_${currentUser.uid}`, trimmedEmail);
+      if (oldAuthEmail.endsWith(NO_EMAIL_DOMAIN)) {
+        const cleanU = oldAuthEmail.slice(0, -NO_EMAIL_DOMAIN.length);
+        localStorage.setItem(`aonime_user_to_email_${cleanU}`, trimmedEmail);
+        localStorage.setItem(`aonime_email_to_user_${trimmedEmail.toLowerCase()}`, oldAuthEmail);
+      }
+    } catch {}
+
+    try {
+      await setDoc(
+        doc(db, "users", currentUser.uid),
+        { email: trimmedEmail },
+        { merge: true }
+      );
+    } catch {}
+
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated: UserProfile = {
+        ...prev,
+        email: trimmedEmail,
+        isNoEmailAccount: false,
+        emailVerified: false,
+      };
+      try {
+        localStorage.setItem("aonime_user_cache", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    return { mode };
   };
 
   const changeUserPassword = async (currentPassword: string, newPassword: string) => {
@@ -429,11 +764,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut(auth);
-    setUser(null);
     try {
+      localStorage.removeItem(LOCAL_ACCOUNT_KEY);
       localStorage.removeItem("aonime_user_cache");
     } catch (e) {}
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
+    setUser(null);
   };
 
   const updateUserProfile = async (profile: { displayName?: string | null; photoURL?: string | null; themeColor?: string }) => {
@@ -491,8 +829,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         signInWithGoogle,
+        loginAsLocal,
         resendVerificationEmail,
         checkEmailVerificationStatus,
+        addEmailToAccount,
         changeUserPassword,
         deleteUserAccount,
         logout,

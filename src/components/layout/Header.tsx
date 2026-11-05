@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Bookmark, Menu, ShieldAlert, ShieldCheck } from "lucide-react";
+import { User, LogOut, Bookmark, Menu, ShieldAlert, ShieldCheck, History, UserPlus } from "lucide-react";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useBlockedFilters } from "@/lib/blocked-filters-context";
 import {
@@ -217,7 +217,7 @@ export default function Header() {
               <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />
             ) : user ? (
               <>
-                <NotificationBell />
+                {!user.isLocal && <NotificationBell />}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0">
@@ -241,7 +241,9 @@ export default function Header() {
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-semibold leading-none">{user.displayName}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.isLocal ? "Device-only (Local Account)" : user.email}
+                        </p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -252,12 +254,25 @@ export default function Header() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/library?tab=profile" className="cursor-pointer flex items-center">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Edit Profile</span>
+                      <Link href="/library?tab=history" className="cursor-pointer flex items-center">
+                        <History className="mr-2 h-4 w-4" />
+                        <span>Watch History</span>
                       </Link>
                     </DropdownMenuItem>
-                    {isAdmin && (
+                    {!user.isLocal ? (
+                      <DropdownMenuItem asChild>
+                        <Link href="/library?tab=profile" className="cursor-pointer flex items-center">
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Edit Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => openAuthModal("register")} className="cursor-pointer flex items-center text-primary font-semibold focus:text-primary">
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        <span>Create Account &amp; Sync</span>
+                      </DropdownMenuItem>
+                    )}
+                    {isAdmin && !user.isLocal && (
                       <DropdownMenuItem asChild>
                         <Link href="/library?tab=admin" className="cursor-pointer flex items-center">
                           <ShieldCheck className="mr-2 h-4 w-4" />
@@ -272,7 +287,7 @@ export default function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log Out</span>
+                      <span>{user.isLocal ? "Exit Local Account" : "Log Out"}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
