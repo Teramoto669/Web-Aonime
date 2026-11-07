@@ -2,6 +2,21 @@ import type { AnimeTooltipData } from "./types";
 
 const memoryCache = new Map<string, AnimeTooltipData>();
 const promiseCache = new Map<string, Promise<AnimeTooltipData | null>>();
+const cacheListeners = new Set<() => void>();
+
+export function subscribeTooltipCache(listener: () => void) {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
+
+function notifyTooltipCache(id: string, data: AnimeTooltipData) {
+  memoryCache.set(id, data);
+  if (data.id) memoryCache.set(data.id, data);
+  if (data.slug) memoryCache.set(data.slug, data);
+  cacheListeners.forEach((fn) => fn());
+}
 
 const STORAGE_PREFIX = "aonime_tt_";
 const LEGACY_STORAGE_PREFIX = "aonime_tooltip_";
@@ -146,6 +161,8 @@ export function getCachedAnimeTooltip(id?: string): AnimeTooltipData | null {
   const persistentData = getPersistentCached(id);
   if (persistentData) {
     memoryCache.set(id, persistentData);
+    if (persistentData.id) memoryCache.set(persistentData.id, persistentData);
+    if (persistentData.slug) memoryCache.set(persistentData.slug, persistentData);
     return persistentData;
   }
   return null;
@@ -153,8 +170,8 @@ export function getCachedAnimeTooltip(id?: string): AnimeTooltipData | null {
 
 export function setCachedAnimeTooltip(id: string, data: AnimeTooltipData) {
   if (!id || !data) return;
-  memoryCache.set(id, data);
   setPersistentCached(id, data);
+  notifyTooltipCache(id, data);
 }
 
 export function fetchAnimeTooltip(id?: string): Promise<AnimeTooltipData | null> {
@@ -180,8 +197,8 @@ export function fetchAnimeTooltip(id?: string): Promise<AnimeTooltipData | null>
     .then((json) => {
       if (json && json.ok && json.data) {
         const data = json.data as AnimeTooltipData;
-        memoryCache.set(id, data);
         setPersistentCached(id, data);
+        notifyTooltipCache(id, data);
         return data;
       }
       return null;

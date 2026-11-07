@@ -4,9 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { doc, getDoc, setDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import { useAuth } from "./auth-context";
-import type { AnimeListItem, AnimeDetail, AnimeTooltipData } from "./types";
+import type { AnimeListItem, AnimeDetail, AnimeTooltipData, RelatedAnime } from "./types";
 
-import { getCachedAnimeTooltip } from "./anime-details-cache";
+import { getCachedAnimeTooltip, subscribeTooltipCache } from "./anime-details-cache";
 
 export interface BlockedFilters {
   enabled: boolean;
@@ -86,9 +86,9 @@ interface BlockedFiltersContextType {
   closeModal: () => void;
   updateBlockedFilters: (newFilters: Partial<BlockedFilters>) => Promise<void>;
   resetBlockedFilters: () => Promise<void>;
-  isAnimeBlocked: (anime: AnimeListItem | AnimeDetail | AnimeTooltipData | null | undefined) => boolean;
-  getBlockedReason: (anime: AnimeListItem | AnimeDetail | AnimeTooltipData | null | undefined) => string | null;
-  filterAnimeList: <T extends AnimeListItem>(list: T[]) => T[];
+  isAnimeBlocked: (anime: AnimeListItem | RelatedAnime | AnimeDetail | AnimeTooltipData | null | undefined) => boolean;
+  getBlockedReason: (anime: AnimeListItem | RelatedAnime | AnimeDetail | AnimeTooltipData | null | undefined) => string | null;
+  filterAnimeList: <T extends AnimeListItem | RelatedAnime>(list: T[]) => T[];
 }
 
 const BlockedFiltersContext = createContext<BlockedFiltersContextType | undefined>(undefined);
@@ -98,6 +98,12 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
   const [blockedFilters, setBlockedFilters] = useState<BlockedFilters>(DEFAULT_BLOCKED_FILTERS);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cacheTick, setCacheTick] = useState(0);
+
+  useEffect(() => {
+    if (!blockedFilters.enabled) return;
+    return subscribeTooltipCache(() => setCacheTick((t) => t + 1));
+  }, [blockedFilters.enabled]);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -225,7 +231,7 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
   };
 
   const getBlockedReason = useCallback(
-    (anime: AnimeListItem | AnimeDetail | AnimeTooltipData | null | undefined): string | null => {
+    (anime: AnimeListItem | RelatedAnime | AnimeDetail | AnimeTooltipData | null | undefined): string | null => {
       if (!anime || !blockedFilters.enabled) return null;
 
       const animeObj = anime as any;
@@ -277,7 +283,8 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
         return result;
       };
 
-      const cachedData = getCachedAnimeTooltip(animeObj.id || animeObj.slug);
+      const cachedData =
+        getCachedAnimeTooltip(animeObj.id) || getCachedAnimeTooltip(animeObj.slug);
       const mergedObj = cachedData ? { ...animeObj, ...cachedData } : animeObj;
 
       const animeGenres = extractGenres(mergedObj).map(normalizeString);
@@ -285,6 +292,7 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
       const titleJpNorm = normalizeString(mergedObj.titleJp || "");
       const slugNorm = normalizeString(mergedObj.slug || mergedObj.id || "");
       const synopsisNorm = normalizeString(mergedObj.synopsis || "");
+      const otherNamesNorm = normalizeString(mergedObj.otherNames || "");
 
       // 1. Check Genres (Only check actual anime genre tags)
       if (blockedFilters.genres.length > 0) {
@@ -336,7 +344,8 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
             titleNorm.includes(normKw) ||
             titleJpNorm.includes(normKw) ||
             slugNorm.includes(normKw) ||
-            synopsisNorm.includes(normKw)
+            synopsisNorm.includes(normKw) ||
+            otherNamesNorm.includes(normKw)
           ) {
             return `Keyword: "${keyword}"`;
           }
@@ -345,18 +354,18 @@ export function BlockedFiltersProvider({ children }: { children: React.ReactNode
 
       return null;
     },
-    [blockedFilters, savedAnimeIds]
+    [blockedFilters, savedAnimeIds, cacheTick]
   );
 
   const isAnimeBlocked = useCallback(
-    (anime: AnimeListItem | AnimeDetail | AnimeTooltipData | null | undefined): boolean => {
+    (anime: AnimeListItem | RelatedAnime | AnimeDetail | AnimeTooltipData | null | undefined): boolean => {
       return getBlockedReason(anime) !== null;
     },
     [getBlockedReason]
   );
 
   const filterAnimeList = useCallback(
-    <T extends AnimeListItem>(list: T[]): T[] => {
+    <T extends AnimeListItem | RelatedAnime>(list: T[]): T[] => {
       if (!list || !blockedFilters.enabled || blockedFilters.mode === "blur") {
         return list;
       }
