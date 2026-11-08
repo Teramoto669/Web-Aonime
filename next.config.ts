@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    staleTimes: {
+      dynamic: 0,
+      static: 180,
+    },
+  },
   // Cache and security configuration
   headers: async () => {
     return [
@@ -41,7 +47,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=1800, stale-while-revalidate=60',
+            value: 'public, s-maxage=60, stale-while-revalidate=30',
           },
         ],
       },

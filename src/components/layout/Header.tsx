@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, Suspense, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useRouter } from "@/hooks/use-router";
 import { Search } from "@/components/Search";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 
 export default function Header() {
+  const router = useRouter();
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const { user, isAdmin, loading, logout, openAuthModal } = useAuth();
   const { openModal: openBlockedFiltersModal, blockedFilters } = useBlockedFilters();
@@ -55,6 +57,14 @@ export default function Header() {
       return pathname === "/";
     }
     return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  const handleActiveLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (isActive(href)) {
+      e.preventDefault();
+      router.refresh();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
@@ -115,6 +125,7 @@ export default function Header() {
                     <SheetClose key={link.href} asChild>
                       <Link
                         href={link.href}
+                        onClick={(e) => handleActiveLinkClick(e, link.href)}
                         className={cn(
                           "flex items-center px-3 py-2.5 rounded-md transition-all relative overflow-hidden group font-medium",
                           active
@@ -146,7 +157,11 @@ export default function Header() {
           </Sheet>
 
           {/* Logo */}
-          <Link href="/" className="mr-6 flex items-center space-x-2">
+          <Link
+            href="/"
+            onClick={(e) => handleActiveLinkClick(e, "/")}
+            className="mr-6 flex items-center space-x-2"
+          >
             <span className="font-bold text-lg text-primary">Aonime</span>
           </Link>
 
@@ -167,6 +182,7 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={(e) => handleActiveLinkClick(e, link.href)}
                   ref={(el) => {
                     linkRefs.current[idx] = el;
                   }}

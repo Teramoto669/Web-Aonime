@@ -9,7 +9,7 @@ import { TopRatedSidebar } from "@/components/anime/TopRatedSidebar";
 import type { FilterOptions } from "@/lib/types";
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 60;
+export const revalidate = 30;
 
 // Static filter options from /api/filter — no API call needed
 const STATIC_FILTERS: FilterOptions = {

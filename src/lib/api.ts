@@ -31,7 +31,7 @@ async function fetcher<T>(path: string, options?: RequestInit): Promise<T> {
       ...options,
       ...(isRefresh
         ? { cache: 'no-store' }
-        : { next: { revalidate: 60, ...options?.next } }),
+        : { next: { revalidate: 30, ...options?.next } }),
     };
     const res = await fetch(url, fetchOptions);
     if (!res.ok) {
