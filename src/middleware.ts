@@ -55,13 +55,13 @@ export function middleware(request: NextRequest) {
       const referer = request.headers.get("referer");
       const host = request.headers.get("host");
 
-      const isSameOrigin =
-        secFetchSite === "same-origin" ||
-        (origin && host && origin.includes(host)) ||
-        (referer && host && referer.includes(host));
+      // Requests originating from browser/navigation (no origin/sec-fetch-site) or same-origin are trusted
+      const isExternalScript =
+        Boolean(origin && host && !origin.includes(host)) ||
+        Boolean(referer && host && !referer.includes(host)) ||
+        secFetchSite === "cross-site";
 
-      // If ?refresh=1 is requested from untrusted external script/postman, sanitize it by stripping refresh=1
-      if (!isSameOrigin) {
+      if (isExternalScript) {
         const cleanUrl = request.nextUrl.clone();
         cleanUrl.searchParams.delete("refresh");
         return NextResponse.rewrite(cleanUrl);

@@ -43,15 +43,6 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/api/home',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=30',
-          },
-        ],
-      },
-      {
         source: '/api/anime/tooltip/:path*',
         headers: [
           {
