@@ -139,7 +139,7 @@ const SpotlightSlide = React.memo(function SpotlightSlide({
                 <Button
                   asChild
                   size="lg"
-                  className="group relative overflow-hidden bg-primary text-primary-foreground font-bold transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
+                  className="group relative bg-primary text-primary-foreground font-bold transform-gpu transition-[transform,translate,scale,background-color] duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
                 >
                   <Link href={`/watch/${slug}`}>
                     <PlayCircle className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" /> Watch Now
@@ -149,7 +149,7 @@ const SpotlightSlide = React.memo(function SpotlightSlide({
                   asChild
                   variant="outline"
                   size="lg"
-                  className="group bg-white/10 hover:bg-white/25 border-white/25 hover:border-white/50 text-white backdrop-blur-md font-semibold transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
+                  className="group bg-white/10 hover:bg-white/25 border-white/25 hover:border-white/50 text-white font-semibold transform-gpu transition-[transform,translate,scale,background-color,border-color] duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 px-6"
                 >
                   <Link href={`/anime/${slug}`}>
                     <Info className="mr-2 h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-12" /> Details
