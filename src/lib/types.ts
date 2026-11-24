@@ -253,3 +253,193 @@ export type ScheduleResponse = {
   data: ScheduleDay[];
 };
 
+// ─── Extended API Types (Discovery, Extras, Streaming, System) ────────────────
+
+export type RankingWindow = 'day' | 'week' | 'month';
+
+export type TopTenResult = {
+  today: AnimeListItem[];
+  week: AnimeListItem[];
+  month: AnimeListItem[];
+};
+
+export type TrendingSidebarResult = {
+  day: AnimeListItem[];
+  week: AnimeListItem[];
+  month: AnimeListItem[];
+  latestEpisodes: AnimeListItem[];
+};
+
+export type TopRankingsResult = {
+  sort: RankingWindow;
+  results: AnimeListItem[];
+};
+
+export type RecentlyUpdatedResult = BrowseResponse & {
+  tab: 'all' | 'sub' | 'dub';
+};
+
+export type AzListResult = BrowseResponse & {
+  letter: string;
+};
+
+export type SuggestionItem = {
+  id: string;
+  slug: string;
+  title: string;
+  titleJp?: string;
+  image: string;
+  href: string;
+  type?: string;
+};
+
+export type RandomAnime = AnimeDetail & {
+  url: string;
+};
+
+export type SeasonItem = {
+  title: string;
+  slug: string;
+  image: string;
+  url: string;
+  active: boolean;
+};
+
+export type AnimeSeasons = {
+  animeId: string;
+  slug: string | null;
+  totalSeasons: number;
+  seasons: SeasonItem[];
+};
+
+export type LatestEpisodeResult = {
+  slug: string;
+  animeId: string;
+  totalEpisodes: number;
+  latest: Episode;
+};
+
+export type EpisodeAjaxItem = {
+  id: string;
+  number: string;
+  slug?: string;
+  title?: string;
+  titleJp?: string;
+  malId?: string;
+  timestamp?: string;
+  dataIds?: string;
+  hasSub: boolean;
+  hasDub: boolean;
+  active: boolean;
+};
+
+export type EpisodeAjaxResult = {
+  animeId: string;
+  filters: { name: string; options: { value: string; label: string }[] }[];
+  ranges: string[];
+  totalEpisodes: number;
+  episodes: EpisodeAjaxItem[];
+};
+
+export type StreamServerItem = {
+  type: string;
+  typeLabel: string;
+  epId: string;
+  linkId: string;
+  cmid: string;
+  svId: string;
+  name: string;
+  normalizedName: string;
+};
+
+export type StreamInfo = {
+  linkId: string;
+  url: string | null;
+  type: 'embed' | null;
+  skipData: SkipData | null;
+  backup: string | null;
+};
+
+export type MapperServer = {
+  provider: string;
+  type: 'sub' | 'dub';
+  url: string | null;
+  download: string | null;
+};
+
+export type StreamQuality = {
+  label: string;
+  width: number;
+  height: number;
+  bandwidth: number;
+  url: string;
+  proxyUrl: string;
+};
+
+export type ResolvedStream = {
+  linkId: string;
+  embedUrl: string;
+  m3u8: string | null;
+  type: 'hls' | null;
+  referer: string | null;
+  proxyUrl: string | null;
+  qualities: StreamQuality[];
+  subtitles: (Track & { proxyUrl: string })[];
+  skipData: SkipData | null;
+  backup: string | null;
+  error?: string;
+};
+
+export type StreamQualitiesResult = {
+  url: string;
+  totalQualities: number;
+  qualities: StreamQuality[];
+};
+
+export type EmbedsResult = {
+  slug: string | null;
+  episode: number;
+  lang: 'sub' | 'dub';
+  ids: { animeId: string; malId: string | null; anilistId: string | null };
+  providers: { id: string; name: string; url: string; iframeReady: true; origin: string }[];
+  unavailable: { id: string; name: string; reason: string }[];
+};
+
+export type DownloadLink = {
+  server: string;
+  serverGroup: string;
+  type: string;
+  typeLabel: string;
+  url: string;
+};
+
+export type DownloadResult = {
+  slug: string;
+  episode: string;
+  totalDownloads: number;
+  downloads: DownloadLink[];
+  note?: string;
+};
+
+export type MirrorStatus = {
+  name: string;
+  url: string;
+  priority: number;
+  status: 'online' | 'offline';
+  latencyMs: number;
+  httpStatus: number | null;
+  isCurrent: boolean;
+  coolingDown: boolean;
+};
+
+export type ApiHealth = {
+  status: string;
+  version: string;
+  uptime: string;
+  uptimeSeconds: number;
+  timestamp: string;
+  node: string;
+  memory: { used: string; total: string };
+};
+
+

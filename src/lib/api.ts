@@ -12,6 +12,26 @@ import type {
   AnimeTooltipData,
   RelatedAnime,
   AnimeListItem,
+  RankingWindow,
+  TopTenResult,
+  TrendingSidebarResult,
+  TopRankingsResult,
+  RecentlyUpdatedResult,
+  AzListResult,
+  SuggestionItem,
+  RandomAnime,
+  AnimeSeasons,
+  LatestEpisodeResult,
+  EpisodeAjaxResult,
+  StreamServerItem,
+  StreamInfo,
+  MapperServer,
+  ResolvedStream,
+  StreamQualitiesResult,
+  EmbedsResult,
+  DownloadResult,
+  MirrorStatus,
+  ApiHealth,
 } from './types';
 
 const BASE_URL = process.env.API_BASE_URL;
@@ -384,3 +404,214 @@ export const getFilters = async (): Promise<any> => {
   const response = await fetcher<any>('/filter');
   return response.options;
 };
+
+// ─── Discovery & Listings ─────────────────────────────────────────────────────
+
+export const getSpotlight = (refresh = false): Promise<AnimeListItem[]> =>
+  fetcher<AnimeListItem[]>(`/spotlight${refresh ? '?refresh=1' : ''}`);
+
+export const getTopTen = (refresh = false): Promise<TopTenResult> =>
+  fetcher<TopTenResult>(`/top-ten${refresh ? '?refresh=1' : ''}`);
+
+export const getTrending = (page = 1, refresh = false): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/trending?${qs.toString()}`);
+};
+
+export const getTrendingSidebar = (refresh = false): Promise<TrendingSidebarResult> =>
+  fetcher<TrendingSidebarResult>(`/trending-sidebar${refresh ? '?refresh=1' : ''}`);
+
+export const getTopRankings = (sort: RankingWindow = 'day', refresh = false): Promise<TopRankingsResult> => {
+  const qs = new URLSearchParams({ sort });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<TopRankingsResult>(`/top-rankings?${qs.toString()}`);
+};
+
+export const getRecentlyUpdated = (
+  tab: 'all' | 'sub' | 'dub' = 'all',
+  page = 1,
+  refresh = false
+): Promise<RecentlyUpdatedResult> => {
+  const qs = new URLSearchParams({ tab, page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<RecentlyUpdatedResult>(`/recently-updated?${qs.toString()}`);
+};
+
+export const getCompleted = (refresh = false): Promise<AnimeListItem[]> =>
+  fetcher<AnimeListItem[]>(`/completed${refresh ? '?refresh=1' : ''}`);
+
+export const getRandomAnime = (): Promise<RandomAnime> =>
+  fetcher<RandomAnime>('/random', { cache: 'no-store' });
+
+export const getMostPopular = (page = 1, refresh = false): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/most-popular?${qs.toString()}`);
+};
+
+export const getNewRelease = (page = 1, refresh = false): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/new-release?${qs.toString()}`);
+};
+
+export const getNewlyAdded = (page = 1, refresh = false): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/newly-added?${qs.toString()}`);
+};
+
+export const getUpcoming = (page = 1, refresh = false): Promise<BrowseResponse> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<BrowseResponse>(`/upcoming?${qs.toString()}`);
+};
+
+export const getAzList = (letter = 'all', page = 1, refresh = false): Promise<AzListResult> => {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<AzListResult>(`/az-list/${encodeURIComponent(letter)}?${qs.toString()}`);
+};
+
+export const getSearchSuggest = (keyword: string, refresh = false): Promise<SuggestionItem[]> => {
+  const qs = new URLSearchParams({ keyword });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<SuggestionItem[]>(`/search/suggest?${qs.toString()}`);
+};
+
+export const getSuggestions = (keyword: string, refresh = false): Promise<AnimeListItem[]> => {
+  const qs = new URLSearchParams({ keyword });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<AnimeListItem[]>(`/suggestions?${qs.toString()}`);
+};
+
+// ─── Anime Extras & AniList ───────────────────────────────────────────────────
+
+export const getAnimeSeasons = (slugOrId: string, refresh = false): Promise<AnimeSeasons> =>
+  fetcher<AnimeSeasons>(`/anime/${encodeURIComponent(slugOrId)}/seasons${refresh ? '?refresh=1' : ''}`);
+
+export const getLatestEpisode = (slug: string, refresh = false): Promise<LatestEpisodeResult> =>
+  fetcher<LatestEpisodeResult>(`/anime/${encodeURIComponent(slug)}/episodes/latest${refresh ? '?refresh=1' : ''}`);
+
+export const getEpisodesAjax = (
+  slugOrId: string,
+  opts: { style?: string; vrf?: string; refresh?: boolean } = {}
+): Promise<EpisodeAjaxResult> => {
+  const qs = new URLSearchParams();
+  if (opts.style) qs.set('style', opts.style);
+  if (opts.vrf) qs.set('vrf', opts.vrf);
+  if (opts.refresh) qs.set('refresh', '1');
+  const query = qs.toString();
+  return fetcher<EpisodeAjaxResult>(`/anime/${encodeURIComponent(slugOrId)}/episodes/ajax${query ? `?${query}` : ''}`);
+};
+
+export const getAnilistById = (id: number | string): Promise<Record<string, unknown>> =>
+  fetcher<Record<string, unknown>>(`/anilist/${encodeURIComponent(String(id))}`);
+
+export const getAnilistByMal = (malId: number | string): Promise<Record<string, unknown>> =>
+  fetcher<Record<string, unknown>>(`/anilist?mal=${encodeURIComponent(String(malId))}`);
+
+export const getAnilistSeason = (params: {
+  season?: 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL';
+  year?: number;
+  page?: number;
+  perPage?: number;
+} = {}): Promise<Record<string, unknown>> => {
+  const qs = new URLSearchParams();
+  if (params.season) qs.set('season', params.season);
+  if (params.year !== undefined) qs.set('year', String(params.year));
+  if (params.page !== undefined) qs.set('page', String(params.page));
+  if (params.perPage !== undefined) qs.set('perPage', String(params.perPage));
+  const query = qs.toString();
+  return fetcher<Record<string, unknown>>(`/anilist/season${query ? `?${query}` : ''}`);
+};
+
+// ─── Low-level Streaming & Downloads ──────────────────────────────────────────
+
+export const getServers = (ids: string, slug?: string, refresh = false): Promise<StreamServerItem[]> => {
+  const qs = new URLSearchParams({ ids });
+  if (slug) qs.set('slug', slug);
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<StreamServerItem[]>(`/servers?${qs.toString()}`);
+};
+
+export const getStreamInfo = (
+  id: string,
+  opts: { slug?: string; sv?: string; refresh?: boolean } = {}
+): Promise<StreamInfo> => {
+  const qs = new URLSearchParams({ id });
+  if (opts.slug) qs.set('slug', opts.slug);
+  if (opts.sv) qs.set('sv', opts.sv);
+  if (opts.refresh) qs.set('refresh', '1');
+  return fetcher<StreamInfo>(`/stream?${qs.toString()}`);
+};
+
+export const getMapperServers = (
+  malId: string,
+  slug: string,
+  timestamp: string,
+  refresh = false
+): Promise<MapperServer[]> => {
+  const qs = new URLSearchParams({ malId, slug, timestamp });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<MapperServer[]>(`/mapper-servers?${qs.toString()}`);
+};
+
+export const resolveStream = (
+  id: string,
+  opts: { slug?: string; sv?: string; type?: string; refresh?: boolean } = {}
+): Promise<ResolvedStream> => {
+  const qs = new URLSearchParams({ id });
+  if (opts.slug) qs.set('slug', opts.slug);
+  if (opts.sv) qs.set('sv', opts.sv);
+  if (opts.type) qs.set('type', opts.type);
+  if (opts.refresh) qs.set('refresh', '1');
+  return fetcher<ResolvedStream>(`/stream/resolve?${qs.toString()}`);
+};
+
+export const getStreamQualities = (
+  url: string,
+  referer?: string,
+  refresh = false
+): Promise<StreamQualitiesResult> => {
+  const qs = new URLSearchParams({ url });
+  if (referer) qs.set('referer', referer);
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<StreamQualitiesResult>(`/stream/qualities?${qs.toString()}`);
+};
+
+export const getStreamEmbeds = (params: {
+  slug?: string;
+  mal?: string;
+  anilist?: string;
+  ep?: number;
+  lang?: 'sub' | 'dub';
+  provider?: string;
+  refresh?: boolean;
+}): Promise<EmbedsResult> => {
+  const qs = new URLSearchParams();
+  if (params.slug) qs.set('slug', params.slug);
+  if (params.mal) qs.set('mal', params.mal);
+  if (params.anilist) qs.set('anilist', params.anilist);
+  if (params.ep !== undefined) qs.set('ep', String(params.ep));
+  if (params.lang) qs.set('lang', params.lang);
+  if (params.provider) qs.set('provider', params.provider);
+  if (params.refresh) qs.set('refresh', '1');
+  return fetcher<EmbedsResult>(`/stream/embeds?${qs.toString()}`);
+};
+
+export const getDownloadLinks = (slug: string, ep: string | number, refresh = false): Promise<DownloadResult> => {
+  const qs = new URLSearchParams({ slug, ep: String(ep) });
+  if (refresh) qs.set('refresh', '1');
+  return fetcher<DownloadResult>(`/download?${qs.toString()}`);
+};
+
+// ─── System ───────────────────────────────────────────────────────────────────
+
+export const getApiHealth = (): Promise<ApiHealth> =>
+  fetcher<ApiHealth>('/health', { cache: 'no-store' });
+
+export const getApiMirrors = (): Promise<MirrorStatus[]> =>
+  fetcher<MirrorStatus[]>('/mirrors', { cache: 'no-store' });
+
