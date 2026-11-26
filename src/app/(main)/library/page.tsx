@@ -1886,7 +1886,7 @@ function LibraryPageContent() {
         </TabsContent>
 
         {/* --- ADMIN SETTINGS TAB --- */}
-        <TabsContent value="admin" className="max-w-2xl bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-hidden space-y-8 animate-in fade-in duration-300">
+        <TabsContent value="admin" className="w-full bg-card/20 border border-border/30 rounded-2xl p-6 md:p-8 focus-visible:outline-hidden space-y-8 animate-in fade-in duration-300">
           {!isAdmin ? (
             <div className="text-center py-16 bg-card/10 border border-dashed border-destructive/40 rounded-2xl p-8 space-y-4">
               <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-destructive">
@@ -1914,8 +1914,10 @@ function LibraryPageContent() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,460px),1fr))] gap-6 items-stretch">
               {/* Comment Cooldown Section (Verified Accounts) */}
-              <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+              <div className="flex flex-col justify-between gap-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+                <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer (Verified Accounts)</h3>
@@ -1930,7 +1932,7 @@ function LibraryPageContent() {
                     variant={adminCooldownEnabled ? "default" : "outline"}
                     onClick={() => setAdminCooldownEnabled(!adminCooldownEnabled)}
                     className={cn(
-                      "h-8 px-3 text-xs font-bold transition-all shadow-xs",
+                      "h-8 px-3 text-xs font-bold transition-all shadow-xs shrink-0",
                       adminCooldownEnabled
                         ? "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
                         : "border-border/60 text-muted-foreground hover:bg-muted"
@@ -1968,8 +1970,8 @@ function LibraryPageContent() {
                               : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
                           )}
                         >
-                          <span className="font-extrabold text-sm">{preset.label}</span>
-                          <span className="text-[10px] opacity-75 font-normal">{preset.description}</span>
+                          <span className="font-extrabold text-sm whitespace-nowrap">{preset.label}</span>
+                          <span className="text-[10px] opacity-75 font-normal text-center">{preset.description}</span>
                         </button>
                       );
                     })}
@@ -2006,6 +2008,7 @@ function LibraryPageContent() {
                     </div>
                   </div>
                 </div>
+                </div>
 
                 {/* Live Preview Box */}
                 <div className="p-3 bg-card/40 border border-border/40 rounded-lg flex items-center justify-between text-xs">
@@ -2024,7 +2027,8 @@ function LibraryPageContent() {
               </div>
 
               {/* Unverified / No-Email Account Comment Cooldown Section */}
-              <div className="space-y-5 p-5 rounded-xl bg-amber-500/5 border border-amber-500/25">
+              <div className="flex flex-col justify-between gap-5 p-5 rounded-xl bg-amber-500/5 border border-amber-500/25">
+                <div className="space-y-5">
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-foreground">Comment Cooldown Timer (No-Email / Unverified Accounts)</h3>
                   <p className="text-xs text-muted-foreground">
@@ -2059,8 +2063,8 @@ function LibraryPageContent() {
                               : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted/70 hover:text-foreground"
                           )}
                         >
-                          <span className="font-extrabold text-sm">{preset.label}</span>
-                          <span className="text-[10px] opacity-75 font-normal">{preset.description}</span>
+                          <span className="font-extrabold text-sm whitespace-nowrap">{preset.label}</span>
+                          <span className="text-[10px] opacity-75 font-normal text-center">{preset.description}</span>
                         </button>
                       );
                     })}
@@ -2097,6 +2101,7 @@ function LibraryPageContent() {
                     </div>
                   </div>
                 </div>
+                </div>
 
                 <div className="p-3 bg-card/40 border border-border/40 rounded-lg flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
@@ -2114,7 +2119,8 @@ function LibraryPageContent() {
               </div>
 
               {/* Account Creation Anti-Spam Rate Limit Section */}
-              <div className="space-y-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+              <div className="flex flex-col justify-between gap-5 p-5 rounded-xl bg-muted/20 border border-border/40">
+                <div className="space-y-5">
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-foreground">Account Registration Anti-Spam Rate Limit</h3>
                   <p className="text-xs text-muted-foreground">
@@ -2159,6 +2165,7 @@ function LibraryPageContent() {
                     </p>
                   </div>
                 </div>
+                </div>
 
                 {/* Real-time Status Card */}
                 {currentCommentSettings && (
@@ -2185,6 +2192,7 @@ function LibraryPageContent() {
                     )}
                   </div>
                 )}
+              </div>
               </div>
 
               {/* Action Buttons */}
